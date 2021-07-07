@@ -11,7 +11,9 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/Belief.msg"
+  "msg/BeliefSet.msg"
   "msg/Desire.msg"
+  "msg/DesireSet.msg"
   "msg/Condition.msg"
   "msg/Plan.msg"
   DEPENDENCIES plansys2_msgs
