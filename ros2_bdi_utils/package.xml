@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ros2_bdi_utils</name>
+  <version>0.0.0</version>
+  <description>Utils ROS2 nodes and supporting classes that come to help to the fundamental components for the behaviour of the MAS Agent</description>
+  <maintainer email="devis.dalmoro@studenti.unitn.it">devis</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclcpp</depend>
+  <depend>plansys2_problem_expert</depend>
+  <depend>plansys2_msgs</depend>
+  <depend>ros2_bdi_interfaces</depend>
+
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
