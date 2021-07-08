@@ -19,7 +19,7 @@ namespace PDDLBDIConverter
   /*
     Convert PlanSys2 PDDL Predicate to ROS2-BDI Belief
   */
-  static Belief convertPDDLPredicate(const Predicate predicate);
+  Belief convertPDDLPredicate(const Predicate predicate);
 
   /*
     Convert PlanSys2 PDDL Predicates to ROS2-BDI Beliefs

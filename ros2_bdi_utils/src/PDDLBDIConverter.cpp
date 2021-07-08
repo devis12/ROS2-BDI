@@ -1,28 +1,12 @@
-#include <cstdlib>
-#include <ctime>
-#include <memory>
-#include <vector>
+#include <string>
 
-#include "ros2_bdi_utils/PDDLBDIConverter.h"
-
-#include "plansys2_problem_expert/ProblemExpertClient.hpp"
-#include "ros2_bdi_interfaces/msg/belief.hpp"
-#include "ros2_bdi_interfaces/msg/belief_set.hpp"
-
-#define FLUENT_TYPE "FLUENT"
-#define PREDICATE_TYPE "PREDICATE"
+#include "ros2_bdi_utils/PDDLBDIConverter.hpp"
+#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
 using std::string;
-using std::vector;
 
-using plansys2::Instance;
-using plansys2::Predicate;
-using plansys2::Function;
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::BeliefSet;
-using std_msgs::msg::Empty;
-
-typedef enum {STARTING, SYNC, PAUSE} StateType;
+#define FLUENT_TYPE PDDLBDIConstants::FLUENT_TYPE
+#define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
 
 namespace PDDLBDIConverter
 {
