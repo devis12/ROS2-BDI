@@ -2,21 +2,26 @@
 #include <ctime>
 #include <memory>
 #include <vector>
+#include <set>
+#include <mutex>          
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_msgs/srv/get_problem_instances.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
-#include "ros2_bdi_utils/PDDLBDIConverter.h"
+#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
+#include "ros2_bdi_utils/PDDLBDIConverter.hpp"
+#include "ros2_bdi_utils/BDIComparisons.hpp"
+#include "ros2_bdi_utils/BDIFilter.hpp"
+#include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-
 #define MAX_COMM_ERRORS 16
-
 
 using std::string;
 using std::vector;
+using std::set;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
@@ -32,7 +37,7 @@ using std_msgs::msg::Empty;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 
-typedef enum {STARTING, SYNC, PAUSE} StateType;
+typedef enum {STARTING, SYNC, PAUSE} StateType;                
 
 class BeliefManager : public rclcpp::Node
 {
@@ -59,19 +64,18 @@ public:
     problem_expert_ = std::make_shared<ProblemExpertClient>();
 
     //Init belief set
-    belief_set_ = BeliefSet();
-    belief_set_.value = vector<Belief>();
+    belief_set_ = set<ManagedBelief>();
 
     //Belief set publisher
     belief_set_publisher_ = this->create_publisher<BeliefSet>("belief_set", 10);
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
                 "add_belief", 10,
-                bind(&BeliefManager::addBelief, this, _1));
+                bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
                 "del_belief", 10,
-                bind(&BeliefManager::delBelief, this, _1));
+                bind(&BeliefManager::delBeliefTopicCallBack, this, _1));
 
     //problem_expert update subscriber
     updated_problem_subscriber_ = this->create_subscription<Empty>(
@@ -80,7 +84,7 @@ public:
 
     //loop to be called regularly to perform work (publish belief_set_, sync with plansys2 problem_expert node...)
     do_work_timer_ = this->create_wall_timer(
-        milliseconds(4),
+        milliseconds(500),
         bind(&BeliefManager::step, this));
 
     RCLCPP_INFO(this->get_logger(), "Belief manager node initialized");
@@ -161,36 +165,183 @@ private:
         return isUp;
     }
 
+    /*
+       Publish the current belief set of the agent in agent_id_/belief_set topic
+    */
     void publishBeliefSet()
     {
-        belief_set_publisher_->publish(belief_set_);
+        BeliefSet bset_msg = BDIFilter::extractBeliefSetMsg(belief_set_);
+        belief_set_publisher_->publish(bset_msg);
     }
 
+    /*
+        Callback wrt. "problem_expert/update_notify" topic which notifies about any change in the PDDL problem
+        update belief set accordingly
+    */
     void updatedPDDLProblem(const Empty::SharedPtr msg)
     {
-        if(problem_expert_up_ || isProblemExpertActive())
-        {
-            //vector<Instance> instances = problem_expert_->getInstances();
-            vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
-            vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
+        mtx_sync.lock();
+            if(problem_expert_up_ || isProblemExpertActive())
+            {
+                vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
+                vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
+                updateBeliefSet(predicates, functions);
+                
+            }
+        mtx_sync.unlock();
+    }
 
-            //TODO implement logic to update BeliefSet
+    
+    void updateBeliefSet(const vector<Belief> pred_beliefs, const vector<Belief> fluent_beliefs)
+    {
+        bool notify;//if anything changes, put it to true
+        
+        //try to add new beliefs or modify current beliefs 
+        notify = addOrModifyBeliefs(pred_beliefs, false);
+        notify = addOrModifyBeliefs(fluent_beliefs, true) || notify;
+
+        //check for the removal of some beliefs
+        notify = removedPredicateBeliefs(pred_beliefs) || notify;
+        notify = removedFluentBeliefs(fluent_beliefs) || notify;
+
+        if(notify)//there has been some modifications, publish new belief set
+            publishBeliefSet();
+    }
+
+     /*
+        Update belief_set checking for presence/absence/alteration of some belief in it wrt. predicates/fluent
+        retrieved from the problem_expert
+        Returns true if any modification to the belief_set occurs
+
+        @check_for_fluent put to true when you want to check also for modified fluents wrt. their values
+    */
+    bool addOrModifyBeliefs(const vector<Belief> beliefs, const bool check_for_fluent)
+    {
+        bool modified = false;//if anything changes, put it to true
+
+        //check for new or modified (just in case of fluent type) beliefs
+        for(auto bel : beliefs)
+        {   
+            ManagedBelief mb = ManagedBelief(bel);
+            int count_bs = belief_set_.count(mb);
+            
+            if(count_bs == 0)//not found
+            {
+                addBelief(bel);
+                modified = true;//there is an alteration, notify it
+            }
+            else if(check_for_fluent && bel.value != (*(belief_set_.find(mb))).value_)
+            {
+                modifyBelief(mb);
+                modified = true;//there is an alteration, notify it
+            }
+        }
+
+        return modified;
+    }
+
+    /*
+        Extract from the passed beliefs and from the belief set just beliefs of type fluent and check if something
+        is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
+        been any alteration through the boolean value in return.
+    */
+    bool removedFluentBeliefs(const vector<Belief> beliefs)
+    {
+        bool modified = false;//if anything changes, put it to true
+
+        set<ManagedBelief> fluent_in_belief_set = BDIFilter::extractMGFluents(belief_set_);
+        set<ManagedBelief> fluent_in_pddl_prob = BDIFilter::extractMGFluents(beliefs);
+
+        if(fluent_in_belief_set.size() > fluent_in_pddl_prob.size())
+        {
+            //some fluent has to be removed from the belief set, since it has already been removed from the pddl problem
+            for(ManagedBelief mb : fluent_in_belief_set)
+                if(fluent_in_pddl_prob.count(mb) == 0)
+                {
+                    modified = true;
+                    delBelief(mb);//mb shall be removed from belief_set_ since it's not present in the pddl_problem
+                }
+        }
+
+        return modified;
+    }
+
+    /*
+        Extract from the passed beliefs and from the belief set just beliefs of type predicate and check if something
+        is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
+        been any alteration through the boolean value in return.
+    */
+    bool removedPredicateBeliefs(const vector<Belief> beliefs)
+    {
+        bool modified = false;//if anything changes, put it to true
+
+        set<ManagedBelief> pred_in_belief_set_ = BDIFilter::extractMGPredicates(belief_set_);
+        set<ManagedBelief> pred_in_pddl_prob = BDIFilter::extractMGPredicates(beliefs);
+
+        if(pred_in_belief_set_.size() > pred_in_pddl_prob.size())
+        {
+            //some predicate has to be removed from the belief set, since it has already been removed from the pddl problem
+            for(ManagedBelief mb : pred_in_belief_set_)
+                if(pred_in_belief_set_.count(mb) == 0)
+                {
+                    modified = true;
+                    delBelief(mb);//mb shall be removed from belief_set_ since it's not present in the pddl_problem
+                }
+        }
+        return modified;
+    }
+
+    void addBeliefTopicCallBack(const Belief::SharedPtr msg)
+    {
+        ManagedBelief mb = ManagedBelief(*msg);
+        mtx_sync.lock();
+            if(belief_set_.count(mb)==0)
+            {
+                //TODO call cpp plansys2 API
+            }
+            else if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
+            {
+                //fluent present in the belief set with diff. value
+            }
+        mtx_sync.unlock();
+    }
+
+    void delBeliefTopicCallBack(const Belief::SharedPtr msg)
+    {
+        ManagedBelief mb = ManagedBelief(*msg);
+        mtx_sync.lock();
+            if(belief_set_.count(mb)==1)
+            {
+                belief_set_.erase(mb);
+                //TODO call cpp plansys2 API
+            }
+        mtx_sync.unlock();
+    }
+
+    void addBelief(const ManagedBelief mgbelief)
+    {
+        belief_set_.insert(mgbelief);
+    }
+
+    void modifyBelief(const ManagedBelief mgbelief)
+    {
+        if(belief_set_.count(mgbelief) == 1){
+            belief_set_.erase(mgbelief);
+            belief_set_.insert(mgbelief);
         }
     }
 
-    void addBelief(const Belief::SharedPtr msg)
+    void delBelief(const ManagedBelief mgbelief)
     {
-        //TODO not implemented yet
-    }
-
-    void delBelief(const Belief::SharedPtr msg)
-    {
-        //TODO not implemented yet
+        belief_set_.erase(mgbelief);
     }
     
 
     // internal state of the node
     StateType state_;
+       
+    //mutex for deciding in which direction we're sync (PDDL->belief_set_ or belief_set_->PDDL)
+    std::mutex mtx_sync;        
     
     // agent id that defines the namespace in which the node operates
     string agent_id_;
@@ -205,7 +356,7 @@ private:
     bool problem_expert_up_;
 
     // belief set of the agent <agent_id_>
-    BeliefSet belief_set_;
+    set<ManagedBelief> belief_set_;
 
     // belief set publishers/subscribers
     rclcpp::Subscription<Belief>::SharedPtr add_belief_subscriber_;//add belief notify on topic
