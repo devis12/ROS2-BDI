@@ -170,7 +170,7 @@ private:
     */
     void publishBeliefSet()
     {
-        BeliefSet bset_msg = BDIFilter::extractBeliefSetMsg(belief_set_);
+        BeliefSet bset_msg = PDDLBDIConverter::extractBeliefSetMsg(belief_set_);
         belief_set_publisher_->publish(bset_msg);
     }
 
@@ -180,19 +180,22 @@ private:
     */
     void updatedPDDLProblem(const Empty::SharedPtr msg)
     {
+        bool notify;//if anything changes, put it to true
         mtx_sync.lock();
             if(problem_expert_up_ || isProblemExpertActive())
             {
                 vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
                 vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
-                updateBeliefSet(predicates, functions);
+                notify = updateBeliefSet(predicates, functions);
                 
             }
         mtx_sync.unlock();
+        if(notify)
+            publishBeliefSet();//there has been some modifications, publish new belief set
     }
 
     
-    void updateBeliefSet(const vector<Belief> pred_beliefs, const vector<Belief> fluent_beliefs)
+    bool updateBeliefSet(const vector<Belief> pred_beliefs, const vector<Belief> fluent_beliefs)
     {
         bool notify;//if anything changes, put it to true
         
@@ -204,8 +207,7 @@ private:
         notify = removedPredicateBeliefs(pred_beliefs) || notify;
         notify = removedFluentBeliefs(fluent_beliefs) || notify;
 
-        if(notify)//there has been some modifications, publish new belief set
-            publishBeliefSet();
+        return notify;//there has been some modifications
     }
 
      /*
@@ -249,8 +251,8 @@ private:
     {
         bool modified = false;//if anything changes, put it to true
 
-        set<ManagedBelief> fluent_in_belief_set = BDIFilter::extractMGFluents(belief_set_);
-        set<ManagedBelief> fluent_in_pddl_prob = BDIFilter::extractMGFluents(beliefs);
+        set<ManagedBelief> fluent_in_belief_set = PDDLBDIConverter::extractMGFluents(belief_set_);
+        set<ManagedBelief> fluent_in_pddl_prob = PDDLBDIConverter::extractMGFluents(beliefs);
 
         if(fluent_in_belief_set.size() > fluent_in_pddl_prob.size())
         {
@@ -275,8 +277,8 @@ private:
     {
         bool modified = false;//if anything changes, put it to true
 
-        set<ManagedBelief> pred_in_belief_set_ = BDIFilter::extractMGPredicates(belief_set_);
-        set<ManagedBelief> pred_in_pddl_prob = BDIFilter::extractMGPredicates(beliefs);
+        set<ManagedBelief> pred_in_belief_set_ = PDDLBDIConverter::extractMGPredicates(belief_set_);
+        set<ManagedBelief> pred_in_pddl_prob = PDDLBDIConverter::extractMGPredicates(beliefs);
 
         if(pred_in_belief_set_.size() > pred_in_pddl_prob.size())
         {
