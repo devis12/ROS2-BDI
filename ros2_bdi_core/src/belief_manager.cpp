@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <optional>
 #include <ctime>
 #include <memory>
 #include <vector>
@@ -6,13 +7,13 @@
 #include <mutex>          
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
+#include "plansys2_domain_expert/DomainExpertClient.hpp"
 #include "plansys2_msgs/srv/get_problem_instances.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/BDIComparisons.hpp"
-#include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -28,6 +29,7 @@ using std::bind;
 using std::placeholders::_1;
 
 using plansys2::ProblemExpertClient;
+using plansys2::DomainExpertClient;
 using plansys2::Instance;
 using plansys2::Predicate;
 using plansys2::Function;
@@ -60,7 +62,13 @@ public:
   */
   void init()
   { 
+    //agent's namespace
     agent_id_ = this->get_parameter("agent_id").as_string();
+
+    //domain expert client to communicate with domain expert node of plansys2
+    domain_expert_ = std::make_shared<DomainExpertClient>();
+
+    //problem expert client to communicate with problem expert node of plansys2
     problem_expert_ = std::make_shared<ProblemExpertClient>();
 
     //Init belief set
@@ -195,7 +203,7 @@ private:
     }
 
     
-    bool updateBeliefSet(const vector<Belief> pred_beliefs, const vector<Belief> fluent_beliefs)
+    bool updateBeliefSet(const vector<Belief>& pred_beliefs, const vector<Belief>& fluent_beliefs)
     {
         bool notify;//if anything changes, put it to true
         
@@ -217,14 +225,14 @@ private:
 
         @check_for_fluent put to true when you want to check also for modified fluents wrt. their values
     */
-    bool addOrModifyBeliefs(const vector<Belief> beliefs, const bool check_for_fluent)
+    bool addOrModifyBeliefs(const vector<Belief>& beliefs, const bool check_for_fluent)
     {
         bool modified = false;//if anything changes, put it to true
 
         //check for new or modified (just in case of fluent type) beliefs
         for(auto bel : beliefs)
         {   
-            ManagedBelief mb = ManagedBelief(bel);
+            ManagedBelief mb = ManagedBelief{bel};
             int count_bs = belief_set_.count(mb);
             
             if(count_bs == 0)//not found
@@ -247,7 +255,7 @@ private:
         is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
         been any alteration through the boolean value in return.
     */
-    bool removedFluentBeliefs(const vector<Belief> beliefs)
+    bool removedFluentBeliefs(const vector<Belief>& beliefs)
     {
         bool modified = false;//if anything changes, put it to true
 
@@ -273,7 +281,7 @@ private:
         is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
         been any alteration through the boolean value in return.
     */
-    bool removedPredicateBeliefs(const vector<Belief> beliefs)
+    bool removedPredicateBeliefs(const vector<Belief>& beliefs)
     {
         bool modified = false;//if anything changes, put it to true
 
@@ -293,24 +301,122 @@ private:
         return modified;
     }
 
+    /*  
+        Someone has publish a new belief in the respective topic
+    */
     void addBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
-        ManagedBelief mb = ManagedBelief(*msg);
+        ManagedBelief mb = ManagedBelief{*msg};
+        string params_list = "";
+        for(string par : mb.params_)
+            params_list += par + " ";
+        
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
-                //TODO call cpp plansys2 API
+                if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+                {   
+                    //try to add new predicate; if fails, try to check and add missing instances
+                    Predicate p_add = Predicate{"(" + mb.name_+ " " + params_list + ")"};
+                    if(problem_expert_->addPredicate(p_add) || 
+                        tryAddMissingInstances(mb) && problem_expert_->addPredicate(p_add))
+                        modifyBelief(mb);
+                } 
+                
+                if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+                {   
+                    //try to add new fluent; if fails, try to check and add missing instances
+                    Function f_add =  Function{"(" + mb.name_+ " " + params_list + std::to_string(mb.value_) + ")"};
+                    if(problem_expert_->addFunction(f_add) || 
+                        tryAddMissingInstances(mb) && problem_expert_->addFunction(f_add))
+                        modifyBelief(mb);
+                }
+
             }
             else if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
             {
                 //fluent present in the belief set with diff. value
+                Function f_upd = Function{"(" + mb.name_+ " " + params_list + std::to_string(mb.value_) + ")"};
+                if(problem_expert_->updateFunction(f_upd))//instances have to be already present
+                    modifyBelief(mb);
             }
         mtx_sync.unlock();
+
     }
 
+    /*
+        Create array of boolean flags denoting missing instances' positions
+        wrt. parameters in the passed ManagedBelief argument
+    */
+    vector<bool> computeMissingInstancesPos(const ManagedBelief& mb)
+    {
+        vector<bool> missing_pos = vector<bool>();
+        for(Instance ins : problem_expert_->getInstances())
+        {    
+            bool found = false;
+
+            for(string mb_par : mb.params_)
+            {
+                if(mb_par == ins.name)
+                {
+                    found = true;//instance already defined
+                    break;
+                }
+            }
+
+            missing_pos.push_back(!found);//flag denote missing instance
+        }
+        return missing_pos;
+    }
+
+    /*
+        Try adding missing instances (if any)
+    */
+    bool tryAddMissingInstances(const ManagedBelief& mb)
+    {   
+        vector<bool> missing_pos = computeMissingInstancesPos(mb);
+
+        if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+        {   
+            try {
+                //retrieve from domain expert definition information about this predicate
+                Predicate pred = domain_expert_->getPredicate(mb.name_).value();
+                for(int i = 0; i<pred.parameters.size(); i++)
+                {
+                    if(missing_pos[i])//missing instance
+                        if(!problem_expert_->addInstance(Instance{mb.params_[i], pred.parameters[i].type}))//add instance (type found from domain expert)
+                            return false;//add instance failed
+
+                }
+
+            } catch(const std::bad_optional_access& e) {}
+        } 
+        
+        if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+        {   
+            try {
+                //retrieve from domain expert definition information about this function
+                Function function = domain_expert_->getFunction(mb.name_).value();
+                for(int i = 0; i<function.parameters.size(); i++)
+                {
+                    if(missing_pos[i])//missing instance
+                        if(!problem_expert_->addInstance(Instance{mb.params_[i], function.parameters[i].type}))//add instance (type found from domain expert)
+                            return false;//add instance failed
+
+                }
+
+            } catch(const std::bad_optional_access& e) {}
+        }
+
+        return true;
+    }
+
+    /*  
+        Someone has publish a belief to be removed in the respective topic
+    */
     void delBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
-        ManagedBelief mb = ManagedBelief(*msg);
+        ManagedBelief mb = ManagedBelief{*msg};
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
@@ -320,12 +426,19 @@ private:
         mtx_sync.unlock();
     }
 
-    void addBelief(const ManagedBelief mgbelief)
+    /*
+        add belief into belief set
+    */
+    void addBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.insert(mgbelief);
     }
 
-    void modifyBelief(const ManagedBelief mgbelief)
+    /*
+        remove and add belief into belief set 
+        (i.e. cover the case of same fluent with diff. values)
+    */
+    void modifyBelief(const ManagedBelief& mgbelief)
     {
         if(belief_set_.count(mgbelief) == 1){
             belief_set_.erase(mgbelief);
@@ -333,7 +446,10 @@ private:
         }
     }
 
-    void delBelief(const ManagedBelief mgbelief)
+    /*
+        delete belief from belief set
+    */
+    void delBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.erase(mgbelief);
     }
@@ -354,6 +470,8 @@ private:
     int psys2_comm_errors_;
     // problem expert instance to call the problem expert api
     std::shared_ptr<ProblemExpertClient> problem_expert_;
+    // domain expert instance to call the problem expert api
+    std::shared_ptr<DomainExpertClient> domain_expert_;
     // flag to denote if the problem expert node seems to correctly answer 
     bool problem_expert_up_;
 
