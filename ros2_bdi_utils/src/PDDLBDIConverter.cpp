@@ -37,7 +37,7 @@ namespace PDDLBDIConverter
   vector<Belief> convertPDDLPredicates(const vector<Predicate> predicates){
     vector<Belief> beliefs = vector<Belief>();
     for(auto p : predicates)
-      beliefs.push_back(convertPDDLFunction(p));
+      beliefs.push_back(convertPDDLPredicate(p));
     return beliefs;
   }
 

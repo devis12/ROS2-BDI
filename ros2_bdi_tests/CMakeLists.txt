@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ros2_bdi_bringup)
+project(ros2_bdi_tests)
 
 # Default to C++17
 set(CMAKE_CXX_STANDARD 17)
@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 
 install(DIRECTORY
   launch
+  pddl
   DESTINATION share/${PROJECT_NAME}
 )
 

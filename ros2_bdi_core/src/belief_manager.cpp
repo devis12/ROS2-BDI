@@ -49,6 +49,7 @@ public:
   {
     psys2_comm_errors_ = 0;
     this->declare_parameter("agent_id", "agent0");
+    this->declare_parameter("debug", true);
     problem_expert_up_ = false;
   }
 
@@ -189,6 +190,10 @@ private:
     void updatedPDDLProblem(const Empty::SharedPtr msg)
     {
         bool notify;//if anything changes, put it to true
+                
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "update problem notification");
+
         mtx_sync.lock();
             if(problem_expert_up_ || isProblemExpertActive())
             {
@@ -206,14 +211,16 @@ private:
     bool updateBeliefSet(const vector<Belief>& pred_beliefs, const vector<Belief>& fluent_beliefs)
     {
         bool notify;//if anything changes, put it to true
-        
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "update problem: verify if needed to sync (b_set %d, prob_pred %d, prob_fun %d)", 
+                belief_set_.size(), pred_beliefs.size(), fluent_beliefs.size());
         //try to add new beliefs or modify current beliefs 
-        notify = addOrModifyBeliefs(pred_beliefs, false);
-        notify = addOrModifyBeliefs(fluent_beliefs, true) || notify;
+        notify = (pred_beliefs.size() > 0 && addOrModifyBeliefs(pred_beliefs, false));
+        notify = (fluent_beliefs.size() > 0 && addOrModifyBeliefs(fluent_beliefs, true)) || notify;
 
         //check for the removal of some beliefs
-        notify = removedPredicateBeliefs(pred_beliefs) || notify;
-        notify = removedFluentBeliefs(fluent_beliefs) || notify;
+        notify = (belief_set_.size() && removedPredicateBeliefs(pred_beliefs)) || notify;
+        notify = (belief_set_.size() && removedFluentBeliefs(fluent_beliefs)) || notify;
 
         return notify;//there has been some modifications
     }
@@ -237,6 +244,9 @@ private:
             
             if(count_bs == 0)//not found
             {
+                RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.type_+"): " + 
+                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
+                
                 addBelief(bel);
                 modified = true;//there is an alteration, notify it
             }
@@ -301,42 +311,69 @@ private:
         return modified;
     }
 
+    /*
+        Get param list as a single joined string separated from spaces
+    */
+    string getParamList(const ManagedBelief& mb)
+    {
+        string params_list = "";
+        for(int i=0; i<mb.params_.size(); i++)
+            params_list += (i==mb.params_.size()-1)? mb.params_[i] : mb.params_[i] + " ";
+        return params_list;
+    }
+
+    /*
+        Build plansys2::Predicate obj from ManagedBelief
+    */
+    Predicate buildPredicate(const ManagedBelief& mb)
+    {
+        return Predicate{"(" + mb.name_+ " " + getParamList(mb) + ")"};
+    }
+
+    /*
+        Build plansys2::Function obj from ManagedBelief
+    */
+    Function buildFunction(const ManagedBelief& mb)
+    {
+        return Function{"(" + mb.name_+ " " + getParamList(mb) + std::to_string(mb.value_) + ")"};;
+    }
+
     /*  
         Someone has publish a new belief in the respective topic
     */
     void addBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
         ManagedBelief mb = ManagedBelief{*msg};
-        string params_list = "";
-        for(string par : mb.params_)
-            params_list += par + " ";
-        
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
+                    + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
+                        
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
                 if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
                 {   
                     //try to add new predicate; if fails, try to check and add missing instances
-                    Predicate p_add = Predicate{"(" + mb.name_+ " " + params_list + ")"};
+                    Predicate p_add = buildPredicate(mb);
                     if(problem_expert_->addPredicate(p_add) || 
                         tryAddMissingInstances(mb) && problem_expert_->addPredicate(p_add))
-                        modifyBelief(mb);
+                        addBelief(mb);
                 } 
                 
                 if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
                 {   
                     //try to add new fluent; if fails, try to check and add missing instances
-                    Function f_add =  Function{"(" + mb.name_+ " " + params_list + std::to_string(mb.value_) + ")"};
+                    Function f_add =  buildFunction(mb);
                     if(problem_expert_->addFunction(f_add) || 
                         tryAddMissingInstances(mb) && problem_expert_->addFunction(f_add))
-                        modifyBelief(mb);
+                        addBelief(mb);
                 }
 
             }
             else if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
             {
                 //fluent present in the belief set with diff. value
-                Function f_upd = Function{"(" + mb.name_+ " " + params_list + std::to_string(mb.value_) + ")"};
+                Function f_upd = buildFunction(mb);
                 if(problem_expert_->updateFunction(f_upd))//instances have to be already present
                     modifyBelief(mb);
             }
@@ -351,11 +388,12 @@ private:
     vector<bool> computeMissingInstancesPos(const ManagedBelief& mb)
     {
         vector<bool> missing_pos = vector<bool>();
-        for(Instance ins : problem_expert_->getInstances())
+        vector<Instance> instances = problem_expert_->getInstances();
+        for(string mb_par : mb.params_)
         {    
             bool found = false;
 
-            for(string mb_par : mb.params_)
+            for(Instance ins : instances)
             {
                 if(mb_par == ins.name)
                 {
@@ -375,7 +413,16 @@ private:
     bool tryAddMissingInstances(const ManagedBelief& mb)
     {   
         vector<bool> missing_pos = computeMissingInstancesPos(mb);
-
+        
+        if(this->get_parameter("debug").as_bool())
+        {
+            string missing_pos_string = "";
+            for(bool mp : missing_pos)
+                missing_pos_string += std::to_string((int)mp) + ", ";
+            RCLCPP_INFO(this->get_logger(), "Missing: " + missing_pos_string);
+        }
+        
+        
         if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
         {   
             try {
@@ -384,9 +431,12 @@ private:
                 for(int i = 0; i<pred.parameters.size(); i++)
                 {
                     if(missing_pos[i])//missing instance
+                    {   
+                        if(this->get_parameter("debug").as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + pred.parameters[i].type);
                         if(!problem_expert_->addInstance(Instance{mb.params_[i], pred.parameters[i].type}))//add instance (type found from domain expert)
                             return false;//add instance failed
-
+                    }
                 }
 
             } catch(const std::bad_optional_access& e) {}
@@ -400,8 +450,12 @@ private:
                 for(int i = 0; i<function.parameters.size(); i++)
                 {
                     if(missing_pos[i])//missing instance
+                    {
+                        if(this->get_parameter("debug").as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + function.parameters[i].type);
                         if(!problem_expert_->addInstance(Instance{mb.params_[i], function.parameters[i].type}))//add instance (type found from domain expert)
                             return false;//add instance failed
+                    }
 
                 }
 
@@ -417,11 +471,27 @@ private:
     void delBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
         ManagedBelief mb = ManagedBelief{*msg};
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
+                    + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
+        bool done = false;
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
-                belief_set_.erase(mb);
-                //TODO call cpp plansys2 API
+                if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+                {
+                    Predicate pred = buildPredicate(mb);
+                    done = !problem_expert_->existPredicate(pred) || problem_expert_->removePredicate(pred);
+                }
+
+                if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+                {
+                    Function fun = buildFunction(mb);
+                    done = !problem_expert_->existFunction(fun) || problem_expert_->removeFunction(fun);
+                }
+                
+                if(done)
+                    belief_set_.erase(mb);
             }
         mtx_sync.unlock();
     }
@@ -432,6 +502,10 @@ private:
     void addBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.insert(mgbelief);
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "Added belief ("+mgbelief.type_+"): " + 
+                mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
+                       
     }
 
     /*
@@ -443,6 +517,9 @@ private:
         if(belief_set_.count(mgbelief) == 1){
             belief_set_.erase(mgbelief);
             belief_set_.insert(mgbelief);
+            if(this->get_parameter("debug").as_bool())
+                RCLCPP_INFO(this->get_logger(), "Modified belief ("+mgbelief.type_+"): " + 
+                    mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
         }
     }
 
@@ -452,6 +529,9 @@ private:
     void delBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.erase(mgbelief);
+        if(this->get_parameter("debug").as_bool())
+            RCLCPP_INFO(this->get_logger(), "Removed belief ("+mgbelief.type_+"): " + 
+                mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
     }
     
 
