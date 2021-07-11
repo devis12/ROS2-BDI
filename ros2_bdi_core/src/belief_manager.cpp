@@ -20,6 +20,8 @@
 #include "rclcpp/rclcpp.hpp"
 
 #define MAX_COMM_ERRORS 16
+#define PARAM_AGENT_ID "agent_id"
+#define PARAM_DEBUG "debug"
 
 using std::string;
 using std::vector;
@@ -49,8 +51,8 @@ public:
   : rclcpp::Node("belief_manager"), state_(STARTING)
   {
     psys2_comm_errors_ = 0;
-    this->declare_parameter("agent_id", "agent0");
-    this->declare_parameter("debug", true);
+    this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    this->declare_parameter(PARAM_DEBUG, true);
     problem_expert_up_ = false;
   }
 
@@ -65,7 +67,7 @@ public:
   void init()
   { 
     //agent's namespace
-    agent_id_ = this->get_parameter("agent_id").as_string();
+    agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     //domain expert client to communicate with domain expert node of plansys2
     domain_expert_ = std::make_shared<DomainExpertClient>();
@@ -192,7 +194,7 @@ private:
     {
         bool notify;//if anything changes, put it to true
                 
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "update problem notification");
 
         mtx_sync.lock();
@@ -212,7 +214,7 @@ private:
     bool updateBeliefSet(const vector<Belief>& pred_beliefs, const vector<Belief>& fluent_beliefs)
     {
         bool notify;//if anything changes, put it to true
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "update problem: verify if needed to sync (b_set %d, prob_pred %d, prob_fun %d)", 
                 belief_set_.size(), pred_beliefs.size(), fluent_beliefs.size());
         //try to add new beliefs or modify current beliefs 
@@ -345,7 +347,7 @@ private:
     void addBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
         ManagedBelief mb = ManagedBelief{*msg};
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
                     + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
                         
@@ -415,7 +417,7 @@ private:
     {   
         vector<bool> missing_pos = computeMissingInstancesPos(mb);
         
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
         {
             string missing_pos_string = "";
             for(bool mp : missing_pos)
@@ -433,7 +435,7 @@ private:
                 {
                     if(missing_pos[i])//missing instance
                     {   
-                        if(this->get_parameter("debug").as_bool())
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
                             RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + pred.parameters[i].type);
                         if(!problem_expert_->addInstance(Instance{mb.params_[i], pred.parameters[i].type}))//add instance (type found from domain expert)
                             return false;//add instance failed
@@ -452,7 +454,7 @@ private:
                 {
                     if(missing_pos[i])//missing instance
                     {
-                        if(this->get_parameter("debug").as_bool())
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
                             RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + function.parameters[i].type);
                         if(!problem_expert_->addInstance(Instance{mb.params_[i], function.parameters[i].type}))//add instance (type found from domain expert)
                             return false;//add instance failed
@@ -472,7 +474,7 @@ private:
     void delBeliefTopicCallBack(const Belief::SharedPtr msg)
     {
         ManagedBelief mb = ManagedBelief{*msg};
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
                     + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
         bool done = false;
@@ -503,7 +505,7 @@ private:
     void addBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.insert(mgbelief);
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Added belief ("+mgbelief.type_+"): " + 
                 mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
                        
@@ -518,7 +520,7 @@ private:
         if(belief_set_.count(mgbelief) == 1){
             belief_set_.erase(mgbelief);
             belief_set_.insert(mgbelief);
-            if(this->get_parameter("debug").as_bool())
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
                 RCLCPP_INFO(this->get_logger(), "Modified belief ("+mgbelief.type_+"): " + 
                     mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
         }
@@ -530,7 +532,7 @@ private:
     void delBelief(const ManagedBelief& mgbelief)
     {
         belief_set_.erase(mgbelief);
-        if(this->get_parameter("debug").as_bool())
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Removed belief ("+mgbelief.type_+"): " + 
                 mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
     }

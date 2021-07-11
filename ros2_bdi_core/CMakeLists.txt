@@ -17,21 +17,41 @@ find_package(plansys2_pddl_parser REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 
-add_executable(belief_manager src/belief_manager.cpp)
-ament_target_dependencies(belief_manager 
-  rclcpp 
-  plansys2_msgs plansys2_problem_expert plansys2_domain_expert
-  std_msgs 
+set(common_dependencies
+  rclcpp
+  plansys2_msgs
   ros2_bdi_utils ros2_bdi_interfaces
 )
 
+set(pddl_experts
+  plansys2_domain_expert
+  plansys2_problem_expert 
+)
+
+add_executable(belief_manager src/belief_manager.cpp)
+ament_target_dependencies(belief_manager 
+  ${common_dependencies}
+  ${pddl_experts}
+  std_msgs 
+)
+
+
+add_executable(scheduler src/scheduler.cpp)
+ament_target_dependencies(scheduler 
+  ${common_dependencies} 
+  plansys2_planner
+)
+
+
 install(TARGETS
   belief_manager
+  scheduler
   DESTINATION lib/${PROJECT_NAME}
 )
 
 
 install(DIRECTORY
+  pddl
   DESTINATION share/${PROJECT_NAME}
 )
 
