@@ -13,6 +13,7 @@
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
+#include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIComparisons.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "std_msgs/msg/empty.hpp"
@@ -118,7 +119,7 @@ public:
                 setState(SYNC);
             }else{
                 problem_expert_up_ = false;
-                RCLCPP_ERROR(this->get_logger(), "Impossible to communicate with problem expert");
+                RCLCPP_ERROR(this->get_logger(), "Impossible to communicate with PlanSys2 problem expert");
                 psys2_comm_errors_++;
             }
 
@@ -179,7 +180,7 @@ private:
     */
     void publishBeliefSet()
     {
-        BeliefSet bset_msg = PDDLBDIConverter::extractBeliefSetMsg(belief_set_);
+        BeliefSet bset_msg = BDIFilter::extractBeliefSetMsg(belief_set_);
         belief_set_publisher_->publish(bset_msg);
     }
 
@@ -269,8 +270,8 @@ private:
     {
         bool modified = false;//if anything changes, put it to true
 
-        set<ManagedBelief> fluent_in_belief_set = PDDLBDIConverter::extractMGFluents(belief_set_);
-        set<ManagedBelief> fluent_in_pddl_prob = PDDLBDIConverter::extractMGFluents(beliefs);
+        set<ManagedBelief> fluent_in_belief_set = BDIFilter::extractMGFluents(belief_set_);
+        set<ManagedBelief> fluent_in_pddl_prob = BDIFilter::extractMGFluents(beliefs);
 
         if(fluent_in_belief_set.size() > fluent_in_pddl_prob.size())
         {
@@ -295,8 +296,8 @@ private:
     {
         bool modified = false;//if anything changes, put it to true
 
-        set<ManagedBelief> pred_in_belief_set_ = PDDLBDIConverter::extractMGPredicates(belief_set_);
-        set<ManagedBelief> pred_in_pddl_prob = PDDLBDIConverter::extractMGPredicates(beliefs);
+        set<ManagedBelief> pred_in_belief_set_ = BDIFilter::extractMGPredicates(belief_set_);
+        set<ManagedBelief> pred_in_pddl_prob = BDIFilter::extractMGPredicates(beliefs);
 
         if(pred_in_belief_set_.size() > pred_in_pddl_prob.size())
         {
