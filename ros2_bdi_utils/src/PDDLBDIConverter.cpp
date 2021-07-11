@@ -85,6 +85,19 @@ namespace PDDLBDIConverter
     return bset_msg; 
   }
 
+  /*
+    Extract from passed set of ManagedDesire objects a DesireSet msg
+  */
+  DesireSet extractDesireSetMsg(const set<ManagedDesire> managed_desires)
+  {
+    DesireSet dset_msg = DesireSet();
+    vector<Desire> desires_vector = vector<Desire>();
+    for(ManagedDesire md : managed_desires)
+      desires_vector.push_back(md.toDesire());
+    dset_msg.value = desires_vector;
+    return dset_msg; 
+  }
+
     /*
     Extract from passed vector just beliefs of type predicate
   */
@@ -109,32 +122,44 @@ namespace PDDLBDIConverter
     return extracted;
   }
 
-    /*
-    Extract from passed vector just beliefs of type predicate and put it into a set of ManagedBelief objects
+   /*
+    Extract from passed vector beliefs and put them into a set of ManagedBelief objects
+  */
+  set<ManagedBelief> extractMG(const vector<Belief> beliefs)
+  {
+    set<ManagedBelief> extracted = set<ManagedBelief>();
+    for(Belief b : beliefs)
+      if(b.type == PREDICATE_TYPE || b.type == FLUENT_TYPE)
+          extracted.insert(ManagedBelief{b});
+    return extracted;
+  }
+   
+  /*
+    Extract from passed vector just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGPredicates(const vector<Belief> beliefs)
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
       if(b.type == PREDICATE_TYPE)
-          extracted.insert(b);
+          extracted.insert(ManagedBelief{b});
     return extracted;
   }
 
   /*
-    Extract from passed vector just beliefs of type fluent and put it into a set of ManagedBelief objects
+    Extract from passed vector just beliefs of type fluent and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGFluents(const vector<Belief> beliefs)
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
       if(b.type == FLUENT_TYPE)
-          extracted.insert(b);
+          extracted.insert(ManagedBelief{b});
     return extracted;
   }
 
       /*
-    Extract from passed set just beliefs of type predicate and put it into a set of ManagedBelief objects
+    Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGPredicates(const set<ManagedBelief> managed_beliefs)
   {
@@ -146,7 +171,7 @@ namespace PDDLBDIConverter
   }
 
   /*
-    Extract from passed set just beliefs of type fluent and put it into a set of ManagedBelief objects
+    Extract from passed set just beliefs of type fluent and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGFluents(const set<ManagedBelief> managed_beliefs)
   {
