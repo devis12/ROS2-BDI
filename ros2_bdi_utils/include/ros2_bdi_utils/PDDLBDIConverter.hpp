@@ -43,51 +43,6 @@ namespace PDDLBDIConverter
     Convert PlanSys2 PDDL Functions to ROS2-BDI Beliefs
   */
   vector<Belief> convertPDDLFunctions(const vector<Function> functions);
-
-  /*
-    Extract from passed set of ManagedBelief objects a BeliefSet msg
-  */
-  BeliefSet extractBeliefSetMsg(const set<ManagedBelief> managed_beliefs);
-
-  /*
-    Extract from passed set of ManagedDesire objects a DesireSet msg
-  */
-  DesireSet extractDesireSetMsg(const set<ManagedDesire> managed_desires);
-
-    /*
-    Extract from passed vector just beliefs of type predicate
-  */
-  vector<Belief> extractPredicates(const vector<Belief> beliefs);
-
-  /*
-    Extract from passed vector just beliefs of type fluent
-  */
-  vector<Belief> extractFluents(const vector<Belief> beliefs);
-
-  /*
-    Extract from passed vector beliefs and put them into a set of ManagedBelief objects
-  */
-  set<ManagedBelief> extractMG(const vector<Belief> beliefs);
-
-  /*
-    Extract from passed vector just beliefs of type predicate and put them into a set of ManagedBelief objects
-  */
-  set<ManagedBelief> extractMGPredicates(const vector<Belief> beliefs);
-
-  /*
-    Extract from passed vector just beliefs of type fluent and put them into a set of ManagedBelief objects
-  */
-  set<ManagedBelief> extractMGFluents(const vector<Belief> beliefs);
-
-  /*
-    Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
-  */
-  set<ManagedBelief> extractMGPredicates(const set<ManagedBelief> managed_beliefs);
-
-  /*
-    Extract from passed set just beliefs of type fluent and put them into a set of ManagedBelief objects
-  */
-  set<ManagedBelief> extractMGFluents(const set<ManagedBelief> managed_beliefs);
   
   
 }  // namespace PDDLBDIConverter

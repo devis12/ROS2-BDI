@@ -16,7 +16,10 @@ include_directories(include)
 set(UTILS-SOURCES
   src/PDDLBDIConverter.cpp
   src/BDIComparisons.cpp
+  src/BDIFilter.cpp
+
   src/ManagedBelief.cpp
+  src/ManagedDesire.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${UTILS-SOURCES})

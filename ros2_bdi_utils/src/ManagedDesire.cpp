@@ -1,5 +1,5 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
-#include "ros2_bdi_utils/PDDLBDIConverter.hpp"
+#include "ros2_bdi_utils/BDIFilter.hpp"
 
 
 ManagedDesire::ManagedDesire(string name, vector<ManagedBelief> value, float priority, float deadline):
@@ -14,7 +14,7 @@ ManagedDesire::ManagedDesire(Desire desire):
     priority_(desire.priority),
     deadline_(desire.deadline)
     {   
-        set<ManagedBelief> set_mb = PDDLBDIConverter::extractMG(desire.value);
+        set<ManagedBelief> set_mb = BDIFilter::extractMGPredicates(desire.value);
         value_ = vector<ManagedBelief>(set_mb.begin(), set_mb.end());
     }
 
