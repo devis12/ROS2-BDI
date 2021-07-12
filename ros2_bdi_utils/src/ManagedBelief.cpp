@@ -5,21 +5,21 @@
 #define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
 
 
-ManagedBelief::ManagedBelief(string name, string type, vector<string> params, float value):
+ManagedBelief::ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value):
     name_(name),
     type_ (type),
     params_(params),
     value_ (value)
     {}
 
-ManagedBelief::ManagedBelief(Belief belief):
+ManagedBelief::ManagedBelief(const Belief& belief):
     name_(belief.name),
     type_ (belief.type),
     params_(belief.params),
     value_ (belief.value)
     {}
 
-Belief ManagedBelief::toBelief()
+Belief ManagedBelief::toBelief() const
 {
     Belief b = Belief();
     b.name = name_;

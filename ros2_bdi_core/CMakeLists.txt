@@ -39,6 +39,7 @@ ament_target_dependencies(belief_manager
 add_executable(scheduler src/scheduler.cpp)
 ament_target_dependencies(scheduler 
   ${common_dependencies} 
+  ${pddl_experts}
   plansys2_planner
 )
 

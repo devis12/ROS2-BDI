@@ -62,7 +62,7 @@ namespace PDDLBDIConverter
     return b;
   }
 
-    /*
+  /*
     Convert PlanSys2 PDDL Functions to ROS2-BDI Beliefs
   */
   vector<Belief> convertPDDLFunctions(const vector<Function> functions){
@@ -70,6 +70,30 @@ namespace PDDLBDIConverter
     for(auto f : functions)
       beliefs.push_back(convertPDDLFunction(f));
     return beliefs;
+  }
+
+  /*
+    Convert Desire into PDDL Goal
+  */
+  string desireToGoal(const Desire& desire)
+  {
+      string goal_string = "(and ";
+        
+      for(Belief b : desire.value)
+      {
+        if(b.type == PREDICATE_TYPE){
+          string params_list = "";
+          for(int i=0; i<b.params.size(); i++)
+              params_list += (i==b.params.size()-1)? b.params[i] : b.params[i] + " ";
+          
+          goal_string += "(" + b.name + " " + params_list + ")";
+        }
+         
+      }
+      
+      goal_string += ")";
+
+      return goal_string;
   }
 
 }

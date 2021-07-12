@@ -19,15 +19,16 @@ class ManagedDesire
 {
 
     public:
-        ManagedDesire(string name, vector<ManagedBelief> value, float priority, float deadline);
-        ManagedDesire(Desire desire);
+        ManagedDesire();
+        ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline);
+        ManagedDesire(const Desire& desire);
 
         string name_;
         vector<ManagedBelief> value_;
         float priority_;
         float deadline_;
 
-        Desire toDesire();
+        Desire toDesire() const;
     private:
         
 

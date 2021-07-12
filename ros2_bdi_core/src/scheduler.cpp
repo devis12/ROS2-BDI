@@ -2,10 +2,13 @@
 #include <optional>
 #include <ctime>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include <set>       
 
 #include "plansys2_planner/PlannerClient.hpp"
+#include "plansys2_domain_expert/DomainExpertClient.hpp"
+#include "plansys2_problem_expert/ProblemExpertClient.hpp"
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -13,8 +16,10 @@
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
+#include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
+#include "ros2_bdi_utils/ManagedPlan.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #define MAX_COMM_ERRORS 16
@@ -26,15 +31,19 @@
 using std::string;
 using std::vector;
 using std::set;
-using std::ios;
-using std::ifstream;
+using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
 using std::placeholders::_1;
+using std::optional;
 
+using plansys2::DomainExpertClient;
+using plansys2::ProblemExpertClient;
 using plansys2::PlannerClient;
+using plansys2::Goal;
 using plansys2_msgs::msg::Plan;
+using plansys2_msgs::msg::PlanItem;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
@@ -72,6 +81,11 @@ public:
   { 
     //agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
+
+    // initializing domain expert
+    domain_expert_ = std::make_shared<plansys2::DomainExpertClient>();
+    // initializing problem expert
+    problem_expert_ = std::make_shared<plansys2::ProblemExpertClient>();
 
     // initializing planner client
     planner_client_ = std::make_shared<plansys2::PlannerClient>();
@@ -111,8 +125,8 @@ public:
   void step()
   {
     // check problem expert alive to init knowledge before spawning
-    //if(psys2_comm_errors_ > MAX_COMM_ERRORS)
-    //    rclcpp::shutdown();
+    if(psys2_comm_errors_ > MAX_COMM_ERRORS)
+        rclcpp::shutdown();
 
     switch (state_) {
         
@@ -174,10 +188,92 @@ private:
         //std::cout << pddl_domain_ << std::endl << std::endl << std::endl;
         pddl_problem_ = readTestPDDLProblem();
         //std::cout << pddl_problem_ << std::endl << std::endl << std::endl;
-        std::optional<Plan> plan = planner_client_->getPlan(pddl_domain_, pddl_problem_);
+        optional<Plan> plan = planner_client_->getPlan(pddl_domain_, pddl_problem_);
         /*if(plan.has_value())
             RCLCPP_INFO(this->get_logger(), "Found plan: start with " + plan.value().items[0].action);*/
         return plan.has_value();
+    }
+
+    /*
+        Compute plan from managed desire, setting its belief array representing the desirable state to reach
+        as the goal of the PDDL problem 
+    */
+    optional<Plan> computePlan(const ManagedDesire& md)
+    {
+        //set desire as goal of the pddl_problem
+        if(!problem_expert_->setGoal(Goal{PDDLBDIConverter::desireToGoal(md.toDesire())})){
+            psys2_comm_errors_++;//plansys2 comm. errors
+            return std::nullopt;
+        }
+
+        string pddl_domain = domain_expert_->getDomain();//get domain string
+        string pddl_problem = problem_expert_->getProblem();//get problem string
+        return planner_client_->getPlan(pddl_domain, pddl_problem);//compute plan (n.b. goal unfeasible -> plan not computed)
+    }
+
+    /*
+        Check if there is a current valid plan selected
+    */
+    bool noPlanSelected()
+    {
+        return current_plan_.desire_.priority_ == 0.0f || current_plan_.body_.size() == 0;
+    }
+
+    /*
+        Select plan execution based on precondition, deadline
+    */
+    void reschedule()
+    {   
+        if(noPlanSelected())
+        {
+            vector<Plan> computedPlans = vector<Plan>();
+            // priority of selected plan
+            float highestPriority = 0.0f;
+            // deadline of selected plan
+            float selectedDeadline = -1.0f;//  init to negative value
+            
+            ManagedPlan selectedPlan;
+            
+            for(ManagedDesire md : desire_set_)
+            {
+                //select just desires of higher or equal priority with respect to the one currently selected
+                if(md.priority_ >= highestPriority){
+                    optional<Plan> opt_p = computePlan(md);
+                    if(opt_p.has_value())
+                    {
+                        ManagedPlan mp = ManagedPlan{md, opt_p.value()};
+                        // does computed deadline for this plan respect desire deadline?
+                        if(mp.plan_deadline_ <= md.deadline_) 
+                        {
+                            // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
+                            // or equal priority, but smaller deadline
+                            if(selectedDeadline < 0 || md.priority_ > highestPriority || mp.plan_deadline_ < selectedDeadline)
+                            {    
+                                selectedDeadline = mp.plan_deadline_;
+                                highestPriority = md.priority_;
+                                selectedPlan = mp;
+                            }
+                        }
+                    }
+                }
+                
+            }
+
+            //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
+            if(selectedPlan.body_.size() > 0 && desire_set_.count(selectedPlan.desire_)==1)
+            {
+                current_plan_ = selectedPlan;
+                triggerPlanExecution();
+            }
+        }
+    }
+
+    /*
+        Contact plan executor to trigger the execution of the current_plan_
+    */
+    void triggerPlanExecution()
+    {
+
     }
 
     /*
@@ -186,7 +282,7 @@ private:
     void updatedBeliefSet(const BeliefSet::SharedPtr msg)
     {
         belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-        //TODO has anything to be called after?
+        // TOCHECK has anything to be called after?
     }
 
     /*  
@@ -194,7 +290,18 @@ private:
     */
     void addDesireTopicCallBack(const Desire::SharedPtr msg)
     {
-        //TODO implement logic
+        bool modified = false;
+        ManagedDesire md = ManagedDesire{(*msg)};
+        mtx_sync.lock();
+            if(desire_set_.count(md)==0)
+            {
+                desire_set_.insert(md);
+                modified = true;
+            }
+        mtx_sync.unlock();
+
+        if(modified)//if any alteration to the desire_set has occured, reschedule
+            reschedule();
     }
 
     /*  
@@ -203,7 +310,18 @@ private:
     */
     void delDesireTopicCallBack(const Desire::SharedPtr msg)
     {
-        //TODO implement logic
+        bool modified = false;
+        ManagedDesire md = ManagedDesire{(*msg)};
+        mtx_sync.lock();
+            if(desire_set_.count(md)!=0)
+            {
+                desire_set_.erase(desire_set_.find(md));
+                modified = true;
+            }
+        mtx_sync.unlock();
+
+        if(modified)//if any alteration to the desire_set has occured, reschedule
+            reschedule();
     }
 
     string readTestPDDLDomain()
@@ -226,7 +344,11 @@ private:
 
     // counter of communication errors with plansys2
     int psys2_comm_errors_;
-    // problem expert instance to call the problem expert api
+    // problem expert instance to call the plansys2 problem expert api
+    std::shared_ptr<ProblemExpertClient> problem_expert_;
+    // domain expert instance to call the plansys2 domain expert api
+    std::shared_ptr<DomainExpertClient> domain_expert_;
+    // planner expert instance to call the plansys2 planner api
     std::shared_ptr<PlannerClient> planner_client_;
     // flag to denote if the problem expert node seems to correctly answer 
     bool planner_expert_up_;
@@ -236,6 +358,12 @@ private:
 
     // desire set of the agent <agent_id_>
     set<ManagedDesire> desire_set_;
+
+    // current_plan_ in execution (could be none if the agent isn't doing anything)
+    ManagedPlan current_plan_;
+
+    //mutex for sync when modifying desire_set
+    mutex mtx_sync;
 
     // string representing a pddl domain to supply to the plansys2 planner
     string pddl_domain_;

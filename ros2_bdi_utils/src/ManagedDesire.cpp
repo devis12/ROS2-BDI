@@ -2,14 +2,22 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
 
-ManagedDesire::ManagedDesire(string name, vector<ManagedBelief> value, float priority, float deadline):
+ManagedDesire::ManagedDesire():
+    name_(""),
+    priority_(0.0f),
+    value_(vector<ManagedBelief>()),
+    deadline_(0.0f)
+    {}
+
+
+ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline):
     name_(name),
     value_ (value),
     priority_(priority),
     deadline_(deadline)
     {}
 
-ManagedDesire::ManagedDesire(Desire desire):
+ManagedDesire::ManagedDesire(const Desire& desire):
     name_(desire.name),
     priority_(desire.priority),
     deadline_(desire.deadline)
@@ -18,7 +26,7 @@ ManagedDesire::ManagedDesire(Desire desire):
         value_ = vector<ManagedBelief>(set_mb.begin(), set_mb.end());
     }
 
-Desire ManagedDesire::toDesire()
+Desire ManagedDesire::toDesire() const
 {
     Desire d = Desire();
     d.name = name_;

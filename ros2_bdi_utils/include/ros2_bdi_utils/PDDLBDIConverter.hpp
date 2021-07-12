@@ -1,6 +1,7 @@
 #ifndef PDDLBDIConverter__UTILS_H_
 #define PDDLBDIConverter__UTILS_H_
 
+#include <string>
 #include <vector>
 #include <set>
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
@@ -11,6 +12,7 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
+using std::string;
 using std::vector;
 using std::set;
 using plansys2::Instance;
@@ -43,7 +45,11 @@ namespace PDDLBDIConverter
     Convert PlanSys2 PDDL Functions to ROS2-BDI Beliefs
   */
   vector<Belief> convertPDDLFunctions(const vector<Function> functions);
-  
+
+  /*
+    Convert Desire into PDDL Goal
+  */
+  string desireToGoal(const Desire& desire);
   
 }  // namespace PDDLBDIConverter
 

@@ -502,12 +502,12 @@ private:
     /*
         add belief into belief set
     */
-    void addBelief(const ManagedBelief& mgbelief)
+    void addBelief(const ManagedBelief& mb)
     {
-        belief_set_.insert(mgbelief);
+        belief_set_.insert(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Added belief ("+mgbelief.type_+"): " + 
-                mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.type_+"): " + 
+                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
                        
     }
 
@@ -515,26 +515,26 @@ private:
         remove and add belief into belief set 
         (i.e. cover the case of same fluent with diff. values)
     */
-    void modifyBelief(const ManagedBelief& mgbelief)
+    void modifyBelief(const ManagedBelief& mb)
     {
-        if(belief_set_.count(mgbelief) == 1){
-            belief_set_.erase(mgbelief);
-            belief_set_.insert(mgbelief);
+        if(belief_set_.count(mb) == 1){
+            belief_set_.erase(mb);
+            belief_set_.insert(mb);
             if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Modified belief ("+mgbelief.type_+"): " + 
-                    mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
+                RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.type_+"): " + 
+                    mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
         }
     }
 
     /*
         delete belief from belief set
     */
-    void delBelief(const ManagedBelief& mgbelief)
+    void delBelief(const ManagedBelief& mb)
     {
-        belief_set_.erase(mgbelief);
+        belief_set_.erase(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Removed belief ("+mgbelief.type_+"): " + 
-                mgbelief.name_ + " " + getParamList(mgbelief) + " (value = " + std::to_string(mgbelief.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.type_+"): " + 
+                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
     }
     
 

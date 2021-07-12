@@ -17,15 +17,15 @@ class ManagedBelief
 {
 
     public:
-        ManagedBelief(string name, string type, vector<string> params, float value);
-        ManagedBelief(Belief belief);
+        ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value);
+        ManagedBelief(const Belief& belief);
 
         string name_;
         string type_;
         vector<string> params_;
         float value_;
 
-        Belief toBelief();
+        Belief toBelief() const;
     private:
         
 
