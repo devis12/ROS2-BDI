@@ -15,7 +15,12 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/Desire.msg"
   "msg/DesireSet.msg"
   "msg/Condition.msg"
-  "msg/Plan.msg"
+  "msg/BDIPlan.msg"
+  "msg/BDIActionExecutionInfo.msg"
+  "msg/BDIPlanExecutionInfo.msg"
+
+  "srv/BDIPlanExecution.srv"
+
   DEPENDENCIES plansys2_msgs
 )
 

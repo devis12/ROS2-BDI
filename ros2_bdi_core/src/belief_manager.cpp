@@ -26,6 +26,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
@@ -107,7 +108,7 @@ public:
   */
   void step()
   {
-    // check problem expert alive to init knowledge before spawning
+    //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
@@ -542,7 +543,7 @@ private:
     StateType state_;
        
     //mutex for deciding in which direction we're sync (PDDL->belief_set_ or belief_set_->PDDL)
-    std::mutex mtx_sync;        
+    mutex mtx_sync;        
     
     // agent id that defines the namespace in which the node operates
     string agent_id_;
@@ -552,9 +553,9 @@ private:
     // counter of communication errors with plansys2
     int psys2_comm_errors_;
     // problem expert instance to call the problem expert api
-    std::shared_ptr<ProblemExpertClient> problem_expert_;
+    shared_ptr<ProblemExpertClient> problem_expert_;
     // domain expert instance to call the problem expert api
-    std::shared_ptr<DomainExpertClient> domain_expert_;
+    shared_ptr<DomainExpertClient> domain_expert_;
     // flag to denote if the problem expert node seems to correctly answer 
     bool problem_expert_up_;
 

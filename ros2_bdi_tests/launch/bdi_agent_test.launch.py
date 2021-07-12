@@ -71,6 +71,17 @@ def generate_launch_description():
             {"pddl_test_problem": pddl_test_problem}
         ])
 
+    plan_director = Node(
+        package='ros2_bdi_core',
+        executable='plan_director',
+        name='plan_director',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME}
+        ])
+
+
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
     ld.add_action(declare_namespace_cmd)
@@ -82,5 +93,7 @@ def generate_launch_description():
     ld.add_action(belief_manager)
     #Add BDI scheduler
     ld.add_action(scheduler)
+    #Add plan director
+    ld.add_action(plan_director)
 
     return ld

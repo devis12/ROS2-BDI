@@ -1,0 +1,16 @@
+# This is the plan message used by the BDI agents in order to express a list of selected actions
+# to be performed in order to reach a specific desire
+# Every desire message should be able to be mapped into a PDDL 2.1 goal clause through the Belief array
+
+# @plan         -> plan to consider
+# @request      -> ABORT or EXECUTE
+# ---
+# @success      -> request successfully fulfilled
+
+int8 ABORT=-1
+int8 EXECUTE=1
+
+BDIPlan     plan
+int8        request
+---
+bool        success

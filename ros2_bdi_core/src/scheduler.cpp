@@ -124,7 +124,7 @@ public:
   */
   void step()
   {
-    // check problem expert alive to init knowledge before spawning
+    //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
@@ -226,7 +226,6 @@ private:
     {   
         if(noPlanSelected())
         {
-            vector<Plan> computedPlans = vector<Plan>();
             // priority of selected plan
             float highestPriority = 0.0f;
             // deadline of selected plan
@@ -241,7 +240,7 @@ private:
                     optional<Plan> opt_p = computePlan(md);
                     if(opt_p.has_value())
                     {
-                        ManagedPlan mp = ManagedPlan{md, opt_p.value()};
+                        ManagedPlan mp = ManagedPlan{md, opt_p.value().items};
                         // does computed deadline for this plan respect desire deadline?
                         if(mp.plan_deadline_ <= md.deadline_) 
                         {
@@ -345,11 +344,11 @@ private:
     // counter of communication errors with plansys2
     int psys2_comm_errors_;
     // problem expert instance to call the plansys2 problem expert api
-    std::shared_ptr<ProblemExpertClient> problem_expert_;
+    shared_ptr<ProblemExpertClient> problem_expert_;
     // domain expert instance to call the plansys2 domain expert api
-    std::shared_ptr<DomainExpertClient> domain_expert_;
+    shared_ptr<DomainExpertClient> domain_expert_;
     // planner expert instance to call the plansys2 planner api
-    std::shared_ptr<PlannerClient> planner_client_;
+    shared_ptr<PlannerClient> planner_client_;
     // flag to denote if the problem expert node seems to correctly answer 
     bool planner_expert_up_;
 

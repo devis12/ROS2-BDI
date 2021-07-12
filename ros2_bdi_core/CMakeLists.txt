@@ -43,10 +43,17 @@ ament_target_dependencies(scheduler
   plansys2_planner
 )
 
+add_executable(plan_director src/plan_director.cpp)
+ament_target_dependencies(plan_director 
+  ${common_dependencies} 
+  plansys2_executor
+)
+
 
 install(TARGETS
   belief_manager
   scheduler
+  plan_director
   DESTINATION lib/${PROJECT_NAME}
 )
 
