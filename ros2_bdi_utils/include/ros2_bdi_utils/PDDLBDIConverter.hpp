@@ -27,6 +27,16 @@ namespace PDDLBDIConverter
 {
 
   /*
+    Convert PlanSys2 PDDL Instance to ROS2-BDI Belief
+  */
+  Belief convertPDDLInstance(const Instance instance);
+
+  /*
+    Convert PlanSys2 PDDL Instances to ROS2-BDI Beliefs
+  */
+  vector<Belief> convertPDDLInstances(const vector<Instance> instances);
+  
+  /*
     Convert PlanSys2 PDDL Predicate to ROS2-BDI Belief
   */
   Belief convertPDDLPredicate(const Predicate predicate);

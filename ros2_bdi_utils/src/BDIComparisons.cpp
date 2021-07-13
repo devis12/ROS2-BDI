@@ -1,10 +1,6 @@
 #include <string>
 
 #include "ros2_bdi_utils/BDIComparisons.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
-
-#define FLUENT_TYPE PDDLBDIConstants::FLUENT_TYPE
-#define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
 
 using std::string;
 
@@ -15,9 +11,14 @@ namespace BDIComparisons
   */
   bool equals(const Belief b1, const Belief b2)
   {    
-    //check for different types or type fluent && different values
-    if(b1.type != b2.type || (b1.type == FLUENT_TYPE && b1.value != b2.value))
+    //check for different types or type function && different values
+    if(b1.type != b2.type || (b1.type == Belief().FUNCTION_TYPE && b1.value != b2.value))
         return false;
+
+    //if instance type check for name & params[0]
+    if(b1.type == Belief().INSTANCE_TYPE)
+      return b1.name == b2.name && b1.params.size() == 1 && b2.params.size() == 1 && 
+            b1.params[0] == b2.params[0];
 
     //check for different name or different num of params
     if(b1.name != b2.name || b1.params.size() != b2.params.size())
@@ -33,12 +34,12 @@ namespace BDIComparisons
   }
 
   /*
-    Return true if the two beliefs defines the same fluent (even though they could have different values)
+    Return true if the two beliefs defines the same function (even though they could have different values)
   */
-  bool equalFluentDefinition(const Belief b1, const Belief b2)
+  bool equalFunctionDefinition(const Belief b1, const Belief b2)
   {
-    //check for different types from FLUENT
-    if(b1.type != FLUENT_TYPE || b2.type != FLUENT_TYPE)
+    //check for different types from function
+    if(b1.type != Belief().FUNCTION_TYPE || b2.type != Belief().FUNCTION_TYPE)
         return false;
     
      //check for different name or different num of params

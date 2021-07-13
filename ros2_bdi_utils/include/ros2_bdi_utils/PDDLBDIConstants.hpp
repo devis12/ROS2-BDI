@@ -7,7 +7,8 @@ using std::string;
 
 namespace PDDLBDIConstants
 {   
-    inline string FLUENT_TYPE  {"FLUENT"};
+    inline string INSTANCE_TYPE  {"INSTANCE"};
+    inline string FUNCTION_TYPE  {"FUNCTION"};
     inline string PREDICATE_TYPE { "PREDICATE" };
     
 }  // namespace Constants

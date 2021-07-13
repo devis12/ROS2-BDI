@@ -17,8 +17,11 @@ class ManagedBelief
 {
 
     public:
-        ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value);
         ManagedBelief(const Belief& belief);
+        
+        static ManagedBelief buildMBInstance(const string& name, const string& type);
+        static ManagedBelief buildMBPredicate(const string& name, const vector<string>& params);
+        static ManagedBelief buildMBFunction(const string& name, const vector<string>& params, const float& value);
 
         string name_;
         string type_;
@@ -27,7 +30,7 @@ class ManagedBelief
 
         Belief toBelief() const;
     private:
-        
+        ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value);
 
 };  // class ManagedBelief
 

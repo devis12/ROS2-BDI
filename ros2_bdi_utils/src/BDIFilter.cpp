@@ -1,12 +1,8 @@
 #include <string>
 
 #include "ros2_bdi_utils/BDIFilter.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
 using std::string;
-
-#define FLUENT_TYPE PDDLBDIConstants::FLUENT_TYPE
-#define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
 
 namespace BDIFilter
 {
@@ -37,26 +33,38 @@ namespace BDIFilter
     return dset_msg; 
   }
 
-    /*
+  /*
+    Extract from passed vector just beliefs of type instance
+  */
+  vector<Belief> extractInstances(const vector<Belief> beliefs)
+  {
+    vector<Belief> extracted = vector<Belief>();
+    for(Belief b : beliefs)
+        if(b.type == Belief().INSTANCE_TYPE)
+            extracted.push_back(b);
+    return extracted;
+  }
+
+  /*
     Extract from passed vector just beliefs of type predicate
   */
   vector<Belief> extractPredicates(const vector<Belief> beliefs)
   {
     vector<Belief> extracted = vector<Belief>();
     for(Belief b : beliefs)
-        if(b.type == PREDICATE_TYPE)
+        if(b.type == Belief().PREDICATE_TYPE)
             extracted.push_back(b);
     return extracted;
   } 
 
   /*
-    Extract from passed vector just beliefs of type fluent
+    Extract from passed vector just beliefs of type function
   */
-  vector<Belief> extractFluents(const vector<Belief> beliefs)
+  vector<Belief> extractFunctions(const vector<Belief> beliefs)
   {
     vector<Belief> extracted = vector<Belief>();
     for(Belief b : beliefs)
-        if(b.type == FLUENT_TYPE)
+        if(b.type == Belief().FUNCTION_TYPE)
             extracted.push_back(b);
     return extracted;
   }
@@ -68,7 +76,19 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == PREDICATE_TYPE || b.type == FLUENT_TYPE)
+      if(b.type == Belief().INSTANCE_TYPE || b.type == Belief().PREDICATE_TYPE || b.type == Belief().FUNCTION_TYPE)
+          extracted.insert(ManagedBelief{b});
+    return extracted;
+  }
+
+  /*
+    Extract from passed vector beliefs and put them into a set of ManagedBelief objects
+  */
+  set<ManagedBelief> extractMGInstances(const vector<Belief> beliefs)
+  {
+    set<ManagedBelief> extracted = set<ManagedBelief>();
+    for(Belief b : beliefs)
+      if(b.type == Belief().INSTANCE_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
@@ -80,43 +100,55 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == PREDICATE_TYPE)
+      if(b.type == Belief().PREDICATE_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
 
   /*
-    Extract from passed vector just beliefs of type fluent and put them into a set of ManagedBelief objects
+    Extract from passed vector just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFluents(const vector<Belief> beliefs)
+  set<ManagedBelief> extractMGFunctions(const vector<Belief> beliefs)
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == FLUENT_TYPE)
+      if(b.type == Belief().FUNCTION_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
+  
+  /*
+    Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
+  */
+  set<ManagedBelief> extractMGInstances(const set<ManagedBelief> managed_beliefs)
+  {
+    set<ManagedBelief> extracted = set<ManagedBelief>();
+    for(ManagedBelief mb : managed_beliefs)
+      if(mb.type_ == Belief().INSTANCE_TYPE)
+          extracted.insert(mb);
+    return extracted;
+  }
 
-      /*
+  /*
     Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGPredicates(const set<ManagedBelief> managed_beliefs)
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(ManagedBelief mb : managed_beliefs)
-      if(mb.type_ == PREDICATE_TYPE)
+      if(mb.type_ == Belief().PREDICATE_TYPE)
           extracted.insert(mb);
     return extracted;
   }
 
   /*
-    Extract from passed set just beliefs of type fluent and put them into a set of ManagedBelief objects
+    Extract from passed set just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFluents(const set<ManagedBelief> managed_beliefs)
+  set<ManagedBelief> extractMGFunctions(const set<ManagedBelief> managed_beliefs)
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(ManagedBelief mb : managed_beliefs)
-      if(mb.type_ == FLUENT_TYPE)
+      if(mb.type_ == Belief().FUNCTION_TYPE)
           extracted.insert(mb);
     return extracted;
   }

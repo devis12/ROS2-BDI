@@ -16,9 +16,9 @@ namespace BDIComparisons
   bool equals(const Belief b1, const Belief b2);
 
   /*
-    Return true if the two beliefs defines the same fluent (even though they could have different values)
+    Return true if the two beliefs defines the same FUNCTION_TYPE (even though they could have different values)
   */
-  bool equalFluentDefinition(const Belief b1, const Belief b2);
+  bool equalFunctionDefinition(const Belief b1, const Belief b2);
   
 }  // namespace BDIComparisons
 

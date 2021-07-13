@@ -1,8 +1,4 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
-
-#define FLUENT_TYPE PDDLBDIConstants::FLUENT_TYPE
-#define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
 
 
 ManagedBelief::ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value):
@@ -18,6 +14,28 @@ ManagedBelief::ManagedBelief(const Belief& belief):
     params_(belief.params),
     value_ (belief.value)
     {}
+
+ManagedBelief ManagedBelief::buildMBInstance(const string& name, const string& type)
+{
+    vector<string> ins_type_vec = vector<string>({type});
+    return ManagedBelief{name, Belief().INSTANCE_TYPE, ins_type_vec, 0.0f};
+}
+
+ManagedBelief ManagedBelief::buildMBPredicate(const string& name, const vector<string>& params)
+{
+    vector<string> pred_params;
+    for(string p : params)
+        pred_params.push_back(p);
+    return ManagedBelief{name, Belief().PREDICATE_TYPE, pred_params, 0.0f};
+}
+
+ManagedBelief ManagedBelief::buildMBFunction(const string& name, const vector<string>& params, const float& value)
+{
+    vector<string> fun_params;
+    for(string p : params)
+        fun_params.push_back(p);
+    return ManagedBelief{name, Belief().FUNCTION_TYPE, fun_params, value};
+}
 
 Belief ManagedBelief::toBelief() const
 {
@@ -43,7 +61,13 @@ std::ostream& operator<<(std::ostream& os, const ManagedBelief& mb)
 bool operator<(ManagedBelief const &mb1, ManagedBelief const &mb2)
 {
     if(mb1.type_ != mb2.type_)
-        return mb1.type_ == PREDICATE_TYPE;
+    {
+        //for arbitrary order: INSTANCE comes first, then PREDICATE and after that FUNCTION_TYPE
+        if(mb1.type_ == Belief().INSTANCE_TYPE || mb1.type_ == Belief().PREDICATE_TYPE && mb2.type_ == Belief().FUNCTION_TYPE)
+            return true;
+        else
+            return false;   
+    }
 
     if(mb1.name_ != mb2.name_)
         return mb1.name_ < mb2.name_;
@@ -57,14 +81,14 @@ bool operator<(ManagedBelief const &mb1, ManagedBelief const &mb2)
             return mb1.params_[i] < mb2.params_[i];
 
 
-    return false;//do not check value_ (fluents are considered the same if they just have diff. value_)
+    return false;//do not check value_ (functions are considered the same if they just have diff. value_)
 }
 
 // overload `==` operator 
 bool operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
     //check for different types
-    //do not check value_ (fluents are considered the same if they just have diff. value_)
-    if(mb1.type_ != mb2.type_ /* || (mb1.type_ == FLUENT_TYPE && mb1.value_ != mb2.value_)*/)
+    //do not check value_ (functions are considered the same if they just have diff. value_)
+    if(mb1.type_ != mb2.type_ /* || (mb1.type_ == FUNCTION_TYPE && mb1.value_ != mb2.value_)*/)
         return false;
 
     //check for different name or different num of params

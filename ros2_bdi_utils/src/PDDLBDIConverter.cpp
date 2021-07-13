@@ -1,15 +1,41 @@
 #include <string>
 
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
 using std::string;
 
-#define FLUENT_TYPE PDDLBDIConstants::FLUENT_TYPE
-#define PREDICATE_TYPE PDDLBDIConstants::PREDICATE_TYPE
-
 namespace PDDLBDIConverter
 {
+
+  /*
+    Convert PlanSys2 PDDL Instance to ROS2-BDI Belief
+  */
+  Belief convertPDDLInstance(const Instance instance)
+  {
+    Belief b = Belief();
+    
+    b.name = instance.name;
+    b.type = Belief().INSTANCE_TYPE;
+
+    vector<string> params = vector<string>({instance.type});
+    b.params = params;
+    
+    b.value = 0.0f;// has NO meaning in Instance type
+    
+    return b;
+  }
+
+  /*
+    Convert PlanSys2 PDDL Instances to ROS2-BDI Beliefs
+  */
+  vector<Belief> convertPDDLInstances(const vector<Instance> instances)
+  {
+    vector<Belief> beliefs = vector<Belief>();
+    for(auto ins : instances)
+      beliefs.push_back(convertPDDLInstance(ins));
+    return beliefs;
+  }
+
    /*
     Convert PlanSys2 PDDL Predicate to ROS2-BDI Belief
   */
@@ -18,14 +44,14 @@ namespace PDDLBDIConverter
     Belief b = Belief();
     
     b.name = predicate.name;
-    b.type = PREDICATE_TYPE;
+    b.type = Belief().PREDICATE_TYPE;
 
     vector<string> params = vector<string>();
     for(auto p : predicate.parameters)
         params.push_back(p.name);
     b.params = params;
     
-    b.value = 0.0f;// has NO meaning in Function
+    b.value = 0.0f;// has NO meaning in Predicate type
     
     return b;
   }
@@ -50,7 +76,7 @@ namespace PDDLBDIConverter
     Belief b = Belief();
     
     b.name = function.name;
-    b.type = FLUENT_TYPE;
+    b.type = Belief().FUNCTION_TYPE;
 
     vector<string> params = vector<string>();
     for(auto p : function.parameters)
@@ -81,7 +107,7 @@ namespace PDDLBDIConverter
         
       for(Belief b : desire.value)
       {
-        if(b.type == PREDICATE_TYPE){
+        if(b.type == Belief().PREDICATE_TYPE){
           string params_list = "";
           for(int i=0; i<b.params.size(); i++)
               params_list += (i==b.params.size()-1)? b.params[i] : b.params[i] + " ";

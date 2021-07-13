@@ -19,7 +19,6 @@
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"

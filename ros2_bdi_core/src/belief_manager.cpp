@@ -11,7 +11,6 @@
 #include "plansys2_msgs/srv/get_problem_instances.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
-#include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIComparisons.hpp"
@@ -201,9 +200,10 @@ private:
         mtx_sync.lock();
             if(problem_expert_up_ || isProblemExpertActive())
             {
+                vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
                 vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
                 vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
-                notify = updateBeliefSet(predicates, functions);
+                notify = updateBeliefSet(instances, predicates, functions);
                 
             }
         mtx_sync.unlock();
@@ -212,35 +212,38 @@ private:
     }
 
     
-    bool updateBeliefSet(const vector<Belief>& pred_beliefs, const vector<Belief>& fluent_beliefs)
+    bool updateBeliefSet(const vector<Belief>& ins_beliefs, const vector<Belief>& pred_beliefs, const vector<Belief>& fun_beliefs)
     {
         bool notify;//if anything changes, put it to true
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "update problem: verify if needed to sync (b_set %d, prob_pred %d, prob_fun %d)", 
-                belief_set_.size(), pred_beliefs.size(), fluent_beliefs.size());
+            RCLCPP_INFO(this->get_logger(), "update problem: verify if needed to sync (b_set %d, prob_ins %d, prob_pred %d, prob_fun %d)", 
+                belief_set_.size(), ins_beliefs.size(), pred_beliefs.size(), fun_beliefs.size());
+
         //try to add new beliefs or modify current beliefs 
-        notify = (pred_beliefs.size() > 0 && addOrModifyBeliefs(pred_beliefs, false));
-        notify = (fluent_beliefs.size() > 0 && addOrModifyBeliefs(fluent_beliefs, true)) || notify;
+        notify = (ins_beliefs.size() > 0 && addOrModifyBeliefs(ins_beliefs, false));
+        notify = (pred_beliefs.size() > 0 && addOrModifyBeliefs(pred_beliefs, false)) || notify;
+        notify = (fun_beliefs.size() > 0 && addOrModifyBeliefs(fun_beliefs, true)) || notify;
 
         //check for the removal of some beliefs
-        notify = (belief_set_.size() && removedPredicateBeliefs(pred_beliefs)) || notify;
-        notify = (belief_set_.size() && removedFluentBeliefs(fluent_beliefs)) || notify;
+        notify = (belief_set_.size() > 0 && removedInstanceBeliefs(ins_beliefs)) || notify;
+        notify = (belief_set_.size() > 0 && removedPredicateBeliefs(pred_beliefs)) || notify;
+        notify = (belief_set_.size() > 0 && removedFunctionBeliefs(fun_beliefs)) || notify;
 
         return notify;//there has been some modifications
     }
 
      /*
-        Update belief_set checking for presence/absence/alteration of some belief in it wrt. predicates/fluent
+        Update belief_set checking for presence/absence/alteration of some belief in it wrt. predicates/function
         retrieved from the problem_expert
         Returns true if any modification to the belief_set occurs
 
-        @check_for_fluent put to true when you want to check also for modified fluents wrt. their values
+        @check_for_function put to true when you want to check also for modified functions wrt. their values
     */
-    bool addOrModifyBeliefs(const vector<Belief>& beliefs, const bool check_for_fluent)
+    bool addOrModifyBeliefs(const vector<Belief>& beliefs, const bool check_for_function)
     {
         bool modified = false;//if anything changes, put it to true
 
-        //check for new or modified (just in case of fluent type) beliefs
+        //check for new or modified (just in case of function type) beliefs
         for(auto bel : beliefs)
         {   
             ManagedBelief mb = ManagedBelief{bel};
@@ -254,7 +257,7 @@ private:
                 addBelief(bel);
                 modified = true;//there is an alteration, notify it
             }
-            else if(check_for_fluent && bel.value != (*(belief_set_.find(mb))).value_)
+            else if(check_for_function && bel.value != (*(belief_set_.find(mb))).value_)
             {
                 modifyBelief(mb);
                 modified = true;//there is an alteration, notify it
@@ -265,22 +268,48 @@ private:
     }
 
     /*
-        Extract from the passed beliefs and from the belief set just beliefs of type fluent and check if something
+        Extract from the passed beliefs and from the belief set just beliefs of type instance and check if something
         is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
         been any alteration through the boolean value in return.
     */
-    bool removedFluentBeliefs(const vector<Belief>& beliefs)
+    bool removedInstanceBeliefs(const vector<Belief>& beliefs)
     {
         bool modified = false;//if anything changes, put it to true
 
-        set<ManagedBelief> fluent_in_belief_set = BDIFilter::extractMGFluents(belief_set_);
-        set<ManagedBelief> fluent_in_pddl_prob = BDIFilter::extractMGFluents(beliefs);
+        set<ManagedBelief> instances_in_belief_set = BDIFilter::extractMGInstances(belief_set_);
+        set<ManagedBelief> instances_in_pddl_prob = BDIFilter::extractMGInstances(beliefs);
 
-        if(fluent_in_belief_set.size() > fluent_in_pddl_prob.size())
+        if(instances_in_belief_set.size() > instances_in_pddl_prob.size())
         {
-            //some fluent has to be removed from the belief set, since it has already been removed from the pddl problem
-            for(ManagedBelief mb : fluent_in_belief_set)
-                if(fluent_in_pddl_prob.count(mb) == 0)
+            //some instance has to be removed from the belief set, since it has already been removed from the pddl problem
+            for(ManagedBelief mb : instances_in_belief_set)
+                if(instances_in_pddl_prob.count(mb) == 0)
+                {
+                    modified = true;
+                    delBelief(mb);//mb shall be removed from belief_set_ since it's not present in the pddl_problem
+                }
+        }
+
+        return modified;
+    }
+    
+    /*
+        Extract from the passed beliefs and from the belief set just beliefs of type function and check if something
+        is in the beliefs array and not in the belief set. If so, remove it from the belief set and notify there has
+        been any alteration through the boolean value in return.
+    */
+    bool removedFunctionBeliefs(const vector<Belief>& beliefs)
+    {
+        bool modified = false;//if anything changes, put it to true
+
+        set<ManagedBelief> function_in_belief_set = BDIFilter::extractMGFunctions(belief_set_);
+        set<ManagedBelief> function_in_pddl_prob = BDIFilter::extractMGFunctions(beliefs);
+
+        if(function_in_belief_set.size() > function_in_pddl_prob.size())
+        {
+            //some function has to be removed from the belief set, since it has already been removed from the pddl problem
+            for(ManagedBelief mb : function_in_belief_set)
+                if(function_in_pddl_prob.count(mb) == 0)
                 {
                     modified = true;
                     delBelief(mb);//mb shall be removed from belief_set_ since it's not present in the pddl_problem
@@ -306,7 +335,7 @@ private:
         {
             //some predicate has to be removed from the belief set, since it has already been removed from the pddl problem
             for(ManagedBelief mb : pred_in_belief_set_)
-                if(pred_in_belief_set_.count(mb) == 0)
+                if(pred_in_pddl_prob.count(mb) == 0)
                 {
                     modified = true;
                     delBelief(mb);//mb shall be removed from belief_set_ since it's not present in the pddl_problem
@@ -326,6 +355,14 @@ private:
         return params_list;
     }
 
+    /*
+        Build plansys2::Instance obj from ManagedBelief
+    */
+    Instance buildInstance(const ManagedBelief& mb)
+    {
+        return Instance{mb.name_, mb.params_[0]};
+    }
+    
     /*
         Build plansys2::Predicate obj from ManagedBelief
     */
@@ -355,7 +392,15 @@ private:
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
-                if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+                if(mb.type_ == Belief().INSTANCE_TYPE)
+                {   
+                    //try to add new instance; if fails (word conflicts, wrong/missing type), no biggie!
+                    Instance ins = buildInstance(mb);
+                    if(problem_expert_->addInstance(ins))
+                        addBelief(mb);
+                } 
+
+                if(mb.type_ == Belief().PREDICATE_TYPE)
                 {   
                     //try to add new predicate; if fails, try to check and add missing instances
                     Predicate p_add = buildPredicate(mb);
@@ -364,9 +409,9 @@ private:
                         addBelief(mb);
                 } 
                 
-                if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+                if(mb.type_ == Belief().FUNCTION_TYPE)
                 {   
-                    //try to add new fluent; if fails, try to check and add missing instances
+                    //try to add new function; if fails, try to check and add missing instances
                     Function f_add =  buildFunction(mb);
                     if(problem_expert_->addFunction(f_add) || 
                         tryAddMissingInstances(mb) && problem_expert_->addFunction(f_add))
@@ -374,9 +419,9 @@ private:
                 }
 
             }
-            else if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
+            else if(mb.type_ == Belief().FUNCTION_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
             {
-                //fluent present in the belief set with diff. value
+                //function present in the belief set with diff. value
                 Function f_upd = buildFunction(mb);
                 if(problem_expert_->updateFunction(f_upd))//instances have to be already present
                     modifyBelief(mb);
@@ -427,7 +472,7 @@ private:
         }
         
         
-        if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+        if(mb.type_ == Belief().PREDICATE_TYPE)
         {   
             try {
                 //retrieve from domain expert definition information about this predicate
@@ -436,9 +481,14 @@ private:
                 {
                     if(missing_pos[i])//missing instance
                     {   
+                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.params_[i], pred.parameters[i].type);
+                        
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + pred.parameters[i].type);
-                        if(!problem_expert_->addInstance(Instance{mb.params_[i], pred.parameters[i].type}))//add instance (type found from domain expert)
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.name_ + " - " + mb_ins.params_[0]);
+                        
+                        if(problem_expert_->addInstance(buildInstance(mb_ins)))//add instance (type found from domain expert)
+                            addBelief(mb_ins);
+                        else
                             return false;//add instance failed
                     }
                 }
@@ -446,7 +496,7 @@ private:
             } catch(const std::bad_optional_access& e) {}
         } 
         
-        if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+        if(mb.type_ == Belief().FUNCTION_TYPE)
         {   
             try {
                 //retrieve from domain expert definition information about this function
@@ -455,9 +505,14 @@ private:
                 {
                     if(missing_pos[i])//missing instance
                     {
+                         ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.params_[i], function.parameters[i].type);
+                        
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb.params_[i] + " - " + function.parameters[i].type);
-                        if(!problem_expert_->addInstance(Instance{mb.params_[i], function.parameters[i].type}))//add instance (type found from domain expert)
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.name_ + " - " + mb_ins.params_[0]);
+                        
+                        if(problem_expert_->addInstance(buildInstance(mb_ins)))//add instance (type found from domain expert)
+                            addBelief(mb_ins);
+                        else
                             return false;//add instance failed
                     }
 
@@ -482,13 +537,21 @@ private:
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
-                if(mb.type_ == PDDLBDIConstants::PREDICATE_TYPE)
+                if(mb.type_ == Belief().INSTANCE_TYPE)
+                {
+                    //relative predicates/functions will be automatically removed in the pddl_problem, 
+                    // hence in the consequent update notification removed in the belief_set as well
+                    Instance ins = buildInstance(mb);
+                    done = !problem_expert_->getInstance(ins.name).has_value() || problem_expert_->removeInstance(ins);
+                }
+
+                if(mb.type_ == Belief().PREDICATE_TYPE)
                 {
                     Predicate pred = buildPredicate(mb);
                     done = !problem_expert_->existPredicate(pred) || problem_expert_->removePredicate(pred);
                 }
 
-                if(mb.type_ == PDDLBDIConstants::FLUENT_TYPE)
+                if(mb.type_ == Belief().FUNCTION_TYPE)
                 {
                     Function fun = buildFunction(mb);
                     done = !problem_expert_->existFunction(fun) || problem_expert_->removeFunction(fun);
@@ -514,7 +577,7 @@ private:
 
     /*
         remove and add belief into belief set 
-        (i.e. cover the case of same fluent with diff. values)
+        (i.e. cover the case of same function with diff. values)
     */
     void modifyBelief(const ManagedBelief& mb)
     {

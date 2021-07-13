@@ -34,14 +34,19 @@ namespace BDIFilter
   DesireSet extractDesireSetMsg(const set<ManagedDesire> managed_desires);
 
   /*
+    Extract from passed vector just beliefs of type instance
+  */
+  vector<Belief> extractInstances(const vector<Belief> beliefs);
+
+  /*
     Extract from passed vector just beliefs of type predicate
   */
   vector<Belief> extractPredicates(const vector<Belief> beliefs);
 
   /*
-    Extract from passed vector just beliefs of type fluent
+    Extract from passed vector just beliefs of type function
   */
-  vector<Belief> extractFluents(const vector<Belief> beliefs);
+  vector<Belief> extractFunctions(const vector<Belief> beliefs);
 
   /*
     Extract from passed vector beliefs and put them into a set of ManagedBelief objects
@@ -49,24 +54,34 @@ namespace BDIFilter
   set<ManagedBelief> extractMGBeliefs(const vector<Belief> beliefs);
 
   /*
+    Extract from passed vector beliefs and put them into a set of ManagedBelief objects
+  */
+  set<ManagedBelief> extractMGInstances(const vector<Belief> beliefs);
+
+  /*
     Extract from passed vector just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGPredicates(const vector<Belief> beliefs);
 
   /*
-    Extract from passed vector just beliefs of type fluent and put them into a set of ManagedBelief objects
+    Extract from passed vector just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFluents(const vector<Belief> beliefs);
+  set<ManagedBelief> extractMGFunctions(const vector<Belief> beliefs);
 
+  /*
+    Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
+  */
+  set<ManagedBelief> extractMGInstances(const set<ManagedBelief> managed_beliefs);
+  
   /*
     Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGPredicates(const set<ManagedBelief> managed_beliefs);
 
   /*
-    Extract from passed set just beliefs of type fluent and put them into a set of ManagedBelief objects
+    Extract from passed set just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFluents(const set<ManagedBelief> managed_beliefs);
+  set<ManagedBelief> extractMGFunctions(const set<ManagedBelief> managed_beliefs);
   
 }  // namespace BDIFilter
 
