@@ -3,6 +3,7 @@
 #include <ctime>
 #include <memory>
 #include <thread>
+#include <chrono>
  
 #include "plansys2_msgs/msg/action_execution_info.hpp"
 #include "plansys2_executor/ExecutorClient.hpp"
@@ -27,12 +28,14 @@ using std::string;
 using std::thread;
 using std::shared_ptr;
 using std::chrono::milliseconds;
+using std::chrono::high_resolution_clock;
 using std::bind;
 using std::placeholders::_1;
 using std::placeholders::_2;
 using std::optional;
 
 using plansys2::ExecutorClient;
+using plansys2_msgs::msg::ActionExecutionInfo;
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
 
@@ -129,14 +132,16 @@ public:
 
         case READY:
         {
+            //RCLCPP_INFO(this->get_logger(), "Ready to accept new plan to be executed");
             publishNoPlanExec();//notify node it is currently on idle, i.e. not executing any plan
             break;
         }
 
         case EXECUTING:
         {    
+            //RCLCPP_INFO(this->get_logger(), "Checking plan execution");
             checkPlanExecution();
-            //RCLCPP_INFO(this->get_logger(), "Executor ready to take action");
+            break;
         }
 
         case PAUSE:
@@ -158,6 +163,10 @@ private:
         state_ = state;
     }
 
+    /*
+        When in READY state, msg to publish in plan_execution_info to notify it 
+        (i.e. notify you're not executing any plan)
+    */
     void publishNoPlanExec()
     {
         if(current_plan_.body_.size() == 0 &&
@@ -210,6 +219,13 @@ private:
         executor_client_->cancel_plan_execution();
 
         //clear info about current plan execution
+        setNoPlanMsg();
+      
+    }
+
+    //clear info about current plan execution
+    void setNoPlanMsg()
+    {
         current_plan_ = ManagedPlan{};
         current_plan_.desire_.name_ = no_plan_msg_.target.name;
     }
@@ -232,6 +248,8 @@ private:
             {
                 cancelCurrentPlanExecution();
                 setState(READY);//put node in ready state (ready to receive plan to execute, not executing any plan right now)
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
                 done = true;
             }
         }
@@ -242,8 +260,18 @@ private:
             plan_to_execute.items = request->plan.actions;
             if(executor_client_->start_plan_execution(plan_to_execute))
             {
-                current_plan_ = ManagedPlan();
+                current_plan_ = ManagedPlan{request->plan.desire, request->plan.actions};
+                current_plan_start_ = high_resolution_clock::now();//plan started now
                 setState(EXECUTING);//put node in executing state
+                
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                {
+                    string plan_string = "";
+                    for(PlanItem pi : plan_to_execute.items)
+                        plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
+                    RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
+                }
+                    
                 done = true;
             } 
         }
@@ -251,10 +279,54 @@ private:
         response->success = done;
     }
 
-
+    /*
+        Plan currently in execution, monitor and publish the feedback of its development
+    */
     void checkPlanExecution()
     {
 
+        BDIActionExecutionInfo actionExecutionInfo = BDIActionExecutionInfo();
+        auto feedback = executor_client_->getFeedBack();
+
+        //find executing action status
+        for (int i=0; i<feedback.action_execution_status.size(); i++) {
+            ActionExecutionInfo psys2_action_feed = feedback.action_execution_status[i];        
+            if(psys2_action_feed.EXECUTING && psys2_action_feed.completion > 0.0 && psys2_action_feed.completion < 1.0)
+            {
+                actionExecutionInfo.args = psys2_action_feed.arguments;
+                actionExecutionInfo.index = i;
+                actionExecutionInfo.name = psys2_action_feed.action;
+                actionExecutionInfo.started = (float)psys2_action_feed.start_stamp.sec + 
+                    (((float)psys2_action_feed.start_stamp.nanosec) / pow(10,9));
+                actionExecutionInfo.status = psys2_action_feed.completion;
+                break;
+            }    
+        }
+
+        BDIPlanExecutionInfo planExecutionInfo = BDIPlanExecutionInfo();
+        planExecutionInfo.target = current_plan_.desire_.toDesire();
+        planExecutionInfo.actions = current_plan_.body_;
+        planExecutionInfo.executing = actionExecutionInfo;
+        planExecutionInfo.estimated_deadline = current_plan_.plan_deadline_;
+        planExecutionInfo.current_time = (float)
+            (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count());
+        planExecutionInfo.status = planExecutionInfo.RUNNING;
+        
+        if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
+        {      
+            if(executor_client_->getResult().value().success)//successful  run
+            {
+                planExecutionInfo.status = planExecutionInfo.SUCCESSFUL;
+                //not executing any plan now
+                setNoPlanMsg();
+                setState(READY);
+            }
+            
+            else //plan aborted
+                planExecutionInfo.status =  planExecutionInfo.ABORT;
+        }   
+
+        plan_exec_publisher_->publish(planExecutionInfo);
     }
 
     // internal state of the node
@@ -276,6 +348,8 @@ private:
     bool psys2_executor_up_;
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     ManagedPlan current_plan_;
+    // time at which plan started
+    high_resolution_clock::time_point current_plan_start_;
     // msg to notify the idle-ready state, i.e. no current plan execution, but ready to do it
     BDIPlanExecutionInfo no_plan_msg_;
 

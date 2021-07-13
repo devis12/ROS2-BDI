@@ -4,7 +4,8 @@
 #include <memory>
 #include <mutex>
 #include <vector>
-#include <set>       
+#include <set>   
+#include <thread>    
 
 #include "plansys2_planner/PlannerClient.hpp"
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
@@ -14,6 +15,9 @@
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
+#include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
@@ -31,6 +35,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::thread;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -49,6 +54,9 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::DesireSet;
+using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
 
@@ -111,6 +119,11 @@ public:
                 "belief_set", 10,
                 bind(&Scheduler::updatedBeliefSet, this, _1));
 
+    plan_exec_info_subscriber_ = this->create_subscription<BDIPlanExecutionInfo>(
+        "plan_execution_info", 10,
+         bind(&Scheduler::updatePlanExecution, this, _1)
+    );
+
     //loop to be called regularly to perform work (publish belief_set_, sync with plansys2 problem_expert node...)
     do_work_timer_ = this->create_wall_timer(
         milliseconds(500),
@@ -147,6 +160,7 @@ public:
 
         case SCHEDULING:
         {    
+            reschedule();
         }
 
         case PAUSE:
@@ -226,6 +240,9 @@ private:
     {   
         if(noPlanSelected())
         {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
+
             // priority of selected plan
             float highestPriority = 0.0f;
             // deadline of selected plan
@@ -262,7 +279,10 @@ private:
             if(selectedPlan.body_.size() > 0 && desire_set_.count(selectedPlan.desire_)==1)
             {
                 current_plan_ = selectedPlan;
-                triggerPlanExecution();
+                //trigger plan execution
+                shared_ptr<thread> thr = 
+                    std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this));
+                thr->detach();
             }
         }
     }
@@ -272,7 +292,61 @@ private:
     */
     void triggerPlanExecution()
     {
+        //check for service to be up
+        rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
+            this->create_client<BDIPlanExecution>("plan_execution");
+       
+        int err = 0;
+        while(!client_->wait_for_service(std::chrono::seconds(1))){
+            //service seems not even present, just return false
+            RCLCPP_WARN(this->get_logger(), "plan_execution server does not appear to be up");
+            if(err==3)
+                return;
+            err++;
+        }
 
+        auto request = std::make_shared<BDIPlanExecution::Request>();
+        request->request = request->EXECUTE;
+        request->plan = current_plan_.toPlan();
+        auto future = client_->async_send_request(request);
+
+        try{
+            auto response = future.get();
+            if(!response->success)//notifying you're not executing any plan right now
+            {
+                current_plan_ = ManagedPlan{};//no current_plan_
+            }else{
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Triggered new plan execution");
+            }
+        }catch(const std::exception &e){
+            RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
+        }
+    }
+
+    /*
+        The belief set has been updated
+    */
+    void updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
+    {
+        auto planExecInfo = (*msg);
+        if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
+        {
+            if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Plan successfully executed: desire achieved! Remove it from desire set");
+                delDesire(ManagedDesire{planExecInfo.target});//desire achieved
+            }
+
+            else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
+            {
+
+            }
+
+            current_plan_ = ManagedPlan{};//no current plan in execution
+            reschedule();// reschedule for new plan execution
+        }
     }
 
     /*
@@ -289,17 +363,9 @@ private:
     */
     void addDesireTopicCallBack(const Desire::SharedPtr msg)
     {
-        bool modified = false;
-        ManagedDesire md = ManagedDesire{(*msg)};
-        mtx_sync.lock();
-            if(desire_set_.count(md)==0)
-            {
-                desire_set_.insert(md);
-                modified = true;
-            }
-        mtx_sync.unlock();
+        bool added = addDesire(ManagedDesire{(*msg)});
 
-        if(modified)//if any alteration to the desire_set has occured, reschedule
+        if(added)//if any alteration to the desire_set has occured, reschedule
             reschedule();
     }
 
@@ -309,18 +375,42 @@ private:
     */
     void delDesireTopicCallBack(const Desire::SharedPtr msg)
     {
-        bool modified = false;
-        ManagedDesire md = ManagedDesire{(*msg)};
+        bool deleted = delDesire(ManagedDesire{(*msg)});
+
+        if(deleted)//if any alteration to the desire_set has occured, reschedule
+            reschedule();
+    }
+
+    /*
+        Add desire to desire_set (if there is not yet)
+    */
+    bool addDesire(const ManagedDesire& md)
+    {
+        bool added = false;
+        mtx_sync.lock();
+            if(desire_set_.count(md)==0)
+            {
+                desire_set_.insert(md);
+                added = true;
+            }
+        mtx_sync.unlock();
+        return added;
+    }
+    
+    /*
+        Del desire from desire_set if present (Access through lock!)
+    */
+    bool delDesire(const ManagedDesire& md)
+    {
+        bool deleted = false;
         mtx_sync.lock();
             if(desire_set_.count(md)!=0)
             {
                 desire_set_.erase(desire_set_.find(md));
-                modified = true;
+                deleted = true;
             }
         mtx_sync.unlock();
-
-        if(modified)//if any alteration to the desire_set has occured, reschedule
-            reschedule();
+        return deleted;
     }
 
     string readTestPDDLDomain()
@@ -375,7 +465,10 @@ private:
     rclcpp::Publisher<DesireSet>::SharedPtr desire_set_publisher_;//desire set publisher
 
     // belief set subscriber
-    rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;//desire set publisher
+    rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;//belief set sub.
+
+    // plan executioninfo subscriber
+    rclcpp::Subscription<BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
 };
 
 int main(int argc, char ** argv)

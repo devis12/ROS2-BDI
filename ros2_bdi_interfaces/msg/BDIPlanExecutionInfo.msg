@@ -7,9 +7,15 @@
 # @executing            -> specific info about the action currently in execution 
 # @current_time         -> time elapsed since plan started
 # @estimated_deadline   -> estimated deadline in seconds
+# @status               -> plan status
+
+uint8 RUNNING=0
+uint8 ABORT=1
+uint8 SUCCESSFUL=2
 
 Desire target
 plansys2_msgs/PlanItem[] actions
 BDIActionExecutionInfo executing
 float32     current_time
-float32 estimated_deadline
+float32     estimated_deadline
+uint8       status
