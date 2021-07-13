@@ -40,9 +40,10 @@ private:
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 
-    RCLCPP_INFO(this->get_logger(), 
-      "[move " + args[0] + " from " +  args[1] + " toward " + args[2] + "] "+ 
-      "progress: %.1f%%", progress_100);
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+      RCLCPP_INFO(this->get_logger(), 
+        "[move " + args[0] + " from " +  args[1] + " toward " + args[2] + "] "+ 
+        "progress: %.1f%%", progress_100);
   }
 
   float progress_;
