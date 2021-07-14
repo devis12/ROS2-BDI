@@ -8,7 +8,6 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 
 #define PARAM_AGENT_ID "agent_id"
-#define PARAM_DEBUG "debug"
 
 using namespace std::chrono_literals;
 
@@ -23,7 +22,6 @@ public:
   {
     progress_ = 0.0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
-    this->declare_parameter(PARAM_DEBUG, true);
   }
 
 private:
@@ -40,8 +38,7 @@ private:
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-      RCLCPP_INFO(this->get_logger(), 
+    RCLCPP_DEBUG(this->get_logger(), 
         "[move " + args[0] + " from " +  args[1] + " toward " + args[2] + "] "+ 
         "progress: %.1f%%", progress_100);
   }
@@ -60,6 +57,10 @@ int main(int argc, char ** argv)
   node->set_parameter(rclcpp::Parameter("action_name", "movetoward"));
   node->set_parameter(rclcpp::Parameter("specialized_arguments", specialized_arguments));
   
+  RCLCPP_DEBUG(node->get_logger(), 
+      "\"" + node->get_parameter("action_name").as_string() + 
+      "\" action performer for agent: " + node->get_parameter("specialized_arguments").as_string_array()[0]);
+
   //action node, once created, must pass to inactive state to be ready to execute. 
   // ActionExecutorClient is a managed node (https://design.ros2.org/articles/node_lifecycle.html)
   node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);

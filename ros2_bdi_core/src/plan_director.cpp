@@ -23,6 +23,7 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
+#define NO_PLAN "NO_PLAN"
 
 using std::string;
 using std::thread;
@@ -62,11 +63,12 @@ public:
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
     no_plan_msg_.target = Desire();
-    no_plan_msg_.target.name = "NO_PLAN";
+    no_plan_msg_.target.name = NO_PLAN;
     no_plan_msg_.target.value = vector<Belief>();
     no_plan_msg_.actions = vector<PlanItem>();
     no_plan_msg_.current_time = 0.0f;
     no_plan_msg_.estimated_deadline = 0.0f;
+    setNoPlanMsg();
   }
 
   /*
@@ -132,7 +134,8 @@ public:
 
         case READY:
         {
-            //RCLCPP_INFO(this->get_logger(), "Ready to accept new plan to be executed");
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Ready to accept new plan to be executed");
             publishNoPlanExec();//notify node it is currently on idle, i.e. not executing any plan
             break;
         }
@@ -170,7 +173,7 @@ private:
     void publishNoPlanExec()
     {
         if(current_plan_.body_.size() == 0 &&
-                current_plan_.desire_.name_ == "" && current_plan_.desire_.priority_ == 0.0f)
+                current_plan_.desire_.name_ == NO_PLAN && current_plan_.desire_.priority_ == 0.0f)
         {
             //no plan currently in execution -> proceeds notifying that
             plan_exec_publisher_->publish(no_plan_msg_);
@@ -220,14 +223,18 @@ private:
 
         //clear info about current plan execution
         setNoPlanMsg();
-      
     }
 
     //clear info about current plan execution
     void setNoPlanMsg()
     {
         current_plan_ = ManagedPlan{};
-        current_plan_.desire_.name_ = no_plan_msg_.target.name;
+        current_plan_.desire_ = no_plan_msg_.target;
+        current_plan_.body_.clear();
+        current_plan_.precondition_.clear();
+        current_plan_.context_.clear();
+        current_plan_.desire_.deadline_ = 0.0f;
+        current_plan_.desire_.priority_ = 0.0f;
     }
 
     /*  
@@ -296,6 +303,7 @@ private:
                 actionExecutionInfo.args = psys2_action_feed.arguments;
                 actionExecutionInfo.index = i;
                 actionExecutionInfo.name = psys2_action_feed.action;
+                //TODO FIX started
                 actionExecutionInfo.started = (float)psys2_action_feed.start_stamp.sec + 
                     (((float)psys2_action_feed.start_stamp.nanosec) / pow(10,9));
                 actionExecutionInfo.status = psys2_action_feed.completion;
@@ -308,8 +316,9 @@ private:
         planExecutionInfo.actions = current_plan_.body_;
         planExecutionInfo.executing = actionExecutionInfo;
         planExecutionInfo.estimated_deadline = current_plan_.plan_deadline_;
-        planExecutionInfo.current_time = (float)
-            (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count());
+        float current_time_ms =  (float) (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count()) / pow(10, 3);
+        //TODO fix current_time
+        planExecutionInfo.current_time = ((float)((int) (current_time_ms*1000 + .5))) / 1000.0f;//round to third decimal top
         planExecutionInfo.status = planExecutionInfo.RUNNING;
         
         if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
@@ -318,12 +327,16 @@ private:
             {
                 planExecutionInfo.status = planExecutionInfo.SUCCESSFUL;
                 //not executing any plan now
-                setNoPlanMsg();
-                setState(READY);
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Plan executed successfully: READY to execute new plan now\n");
             }
             
             else //plan aborted
                 planExecutionInfo.status =  planExecutionInfo.ABORT;
+            
+            //in any case plan execution has stopped, so go back to printing out you're not executing any plan
+            setNoPlanMsg();
+            setState(READY);
         }   
 
         plan_exec_publisher_->publish(planExecutionInfo);

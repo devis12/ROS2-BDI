@@ -33,6 +33,11 @@ def generate_launch_description():
         default_value=AGENT_NAME,
         description='Namespace definition')
     
+    log_level_cmd = DeclareLaunchArgument(
+        'log_level',
+        default_value=["debug"],
+        description='Logging level')
+    
     stdout_linebuf_envvar = SetEnvironmentVariable(
         'RCUTILS_CONSOLE_STDOUT_LINE_BUFFERED', '1')
     
@@ -81,10 +86,41 @@ def generate_launch_description():
             {"agent_id": AGENT_NAME}
         ])
 
+    action_movetoward = Node(
+        package='ros2_bdi_tests',
+        executable='movetoward',
+        name='movetoward',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME}
+        ])
+
+    action_doclean = Node(
+        package='ros2_bdi_tests',
+        executable='doclean',
+        name='doclean',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME}
+        ])
+    
+    action_recharge = Node(
+        package='ros2_bdi_tests',
+        executable='recharge',
+        name='recharge',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME}
+        ])
+
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
     ld.add_action(declare_namespace_cmd)
+    ld.add_action(log_level_cmd)
 
     # Declare the launch options
     ld.add_action(plansys2_cmd)
@@ -95,5 +131,10 @@ def generate_launch_description():
     ld.add_action(scheduler)
     #Add plan director
     ld.add_action(plan_director)
+
+    #Action performers for agent
+    ld.add_action(action_movetoward)
+    ld.add_action(action_doclean)
+    ld.add_action(action_recharge)
 
     return ld

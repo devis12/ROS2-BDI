@@ -158,7 +158,8 @@ public:
         }
 
         case SCHEDULING:
-        {    
+        {   
+            publishDesireSet();
             reschedule();
         }
 
@@ -208,11 +209,30 @@ private:
     }
 
     /*
+        Check with the problem_expert to understand if this is a valid goal
+        (i.e. valid predicates and valid instances defined within them)
+    */
+    bool validGoal(const ManagedDesire& md)
+    {
+        for(ManagedBelief mb : md.value_)
+        {
+            if(!domain_expert_->getPredicate(mb.name_).has_value())//incorrect predicate name
+                return false;
+
+            for(string ins_name : mb.params_)
+                if(!problem_expert_->getInstance(ins_name).has_value())//found a not valid instance in one of the goal predicates
+                    return false;
+        }
+        
+        return true;
+    }
+
+    /*
         Compute plan from managed desire, setting its belief array representing the desirable state to reach
         as the goal of the PDDL problem 
     */
     optional<Plan> computePlan(const ManagedDesire& md)
-    {
+    {   
         //set desire as goal of the pddl_problem
         if(!problem_expert_->setGoal(Goal{PDDLBDIConverter::desireToGoal(md.toDesire())})){
             psys2_comm_errors_++;//plansys2 comm. errors
@@ -249,6 +269,8 @@ private:
             
             ManagedPlan selectedPlan;
             
+            vector<ManagedDesire> discarded_desires;
+
             for(ManagedDesire md : desire_set_)
             {
                 //select just desires of higher or equal priority with respect to the one currently selected
@@ -270,9 +292,19 @@ private:
                             }
                         }
                     }
+                    else if(!validGoal(md)) //check if the problem is the goal not being valid          
+                    {
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.name_ + "\" presents not valid goal: desire will be removed from desire_set");
+                        discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
+                    }
                 }
                 
             }
+
+            //removed discarded desires
+            for(ManagedDesire md : discarded_desires)
+                delDesire(md);
 
             //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
             if(selectedPlan.body_.size() > 0 && desire_set_.count(selectedPlan.desire_)==1)
@@ -340,7 +372,8 @@ private:
 
             else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
             {
-
+                //  for now mantain the desire
+                // (if not valid anymore, it'll be removed in next rescheduling, otherwise the plan will be commissioned again)
             }
 
             current_plan_ = ManagedPlan{};//no current plan in execution
