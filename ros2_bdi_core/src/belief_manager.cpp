@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <thread>
 #include <mutex>          
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
@@ -25,6 +26,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::thread;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -80,13 +82,17 @@ public:
 
     //Belief set publisher
     belief_set_publisher_ = this->create_publisher<BeliefSet>("belief_set", 10);
+    
+    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
+    qos_keep_all.keep_all();
+
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
-                "add_belief", 10,
+                "add_belief", qos_keep_all,
                 bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
-                "del_belief", 10,
+                "del_belief", qos_keep_all,
                 bind(&BeliefManager::delBeliefTopicCallBack, this, _1));
 
     //problem_expert update subscriber

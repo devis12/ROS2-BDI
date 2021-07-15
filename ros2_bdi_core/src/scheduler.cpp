@@ -102,20 +102,23 @@ public:
 
     //Desire set publisher
     desire_set_publisher_ = this->create_publisher<DesireSet>("desire_set", 10);
+    
+    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
+    qos_keep_all.keep_all();
 
     //Desire to be added notification
     add_desire_subscriber_ = this->create_subscription<Desire>(
-                "add_desire", 10,
+                "add_desire", qos_keep_all,
                 bind(&Scheduler::addDesireTopicCallBack, this, _1));
 
     //Desire to be removed notification
     del_desire_subscriber_ = this->create_subscription<Desire>(
-                "del_desire", 10,
+                "del_desire", qos_keep_all,
                 bind(&Scheduler::delDesireTopicCallBack, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                "belief_set", 10,
+                "belief_set", qos_keep_all,
                 bind(&Scheduler::updatedBeliefSet, this, _1));
 
     plan_exec_info_subscriber_ = this->create_subscription<BDIPlanExecutionInfo>(
@@ -259,8 +262,8 @@ private:
     {   
         if(noPlanSelected())
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
+
+            RCLCPP_DEBUG(this->get_logger(), "Reschedule to select new plan to be executed");
 
             // priority of selected plan
             float highestPriority = 0.0f;
