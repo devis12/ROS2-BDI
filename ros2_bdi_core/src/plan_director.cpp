@@ -269,6 +269,7 @@ private:
             {
                 current_plan_ = ManagedPlan{request->plan.desire, request->plan.actions};
                 current_plan_start_ = high_resolution_clock::now();//plan started now
+                first_ts_plan_sec = -1;//reset this value
                 setState(EXECUTING);//put node in executing state
                 
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
@@ -297,15 +298,51 @@ private:
 
         //find executing action status
         for (int i=0; i<feedback.action_execution_status.size(); i++) {
+
             ActionExecutionInfo psys2_action_feed = feedback.action_execution_status[i];        
             if(psys2_action_feed.EXECUTING && psys2_action_feed.completion > 0.0 && psys2_action_feed.completion < 1.0)
             {
                 actionExecutionInfo.args = psys2_action_feed.arguments;
                 actionExecutionInfo.index = i;
                 actionExecutionInfo.name = psys2_action_feed.action;
-                //TODO FIX started
-                actionExecutionInfo.started = (float)psys2_action_feed.start_stamp.sec + 
-                    (((float)psys2_action_feed.start_stamp.nanosec) / pow(10,9));
+
+                if(first_ts_plan_sec < 0)//set just for first start timestamp captured in this plan exec (then always subtract from it)
+                    first_ts_plan_sec = psys2_action_feed.start_stamp.sec;
+
+                actionExecutionInfo.args.push_back(
+                    "first_ts_plan_sec(sec): " + std::to_string(first_ts_plan_sec));
+
+                actionExecutionInfo.args.push_back(
+                    "START_i(sec): " + std::to_string(psys2_action_feed.start_stamp.sec));
+                actionExecutionInfo.args.push_back(
+                    "START_i(nanosec): " + std::to_string(psys2_action_feed.start_stamp.nanosec));
+                actionExecutionInfo.args.push_back(
+                    "START_f(nanosec): " + std::to_string((round(psys2_action_feed.start_stamp.nanosec / pow(10, 6)) / pow(10, 3))));
+                actionExecutionInfo.args.push_back(
+                    "STATUS_i(sec): " + std::to_string(psys2_action_feed.status_stamp.sec));
+                    
+                actionExecutionInfo.args.push_back(
+                    "STATUS_i(nanosec): " + std::to_string(psys2_action_feed.status_stamp.nanosec));
+                actionExecutionInfo.args.push_back(
+                    "STATUS_f(nanosec): " + std::to_string((round(psys2_action_feed.status_stamp.nanosec / pow(10, 6)) / pow(10, 3))));
+                
+                //retrieve execution time with precision up to ms (status_timestamp - start_timestamp)
+                float start_time_s = (psys2_action_feed.start_stamp.sec - first_ts_plan_sec) + 
+                    (round(psys2_action_feed.start_stamp.nanosec / pow(10, 6)) / pow(10, 3));
+                float status_time_s = (psys2_action_feed.status_stamp.sec - first_ts_plan_sec) + 
+                    (round(psys2_action_feed.status_stamp.nanosec / pow(10, 6)) / pow(10, 3));
+                
+                actionExecutionInfo.args.push_back("");
+                actionExecutionInfo.args.push_back("START: " + std::to_string(start_time_s));
+                actionExecutionInfo.args.push_back("STATUS: " + std::to_string(status_time_s));
+                actionExecutionInfo.args.push_back("EXEC: " + std::to_string(status_time_s - start_time_s));
+               
+                actionExecutionInfo.exec_time = status_time_s - start_time_s; 
+
+                //retrieve estimated duration for action from pddl domain
+                actionExecutionInfo.duration = (float)psys2_action_feed.duration.sec + 
+                    (((float)psys2_action_feed.duration.nanosec) / pow(10,9));
+
                 actionExecutionInfo.status = psys2_action_feed.completion;
                 break;
             }    
@@ -326,6 +363,7 @@ private:
             if(executor_client_->getResult().value().success)//successful  run
             {
                 planExecutionInfo.status = planExecutionInfo.SUCCESSFUL;
+                first_ts_plan_sec = -1;//reset this value
                 //not executing any plan now
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Plan executed successfully: READY to execute new plan now\n");
@@ -365,6 +403,9 @@ private:
     high_resolution_clock::time_point current_plan_start_;
     // msg to notify the idle-ready state, i.e. no current plan execution, but ready to do it
     BDIPlanExecutionInfo no_plan_msg_;
+
+    // record first timestamp in sec of the current plan execution (to subtract from it)
+    int first_ts_plan_sec;
 
     // notification about the current plan execution
     rclcpp::Publisher<BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;//belief set publisher
