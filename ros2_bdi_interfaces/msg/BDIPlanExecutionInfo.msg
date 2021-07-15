@@ -4,7 +4,7 @@
 
 # @target               -> desire which is going to be fulfilled by the plan
 # @actions              -> array of actions which composed the body of the plan in execution
-# @executing            -> specific info about the action currently in execution 
+# @executing            -> specific info about the action(s) currently in execution 
 # @current_time         -> time elapsed since plan started
 # @estimated_deadline   -> estimated deadline in seconds
 # @status               -> plan status
@@ -15,7 +15,7 @@ uint8 SUCCESSFUL=2
 
 Desire target
 plansys2_msgs/PlanItem[] actions
-BDIActionExecutionInfo executing
+BDIActionExecutionInfo[] executing
 float32     current_time
 float32     estimated_deadline
 uint8       status
