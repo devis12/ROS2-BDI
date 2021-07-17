@@ -40,7 +40,7 @@ namespace BDIFilter
   {
     vector<Belief> extracted = vector<Belief>();
     for(Belief b : beliefs)
-        if(b.type == Belief().INSTANCE_TYPE)
+        if(b.pddl_type == Belief().INSTANCE_TYPE)
             extracted.push_back(b);
     return extracted;
   }
@@ -52,7 +52,7 @@ namespace BDIFilter
   {
     vector<Belief> extracted = vector<Belief>();
     for(Belief b : beliefs)
-        if(b.type == Belief().PREDICATE_TYPE)
+        if(b.pddl_type == Belief().PREDICATE_TYPE)
             extracted.push_back(b);
     return extracted;
   } 
@@ -64,7 +64,7 @@ namespace BDIFilter
   {
     vector<Belief> extracted = vector<Belief>();
     for(Belief b : beliefs)
-        if(b.type == Belief().FUNCTION_TYPE)
+        if(b.pddl_type == Belief().FUNCTION_TYPE)
             extracted.push_back(b);
     return extracted;
   }
@@ -76,7 +76,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == Belief().INSTANCE_TYPE || b.type == Belief().PREDICATE_TYPE || b.type == Belief().FUNCTION_TYPE)
+      if(b.pddl_type == Belief().INSTANCE_TYPE || b.pddl_type == Belief().PREDICATE_TYPE || b.pddl_type == Belief().FUNCTION_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
@@ -88,7 +88,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == Belief().INSTANCE_TYPE)
+      if(b.pddl_type == Belief().INSTANCE_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
@@ -100,7 +100,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == Belief().PREDICATE_TYPE)
+      if(b.pddl_type == Belief().PREDICATE_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
@@ -112,7 +112,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(Belief b : beliefs)
-      if(b.type == Belief().FUNCTION_TYPE)
+      if(b.pddl_type == Belief().FUNCTION_TYPE)
           extracted.insert(ManagedBelief{b});
     return extracted;
   }
@@ -124,7 +124,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(ManagedBelief mb : managed_beliefs)
-      if(mb.type_ == Belief().INSTANCE_TYPE)
+      if(mb.pddlType() == Belief().INSTANCE_TYPE)
           extracted.insert(mb);
     return extracted;
   }
@@ -136,7 +136,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(ManagedBelief mb : managed_beliefs)
-      if(mb.type_ == Belief().PREDICATE_TYPE)
+      if(mb.pddlType() == Belief().PREDICATE_TYPE)
           extracted.insert(mb);
     return extracted;
   }
@@ -148,7 +148,7 @@ namespace BDIFilter
   {
     set<ManagedBelief> extracted = set<ManagedBelief>();
     for(ManagedBelief mb : managed_beliefs)
-      if(mb.type_ == Belief().FUNCTION_TYPE)
+      if(mb.pddlType() == Belief().FUNCTION_TYPE)
           extracted.insert(mb);
     return extracted;
   }

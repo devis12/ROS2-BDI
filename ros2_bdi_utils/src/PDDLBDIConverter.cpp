@@ -15,7 +15,7 @@ namespace PDDLBDIConverter
     Belief b = Belief();
     
     b.name = instance.name;
-    b.type = Belief().INSTANCE_TYPE;
+    b.pddl_type = Belief().INSTANCE_TYPE;
 
     vector<string> params = vector<string>({instance.type});
     b.params = params;
@@ -44,7 +44,7 @@ namespace PDDLBDIConverter
     Belief b = Belief();
     
     b.name = predicate.name;
-    b.type = Belief().PREDICATE_TYPE;
+    b.pddl_type = Belief().PREDICATE_TYPE;
 
     vector<string> params = vector<string>();
     for(auto p : predicate.parameters)
@@ -76,7 +76,7 @@ namespace PDDLBDIConverter
     Belief b = Belief();
     
     b.name = function.name;
-    b.type = Belief().FUNCTION_TYPE;
+    b.pddl_type = Belief().FUNCTION_TYPE;
 
     vector<string> params = vector<string>();
     for(auto p : function.parameters)
@@ -107,7 +107,7 @@ namespace PDDLBDIConverter
         
       for(Belief b : desire.value)
       {
-        if(b.type == Belief().PREDICATE_TYPE){
+        if(b.pddl_type == Belief().PREDICATE_TYPE){
           string params_list = "";
           for(int i=0; i<b.params.size(); i++)
               params_list += (i==b.params.size()-1)? b.params[i] : b.params[i] + " ";

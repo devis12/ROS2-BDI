@@ -217,12 +217,12 @@ private:
     */
     bool validGoal(const ManagedDesire& md)
     {
-        for(ManagedBelief mb : md.value_)
+        for(ManagedBelief mb : md.getValue())
         {
-            if(!domain_expert_->getPredicate(mb.name_).has_value())//incorrect predicate name
+            if(!domain_expert_->getPredicate(mb.getName()).has_value())//incorrect predicate name
                 return false;
 
-            for(string ins_name : mb.params_)
+            for(string ins_name : mb.getParams())
                 if(!problem_expert_->getInstance(ins_name).has_value())//found a not valid instance in one of the goal predicates
                     return false;
         }
@@ -252,7 +252,7 @@ private:
     */
     bool noPlanSelected()
     {
-        return current_plan_.desire_.priority_ == 0.0f || current_plan_.body_.size() == 0;
+        return current_plan_.getDesire().getPriority() == 0.0f || current_plan_.getBody().size() == 0;
     }
 
     /*
@@ -277,20 +277,20 @@ private:
             for(ManagedDesire md : desire_set_)
             {
                 //select just desires of higher or equal priority with respect to the one currently selected
-                if(md.priority_ >= highestPriority){
+                if(md.getPriority() >= highestPriority){
                     optional<Plan> opt_p = computePlan(md);
                     if(opt_p.has_value())
                     {
                         ManagedPlan mp = ManagedPlan{md, opt_p.value().items};
                         // does computed deadline for this plan respect desire deadline?
-                        if(mp.plan_deadline_ <= md.deadline_) 
+                        if(mp.getPlanDeadline() <= md.getDeadline()) 
                         {
                             // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
                             // or equal priority, but smaller deadline
-                            if(selectedDeadline < 0 || md.priority_ > highestPriority || mp.plan_deadline_ < selectedDeadline)
+                            if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlanDeadline() < selectedDeadline)
                             {    
-                                selectedDeadline = mp.plan_deadline_;
-                                highestPriority = md.priority_;
+                                selectedDeadline = mp.getPlanDeadline();
+                                highestPriority = md.getPriority();
                                 selectedPlan = mp;
                             }
                         }
@@ -298,7 +298,7 @@ private:
                     else if(!validGoal(md)) //check if the problem is the goal not being valid          
                     {
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.name_ + "\" presents not valid goal: desire will be removed from desire_set");
+                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: desire will be removed from desire_set");
                         discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
                     }
                 }
@@ -310,7 +310,7 @@ private:
                 delDesire(md);
 
             //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
-            if(selectedPlan.body_.size() > 0 && desire_set_.count(selectedPlan.desire_)==1)
+            if(selectedPlan.getBody().size() > 0 && desire_set_.count(selectedPlan.getDesire())==1)
             {
                 current_plan_ = selectedPlan;
                 //trigger plan execution

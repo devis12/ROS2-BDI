@@ -19,18 +19,25 @@ class ManagedBelief
     public:
         ManagedBelief(const Belief& belief);
         
-        static ManagedBelief buildMBInstance(const string& name, const string& type);
+        static ManagedBelief buildMBInstance(const string& name, const string& instance_type);
         static ManagedBelief buildMBPredicate(const string& name, const vector<string>& params);
         static ManagedBelief buildMBFunction(const string& name, const vector<string>& params, const float& value);
 
-        string name_;
-        string type_;
-        vector<string> params_;
-        float value_;
+        string getName() const {return name_;};
+        int pddlType() const {return pddl_type_;};
+        vector<string> getParams() const {return params_;};
+        float getValue() const {return value_;};
+        string pddlTypeString() const;
 
         Belief toBelief() const;
+        
     private:
-        ManagedBelief(const string& name,const string& type,const vector<string>& params,const float& value);
+        ManagedBelief(const string& name,const int& type,const vector<string>& params,const float& value);
+        
+        string name_;
+        int pddl_type_;
+        vector<string> params_;
+        float value_;
 
 };  // class ManagedBelief
 

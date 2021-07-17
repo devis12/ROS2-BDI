@@ -25,7 +25,6 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define NO_PLAN "NO_PLAN"
 
 using std::string;
 using std::thread;
@@ -65,7 +64,7 @@ public:
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
     no_plan_msg_.target = Desire();
-    no_plan_msg_.target.name = NO_PLAN;
+    no_plan_msg_.target.name = (ManagedPlan{}).getDesire().getName();
     no_plan_msg_.target.value = vector<Belief>();
     no_plan_msg_.actions = vector<PlanItem>();
     no_plan_msg_.current_time = 0.0f;
@@ -174,8 +173,9 @@ private:
     */
     void publishNoPlanExec()
     {
-        if(current_plan_.body_.size() == 0 &&
-                current_plan_.desire_.name_ == NO_PLAN && current_plan_.desire_.priority_ == 0.0f)
+        auto current_plan_desire = current_plan_.getDesire();
+        if(current_plan_.getBody().size() == 0 &&
+                current_plan_desire.getName() == no_plan_msg_.target.name && current_plan_desire.getPriority() == 0.0f)
         {
             //no plan currently in execution -> proceeds notifying that
             plan_exec_publisher_->publish(no_plan_msg_);
@@ -231,12 +231,6 @@ private:
     void setNoPlanMsg()
     {
         current_plan_ = ManagedPlan{};
-        current_plan_.desire_ = no_plan_msg_.target;
-        current_plan_.body_.clear();
-        current_plan_.precondition_.clear();
-        current_plan_.context_.clear();
-        current_plan_.desire_.deadline_ = 0.0f;
-        current_plan_.desire_.priority_ = 0.0f;
     }
 
     /*  
@@ -306,6 +300,8 @@ private:
 
         //get feedback from plansys2 api
         auto feedback = executor_client_->getFeedBack();
+        // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
+        vector<PlanItem> current_plan_body = current_plan_.getBody();
         
         float start_time_s, status_time_s;
 
@@ -329,7 +325,7 @@ private:
                     psys2_action_feed.start_stamp.nanosec - first_ts_plan_nanosec);
                 
                 // planned start time for this action
-                actionExecutionInfo.planned_start = current_plan_.body_[actionExecutionInfo.index].time;
+                actionExecutionInfo.planned_start = current_plan_body[actionExecutionInfo.index].time;
 
                 // actual start time of this action
                 actionExecutionInfo.actual_start = start_time_s;
@@ -352,9 +348,9 @@ private:
         }
 
         
-        planExecutionInfo.target = current_plan_.desire_.toDesire();
-        planExecutionInfo.actions = current_plan_.body_;
-        planExecutionInfo.estimated_deadline = current_plan_.plan_deadline_;
+        planExecutionInfo.target = current_plan_.getDesire().toDesire();
+        planExecutionInfo.actions = current_plan_body;
+        planExecutionInfo.estimated_deadline = current_plan_.getPlanDeadline();
         
         //current time ms computed with real clock (option left aside for now)
         //float current_time_ms =  (float) (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count()) / pow(10, 3);
@@ -401,9 +397,12 @@ private:
     int getActionIndex(const string& action_name, const vector<string>& args)
     {
         int foundIndex = -1;
-        for(int i = 0; i < current_plan_.body_.size(); i++)
+        // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
+        vector<PlanItem> current_plan_body = current_plan_.getBody();
+
+        for(int i = 0; i < current_plan_body.size(); i++)
         {   
-            string full_name_i = current_plan_.body_[i].action;// (action_name param1 param2 ...)
+            string full_name_i = current_plan_body[i].action;// (action_name param1 param2 ...)
             if(full_name_i.length() > 0)
             {    
                 if(full_name_i[0] == '(')

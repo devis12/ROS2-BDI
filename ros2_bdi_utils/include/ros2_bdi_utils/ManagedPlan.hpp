@@ -26,13 +26,15 @@ class ManagedPlan
     public:
         ManagedPlan();
         ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems);
+        
+        ManagedDesire getDesire() const {return desire_;};
+        vector<PlanItem> getBody() const {return body_;};
+        float getPlanDeadline() const {return plan_deadline_;};
 
-        ManagedDesire desire_;
-        vector<PlanItem> body_;
-        vector<ManagedBelief> precondition_;
-        vector<ManagedBelief> context_;
-        float plan_deadline_;
-
+        //TODO these following two have to become vector<ManagedCondition> type
+        vector<ManagedBelief> getPrecondition() const {return precondition_;};
+        vector<ManagedBelief> getContext() const {return context_;};
+        
         Plan toPsys2Plan() const;
         BDIPlan toPlan() const;
     private:
@@ -40,6 +42,12 @@ class ManagedPlan
         vector<ManagedBelief> computeContext(const vector<PlanItem>& planitems);
 
         float computeDeadline(const vector<PlanItem>& planitems);
+
+        ManagedDesire desire_;
+        vector<PlanItem> body_;
+        vector<ManagedBelief> precondition_;
+        vector<ManagedBelief> context_;
+        float plan_deadline_;
         
 
 };  // class ManagedPlan

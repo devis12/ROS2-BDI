@@ -23,13 +23,17 @@ class ManagedDesire
         ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline);
         ManagedDesire(const Desire& desire);
 
+        string getName() const {return name_;};
+        vector<ManagedBelief> getValue() const {return value_;};
+        float getPriority() const {return priority_;}
+        float getDeadline() const {return deadline_;}
+
+        Desire toDesire() const;
+    private:
         string name_;
         vector<ManagedBelief> value_;
         float priority_;
         float deadline_;
-
-        Desire toDesire() const;
-    private:
         
 
 };  // class ManagedDesire

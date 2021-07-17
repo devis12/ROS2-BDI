@@ -12,11 +12,11 @@ namespace BDIComparisons
   bool equals(const Belief b1, const Belief b2)
   {    
     //check for different types or type function && different values
-    if(b1.type != b2.type || (b1.type == Belief().FUNCTION_TYPE && b1.value != b2.value))
+    if(b1.pddl_type != b2.pddl_type || (b1.pddl_type == Belief().FUNCTION_TYPE && b1.value != b2.value))
         return false;
 
     //if instance type check for name & params[0]
-    if(b1.type == Belief().INSTANCE_TYPE)
+    if(b1.pddl_type == Belief().INSTANCE_TYPE)
       return b1.name == b2.name && b1.params.size() == 1 && b2.params.size() == 1 && 
             b1.params[0] == b2.params[0];
 
@@ -39,7 +39,7 @@ namespace BDIComparisons
   bool equalFunctionDefinition(const Belief b1, const Belief b2)
   {
     //check for different types from function
-    if(b1.type != Belief().FUNCTION_TYPE || b2.type != Belief().FUNCTION_TYPE)
+    if(b1.pddl_type != Belief().FUNCTION_TYPE || b2.pddl_type != Belief().FUNCTION_TYPE)
         return false;
     
      //check for different name or different num of params

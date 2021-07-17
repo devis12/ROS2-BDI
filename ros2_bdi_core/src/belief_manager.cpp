@@ -257,13 +257,13 @@ private:
             
             if(count_bs == 0)//not found
             {
-                RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.type_+"): " + 
-                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
+                RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.pddlTypeString()+"): " + 
+                mb.getName() + " " + getParamList(mb) + " (value = " + std::to_string(mb.getValue()) +")");
                 
                 addBelief(bel);
                 modified = true;//there is an alteration, notify it
             }
-            else if(check_for_function && bel.value != (*(belief_set_.find(mb))).value_)
+            else if(check_for_function && bel.value != (*(belief_set_.find(mb))).getValue())
             {
                 modifyBelief(mb);
                 modified = true;//there is an alteration, notify it
@@ -356,8 +356,9 @@ private:
     string getParamList(const ManagedBelief& mb)
     {
         string params_list = "";
-        for(int i=0; i<mb.params_.size(); i++)
-            params_list += (i==mb.params_.size()-1)? mb.params_[i] : mb.params_[i] + " ";
+        vector<string> mb_params = mb.getParams();
+        for(int i=0; i<mb_params.size(); i++)
+            params_list += (i==mb_params.size()-1)? mb_params[i] : mb_params[i] + " ";
         return params_list;
     }
 
@@ -366,7 +367,7 @@ private:
     */
     Instance buildInstance(const ManagedBelief& mb)
     {
-        return Instance{mb.name_, mb.params_[0]};
+        return Instance{mb.getName(), mb.getParams()[0]};
     }
     
     /*
@@ -374,7 +375,7 @@ private:
     */
     Predicate buildPredicate(const ManagedBelief& mb)
     {
-        return Predicate{"(" + mb.name_+ " " + getParamList(mb) + ")"};
+        return Predicate{"(" + mb.getName()+ " " + getParamList(mb) + ")"};
     }
 
     /*
@@ -382,7 +383,7 @@ private:
     */
     Function buildFunction(const ManagedBelief& mb)
     {
-        return Function{"(" + mb.name_+ " " + getParamList(mb) + std::to_string(mb.value_) + ")"};;
+        return Function{"(" + mb.getName()+ " " + getParamList(mb) + std::to_string(mb.getValue()) + ")"};;
     }
 
     /*  
@@ -392,13 +393,13 @@ private:
     {
         ManagedBelief mb = ManagedBelief{*msg};
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
-                    + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
+                    + getParamList(mb) +  " (value = " + std::to_string(mb.getValue()) +")");
                         
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
-                if(mb.type_ == Belief().INSTANCE_TYPE)
+                if(mb.pddlType() == Belief().INSTANCE_TYPE)
                 {   
                     //try to add new instance; if fails (word conflicts, wrong/missing type), no biggie!
                     Instance ins = buildInstance(mb);
@@ -406,7 +407,7 @@ private:
                         addBelief(mb);
                 } 
 
-                if(mb.type_ == Belief().PREDICATE_TYPE)
+                if(mb.pddlType() == Belief().PREDICATE_TYPE)
                 {   
                     //try to add new predicate; if fails, try to check and add missing instances
                     Predicate p_add = buildPredicate(mb);
@@ -415,7 +416,7 @@ private:
                         addBelief(mb);
                 } 
                 
-                if(mb.type_ == Belief().FUNCTION_TYPE)
+                if(mb.pddlType() == Belief().FUNCTION_TYPE)
                 {   
                     //try to add new function; if fails, try to check and add missing instances
                     Function f_add =  buildFunction(mb);
@@ -425,7 +426,7 @@ private:
                 }
 
             }
-            else if(mb.type_ == Belief().FUNCTION_TYPE && mb.value_ != (*(belief_set_.find(mb))).value_)
+            else if(mb.pddlType() == Belief().FUNCTION_TYPE && mb.getValue() != (*(belief_set_.find(mb))).getValue())
             {
                 //function present in the belief set with diff. value
                 Function f_upd = buildFunction(mb);
@@ -444,7 +445,7 @@ private:
     {
         vector<bool> missing_pos = vector<bool>();
         vector<Instance> instances = problem_expert_->getInstances();
-        for(string mb_par : mb.params_)
+        for(string mb_par : mb.getParams())
         {    
             bool found = false;
 
@@ -478,19 +479,19 @@ private:
         }
         
         
-        if(mb.type_ == Belief().PREDICATE_TYPE)
+        if(mb.pddlType() == Belief().PREDICATE_TYPE)
         {   
             try {
                 //retrieve from domain expert definition information about this predicate
-                Predicate pred = domain_expert_->getPredicate(mb.name_).value();
+                Predicate pred = domain_expert_->getPredicate(mb.getName()).value();
                 for(int i = 0; i<pred.parameters.size(); i++)
                 {
                     if(missing_pos[i])//missing instance
                     {   
-                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.params_[i], pred.parameters[i].type);
+                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i], pred.parameters[i].type);
                         
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.name_ + " - " + mb_ins.params_[0]);
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.getParams()[0]);
                         
                         if(problem_expert_->addInstance(buildInstance(mb_ins)))//add instance (type found from domain expert)
                             addBelief(mb_ins);
@@ -502,19 +503,20 @@ private:
             } catch(const std::bad_optional_access& e) {}
         } 
         
-        if(mb.type_ == Belief().FUNCTION_TYPE)
+        if(mb.pddlType() == Belief().FUNCTION_TYPE)
         {   
             try {
                 //retrieve from domain expert definition information about this function
-                Function function = domain_expert_->getFunction(mb.name_).value();
+                Function function = domain_expert_->getFunction(mb.getName()).value();
+                
                 for(int i = 0; i<function.parameters.size(); i++)
                 {
                     if(missing_pos[i])//missing instance
                     {
-                         ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.params_[i], function.parameters[i].type);
+                         ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i], function.parameters[i].type);
                         
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.name_ + " - " + mb_ins.params_[0]);
+                            RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.getParams()[0]);
                         
                         if(problem_expert_->addInstance(buildInstance(mb_ins)))//add instance (type found from domain expert)
                             addBelief(mb_ins);
@@ -537,13 +539,13 @@ private:
     {
         ManagedBelief mb = ManagedBelief{*msg};
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.type_ + ": " + mb.name_ + " " 
-                    + getParamList(mb) +  " (value = " + std::to_string(mb.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
+                    + getParamList(mb) +  " (value = " + std::to_string(mb.getValue()) +")");
         bool done = false;
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
-                if(mb.type_ == Belief().INSTANCE_TYPE)
+                if(mb.pddlType() == Belief().INSTANCE_TYPE)
                 {
                     //relative predicates/functions will be automatically removed in the pddl_problem, 
                     // hence in the consequent update notification removed in the belief_set as well
@@ -551,13 +553,13 @@ private:
                     done = !problem_expert_->getInstance(ins.name).has_value() || problem_expert_->removeInstance(ins);
                 }
 
-                if(mb.type_ == Belief().PREDICATE_TYPE)
+                if(mb.pddlType() == Belief().PREDICATE_TYPE)
                 {
                     Predicate pred = buildPredicate(mb);
                     done = !problem_expert_->existPredicate(pred) || problem_expert_->removePredicate(pred);
                 }
 
-                if(mb.type_ == Belief().FUNCTION_TYPE)
+                if(mb.pddlType() == Belief().FUNCTION_TYPE)
                 {
                     Function fun = buildFunction(mb);
                     done = !problem_expert_->existFunction(fun) || problem_expert_->removeFunction(fun);
@@ -576,8 +578,8 @@ private:
     {
         belief_set_.insert(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.type_+"): " + 
-                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.pddlTypeString()+"): " + 
+                mb.getName() + " " + getParamList(mb) + " (value = " + std::to_string(mb.getValue()) +")");
                        
     }
 
@@ -591,8 +593,8 @@ private:
             belief_set_.erase(mb);
             belief_set_.insert(mb);
             if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.type_+"): " + 
-                    mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
+                RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.pddlTypeString()+"): " + 
+                    mb.getName() + " " + getParamList(mb) + " (value = " + std::to_string(mb.getValue()) +")");
         }
     }
 
@@ -603,8 +605,8 @@ private:
     {
         belief_set_.erase(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.type_+"): " + 
-                mb.name_ + " " + getParamList(mb) + " (value = " + std::to_string(mb.value_) +")");
+            RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.pddlTypeString()+"): " + 
+                mb.getName() + " " + getParamList(mb) + " (value = " + std::to_string(mb.getValue()) +")");
     }
     
 
