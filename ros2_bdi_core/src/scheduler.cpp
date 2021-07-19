@@ -7,6 +7,8 @@
 #include <set>   
 #include <thread>    
 
+#include <yaml-cpp/exceptions.h>
+
 #include "plansys2_planner/PlannerClient.hpp"
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
@@ -20,6 +22,7 @@
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
+#include "ros2_bdi_utils/BDIYAMLParser.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
@@ -150,6 +153,7 @@ public:
             if(isPlannerActive()){
                 planner_expert_up_ = true;
                 psys2_comm_errors_ = 0;
+                tryInitDesireSet();
                 setState(SCHEDULING);
             }else{
                 planner_expert_up_ = false;
@@ -212,6 +216,31 @@ private:
     }
 
     /*
+        Expect to find yaml file to init the desire set in "/tmp/{agent_id}/init_dset.yaml"
+    */
+    void tryInitDesireSet()
+    {
+        string init_dset_filepath = "/tmp/"+this->get_parameter("agent_id").as_string()+"/init_dset.yaml";
+        try{
+            vector<ManagedDesire> init_mgdesires = BDIYAMLParser::extractMGDesires(init_dset_filepath);
+            for(ManagedDesire initMGDesire : init_mgdesires)
+                if(initMGDesire.getValue().size() > 0)
+                        addDesire(initMGDesire);
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Desire set initialization performed through " + init_dset_filepath);
+        
+        }catch(const YAML::BadFile& bfile){
+            RCLCPP_ERROR(this->get_logger(), "Bad File: Desire set initialization failed because init. file " + init_dset_filepath + " hasn't been found");
+        }catch(const YAML::ParserException& bpars){
+            RCLCPP_ERROR(this->get_logger(), "YAML Parser Exception: Desire set initialization failed because init. file " + init_dset_filepath + " doesn't present a valid YAML format");
+        }catch(const YAML::BadConversion& bconvfile){
+            RCLCPP_ERROR(this->get_logger(), "Bad Conversion: Desire set initialization failed because init. file " + init_dset_filepath + " doesn't present a valid desire array");
+        }catch(const YAML::InvalidNode& invalid_node){
+            RCLCPP_ERROR(this->get_logger(), "Invalid Node: Desire set initialization failed because init. file " + init_dset_filepath + " doesn't present a valid desire array");
+        }   
+    }
+
+    /*
         Check with the problem_expert to understand if this is a valid goal
         (i.e. valid predicates and valid instances defined within them)
     */
@@ -219,12 +248,22 @@ private:
     {
         for(ManagedBelief mb : md.getValue())
         {
-            if(!domain_expert_->getPredicate(mb.getName()).has_value())//incorrect predicate name
+            optional<Predicate> opt_pred = domain_expert_->getPredicate(mb.getName());
+            if(!opt_pred.has_value())//incorrect predicate name
                 return false;
 
+            Predicate pred = opt_pred.value();
+            if(pred.parameters.size() != mb.getParams().size())
+            {
+                RCLCPP_ERROR(this->get_logger(), "pred.parameters.size = %d, mb.getParams().size() = %d", 
+                    pred.parameters.size(), mb.getParams().size());
+                return false;
+            }
+            
             for(string ins_name : mb.getParams())
                 if(!problem_expert_->getInstance(ins_name).has_value())//found a not valid instance in one of the goal predicates
                     return false;
+            
         }
         
         return true;
@@ -298,8 +337,8 @@ private:
                     else if(!validGoal(md)) //check if the problem is the goal not being valid          
                     {
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: desire will be removed from desire_set");
-                        discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
+                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: desire will be rescheduled later");
+                        //discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
                     }
                 }
                 
@@ -313,6 +352,9 @@ private:
             if(selectedPlan.getBody().size() > 0 && desire_set_.count(selectedPlan.getDesire())==1)
             {
                 current_plan_ = selectedPlan;
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
+                        
                 //trigger plan execution
                 shared_ptr<thread> thr = 
                     std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this));

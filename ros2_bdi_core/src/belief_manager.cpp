@@ -1,11 +1,14 @@
 #include <cstdlib>
+#include <fstream>
 #include <optional>
 #include <ctime>
 #include <memory>
 #include <vector>
 #include <set>
 #include <thread>
-#include <mutex>          
+#include <mutex>  
+
+#include <yaml-cpp/exceptions.h>
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
@@ -16,6 +19,7 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIComparisons.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
+#include "ros2_bdi_utils/BDIYAMLParser.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -124,6 +128,7 @@ public:
             if(isProblemExpertActive()){
                 problem_expert_up_ = true;
                 psys2_comm_errors_ = 0;
+                tryInitBeliefSet();
                 setState(SYNC);
             }else{
                 problem_expert_up_ = false;
@@ -190,6 +195,31 @@ private:
     {
         BeliefSet bset_msg = BDIFilter::extractBeliefSetMsg(belief_set_);
         belief_set_publisher_->publish(bset_msg);
+    }
+
+    /*
+        Expect to find yaml file to init the belief set in "/tmp/{agent_id}/init_bset.yaml"
+    */
+    void tryInitBeliefSet()
+    {
+        string init_bset_filepath = "/tmp/"+this->get_parameter("agent_id").as_string()+"/init_bset.yaml";
+      
+        try{
+            vector<ManagedBelief> init_mgbeliefs = BDIYAMLParser::extractMGBeliefs(init_bset_filepath);
+            for(ManagedBelief initMGBelief : init_mgbeliefs)
+                addBeliefSyncPDDL(initMGBelief);
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Belief set initialization performed through " + init_bset_filepath);
+        
+        }catch(const YAML::BadFile& bfile){
+            RCLCPP_ERROR(this->get_logger(), "Bad File: Belief set initialization failed because init. file " + init_bset_filepath + " hasn't been found");
+        }catch(const YAML::ParserException& bpars){
+            RCLCPP_ERROR(this->get_logger(), "YAML Parser Exception: Belief set initialization failed because init. file " + init_bset_filepath + " doesn't present a valid YAML format");
+        }catch(const YAML::BadConversion& bconvfile){
+            RCLCPP_ERROR(this->get_logger(), "Bad Conversion: Belief set initialization failed because init. file " + init_bset_filepath + " doesn't present a valid belief array");
+        }catch(const YAML::InvalidNode& invalid_node){
+            RCLCPP_ERROR(this->get_logger(), "Invalid Node: Belief set initialization failed because init. file " + init_bset_filepath + " doesn't present a valid belief array");
+        }
     }
 
     /*
@@ -395,7 +425,15 @@ private:
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
                     + getParamList(mb) +  " (value = " + std::to_string(mb.getValue()) +")");
-                        
+        
+        addBeliefSyncPDDL(mb);
+    }
+
+    /*
+        Add Belief in the belief set, just after having appropriately sync the pddl_problem to add it there too
+    */
+    void addBeliefSyncPDDL(const ManagedBelief& mb)
+    {
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
@@ -434,7 +472,6 @@ private:
                     modifyBelief(mb);
             }
         mtx_sync.unlock();
-
     }
 
     /*
@@ -541,7 +578,16 @@ private:
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
                     + getParamList(mb) +  " (value = " + std::to_string(mb.getValue()) +")");
-        bool done = false;
+        
+    }
+
+
+    /*
+        Remove Belief from the belief set, just after having appropriately sync the pddl_problem to remove it from there too
+    */
+   void delBeliefSyncPDDL(const ManagedBelief& mb)
+   {
+       bool done = false;
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
@@ -569,7 +615,7 @@ private:
                     belief_set_.erase(mb);
             }
         mtx_sync.unlock();
-    }
+   }
 
     /*
         add belief into belief set

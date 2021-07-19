@@ -22,6 +22,8 @@ set(UTILS-SOURCES
   src/ManagedBelief.cpp
   src/ManagedDesire.cpp
   src/ManagedPlan.cpp
+
+  src/BDIYAMLParser.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${UTILS-SOURCES})
@@ -29,6 +31,10 @@ ament_target_dependencies(${PROJECT_NAME} plansys2_msgs plansys2_problem_expert 
 
 install(DIRECTORY include/
   DESTINATION include/
+)
+
+target_link_libraries(${PROJECT_NAME}
+  yaml-cpp  
 )
 
 install(TARGETS

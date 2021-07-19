@@ -1,5 +1,6 @@
 import os
 import os.path
+import shutil
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
@@ -17,10 +18,38 @@ def readFile(filepath):
         file_string += line + "\n"
     return file_string
 
+
+
+def loadInitFile(pathsource, agent_id):
+    # create tmp folder for agent if it does not exist yet
+    if not os.path.exists('/tmp/'+agent_id):
+        os.mkdir('/tmp/'+agent_id)
+
+    # load init belief set file in /tmp/{agent_id}/init_bset.yaml
+    init_bset_filename = '/init_bset.yaml'
+    
+    if os.path.exists(pathsource + init_bset_filename):
+        shutil.copyfile(pathsource + init_bset_filename, '/tmp/'+agent_id+'/init_bset.yaml')
+    else:
+        print(pathsource + init_bset_filename + '\t invalid path for init. belief set file')
+
+    # load init desire set file in /tmp/{agent_id}/init_dset.yaml
+    '''
+    init_dset_filename = '/init_dset.yaml'
+
+    if os.path.exists(pathsource + init_dset_filename):
+        shutil.copyfile(pathsource + init_dset_filename, '/tmp/'+agent_id+'/init_dset.yaml')
+    else:
+        print(pathsource + init_bset_filename + '\t invalid path for init. desire set file')
+    '''
+
+
+
 def generate_launch_description():
     AGENT_NAME = "agent1"
-
+    
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
+    loadInitFile(bdi_tests_share_dir+'/launch/init', AGENT_NAME)
     
     bdi_core_share_dir = get_package_share_directory('ros2_bdi_core')
     pddl_test_domain = readFile(bdi_core_share_dir + "/pddl/cleaner-domain.pddl")

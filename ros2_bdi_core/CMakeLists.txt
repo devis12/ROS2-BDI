@@ -17,6 +17,8 @@ find_package(plansys2_pddl_parser REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 
+find_library(yaml-cpp REQUIRED)
+
 include_directories(include)
 
 set(common_dependencies
@@ -31,6 +33,9 @@ set(pddl_experts
 )
 
 add_executable(belief_manager src/belief_manager.cpp)
+target_link_libraries(belief_manager
+  yaml-cpp  
+)
 ament_target_dependencies(belief_manager 
   ${common_dependencies}
   ${pddl_experts}
@@ -39,6 +44,9 @@ ament_target_dependencies(belief_manager
 
 
 add_executable(scheduler src/scheduler.cpp)
+target_link_libraries(scheduler
+  yaml-cpp  
+)
 ament_target_dependencies(scheduler 
   ${common_dependencies} 
   ${pddl_experts}
@@ -51,6 +59,17 @@ ament_target_dependencies(plan_director
   plansys2_executor
 )
 
+
+add_executable(test_node src/test_node.cpp)
+target_link_libraries(test_node
+  yaml-cpp  
+)
+ament_target_dependencies(test_node
+  rclcpp
+  ros2_bdi_interfaces
+)
+
+
 install(DIRECTORY include/
   DESTINATION include/
 )
@@ -59,6 +78,7 @@ install(TARGETS
   belief_manager
   scheduler
   plan_director
+  test_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
