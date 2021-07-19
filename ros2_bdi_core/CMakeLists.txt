@@ -17,6 +17,8 @@ find_package(plansys2_pddl_parser REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 
+include_directories(include)
+
 set(common_dependencies
   rclcpp
   plansys2_msgs
@@ -49,6 +51,9 @@ ament_target_dependencies(plan_director
   plansys2_executor
 )
 
+install(DIRECTORY include/
+  DESTINATION include/
+)
 
 install(TARGETS
   belief_manager
@@ -62,5 +67,9 @@ install(DIRECTORY
   pddl
   DESTINATION share/${PROJECT_NAME}
 )
+
+ament_export_include_directories(include)
+ament_export_libraries(${PROJECT_NAME})
+ament_export_dependencies(${dependencies})
 
 ament_package()

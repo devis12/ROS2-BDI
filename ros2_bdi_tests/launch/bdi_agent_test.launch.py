@@ -116,6 +116,17 @@ def generate_launch_description():
             {"agent_id": AGENT_NAME}
         ])
 
+    wp_sensor = Node(
+        package='ros2_bdi_tests',
+        executable='wp_sensor',
+        name='wp_sensor',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME},
+            {"init_sleep": 4}
+        ])
+
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
@@ -136,5 +147,8 @@ def generate_launch_description():
     ld.add_action(action_movetoward)
     ld.add_action(action_doclean)
     ld.add_action(action_recharge)
+
+    #Sensors for agent
+    ld.add_action(wp_sensor)
 
     return ld
