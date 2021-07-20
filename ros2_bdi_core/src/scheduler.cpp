@@ -17,6 +17,7 @@
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
+#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
@@ -31,8 +32,6 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define PARAM_PDDL_DOMAIN "pddl_test_domain" 
-#define PARAM_PDDL_PROBLEM "pddl_test_problem" 
 
 using std::string;
 using std::vector;
@@ -56,6 +55,7 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::DesireSet;
+using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
@@ -72,10 +72,6 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
 
-    //define empty test PDDL domain and problem (loaded up from launch file)
-    this->declare_parameter(PARAM_PDDL_DOMAIN, "(define (domain cleaner-domain) (:requirements :strips))");
-    this->declare_parameter(PARAM_PDDL_PROBLEM, "(define (problem cleaner-problem) (:domain cleaner-domain))");
-    planner_expert_up_ = false;
   }
 
   /*
@@ -108,6 +104,15 @@ public:
     
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
+
+    //Check for plansys2 active state flags init to false
+    psys2_planner_active_ = false;
+    psys2_domain_expert_active_ = false;
+    psys2_problem_expert_active_ = false;
+    //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
+    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+                "plansys2_state", qos_keep_all,
+                bind(&Scheduler::callbackPsys2State, this, _1));
 
     //Desire to be added notification
     add_desire_subscriber_ = this->create_subscription<Desire>(
@@ -150,14 +155,22 @@ public:
         
         case STARTING:
         {
-            if(isPlannerActive()){
-                planner_expert_up_ = true;
+            if(psys2_planner_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_){
                 psys2_comm_errors_ = 0;
                 tryInitDesireSet();
                 setState(SCHEDULING);
             }else{
-                planner_expert_up_ = false;
-                RCLCPP_ERROR(this->get_logger(), "Impossible to communicate with PlanSys2 planner");
+                
+                if(!psys2_planner_active_)
+                    RCLCPP_ERROR(this->get_logger(), "PlanSys2 Planner still not active");
+
+                if(!psys2_domain_expert_active_)
+                    RCLCPP_ERROR(this->get_logger(), "PlanSys2 Domain Expert still not active");
+
+                if(!psys2_problem_expert_active_)
+                    RCLCPP_ERROR(this->get_logger(), "PlanSys2 Problem Expert still not active");
+
+
                 psys2_comm_errors_++;
             }
 
@@ -199,20 +212,13 @@ private:
     }
 
     /*
-        Check if the plansys2 planner node is up by checking if it returns the correct plan if
-        queried with a test domain and problem
+       Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    bool isPlannerActive()
-    {   
-        bool isUp = false;
-        pddl_domain_ = readTestPDDLDomain();
-        //std::cout << pddl_domain_ << std::endl << std::endl << std::endl;
-        pddl_problem_ = readTestPDDLProblem();
-        //std::cout << pddl_problem_ << std::endl << std::endl << std::endl;
-        optional<Plan> plan = planner_client_->getPlan(pddl_domain_, pddl_problem_);
-        /*if(plan.has_value())
-            RCLCPP_INFO(this->get_logger(), "Found plan: start with " + plan.value().items[0].action);*/
-        return plan.has_value();
+    void callbackPsys2State(const PlanSys2State::SharedPtr msg)
+    {
+        psys2_problem_expert_active_ = msg->problem_expert_active;
+        psys2_domain_expert_active_ = msg->domain_expert_active;
+        psys2_planner_active_ = msg->planner_active;
     }
 
     /*
@@ -301,8 +307,8 @@ private:
     {   
         if(noPlanSelected())
         {
-
-            RCLCPP_DEBUG(this->get_logger(), "Reschedule to select new plan to be executed");
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
 
             // priority of selected plan
             float highestPriority = 0.0f;
@@ -331,8 +337,21 @@ private:
                                 selectedDeadline = mp.getPlanDeadline();
                                 highestPriority = md.getPriority();
                                 selectedPlan = mp;
+                            
+                            }else if(md.getPriority() <= highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
+                                RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+ 
+                                    "it it's not the desire (among which a plan can be selected) with highest priority right now");
+
+                            }else if(mp.getPlanDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
+                                RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+
+                                    "it it's not the desire (among which a plan can be selected) with highest priority and earliest deadline right now");
                             }
-                        }
+
+                            
+
+                        }else if(this->get_parameter(PARAM_DEBUG).as_bool())
+                            RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but it does not respect the deadline constraint");
+                        
                     }
                     else if(!validGoal(md)) //check if the problem is the goal not being valid          
                     {
@@ -490,16 +509,6 @@ private:
         return deleted;
     }
 
-    string readTestPDDLDomain()
-    {
-        return this->get_parameter(PARAM_PDDL_DOMAIN).as_string();
-    }
-
-    string readTestPDDLProblem()
-    {
-        return this->get_parameter(PARAM_PDDL_PROBLEM).as_string();
-    }
-
     // internal state of the node
     StateType state_;
     
@@ -516,8 +525,15 @@ private:
     shared_ptr<DomainExpertClient> domain_expert_;
     // planner expert instance to call the plansys2 planner api
     shared_ptr<PlannerClient> planner_client_;
-    // flag to denote if the problem expert node seems to correctly answer 
-    bool planner_expert_up_;
+    
+    // flag to denote if the plansys2 planner is up and active
+    bool psys2_planner_active_;
+    // flag to denote if the plansys2 domain expert is up and active
+    bool psys2_domain_expert_active_;
+    // flag to denote if the plansys2 problem expert planner is up and active
+    bool psys2_problem_expert_active_;
+    // plansys2 node status monitor subscription
+    rclcpp::Subscription<PlanSys2State>::SharedPtr plansys2_status_subscriber_;
 
     // belief set of the agent <agent_id_>
     set<ManagedBelief> belief_set_;

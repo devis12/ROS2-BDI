@@ -18,7 +18,8 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/BDIPlan.msg"
   "msg/BDIActionExecutionInfo.msg"
   "msg/BDIPlanExecutionInfo.msg"
-
+  "msg/PlanSys2State.msg"
+  
   "srv/BDIPlanExecution.srv"
 
   DEPENDENCIES plansys2_msgs

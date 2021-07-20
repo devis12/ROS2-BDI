@@ -22,8 +22,10 @@ def readFile(filepath):
 
 def loadInitFile(pathsource, agent_id):
     # create tmp folder for agent if it does not exist yet
-    if not os.path.exists('/tmp/'+agent_id):
-        os.mkdir('/tmp/'+agent_id)
+    if os.path.exists('/tmp/'+agent_id):
+        shutil.rmtree('/tmp/'+agent_id)
+    
+    os.mkdir('/tmp/'+agent_id)
 
     # load init belief set file in /tmp/{agent_id}/init_bset.yaml
     init_bset_filename = '/init_bset.yaml'
@@ -50,10 +52,6 @@ def generate_launch_description():
     
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
     loadInitFile(bdi_tests_share_dir+'/launch/init', AGENT_NAME)
-    
-    bdi_core_share_dir = get_package_share_directory('ros2_bdi_core')
-    pddl_test_domain = readFile(bdi_core_share_dir + "/pddl/cleaner-domain.pddl")
-    pddl_test_problem = readFile(bdi_core_share_dir + "/pddl/cleaner-problem.pddl")
 
     namespace = LaunchConfiguration('namespace')
 
@@ -100,15 +98,23 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME},
-            {"pddl_test_domain": pddl_test_domain},
-            {"pddl_test_problem": pddl_test_problem}
+            {"agent_id": AGENT_NAME}
         ])
 
     plan_director = Node(
         package='ros2_bdi_core',
         executable='plan_director',
         name='plan_director',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME}
+        ])
+    
+    plansys2_monitor = Node(
+        package='ros2_bdi_core',
+        executable='plansys2_monitor',
+        name='plansys2_monitor',
         namespace=namespace,
         output='screen',
         parameters=[
@@ -165,6 +171,9 @@ def generate_launch_description():
     # Declare the launch options
     ld.add_action(plansys2_cmd)
 
+    # Declare plansys2 monitor node
+    ld.add_action(plansys2_monitor)
+    
     #Add belief manager
     ld.add_action(belief_manager)
     #Add BDI scheduler
@@ -179,5 +188,5 @@ def generate_launch_description():
 
     #Sensors for agent
     ld.add_action(wp_sensor)
-
+    
     return ld

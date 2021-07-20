@@ -15,6 +15,7 @@
 #include "plansys2_msgs/srv/get_problem_instances.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
+#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIComparisons.hpp"
@@ -47,6 +48,7 @@ using std_msgs::msg::Empty;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
+using ros2_bdi_interfaces::msg::PlanSys2State;
 
 typedef enum {STARTING, SYNC, PAUSE} StateType;                
 
@@ -59,7 +61,6 @@ public:
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
-    problem_expert_up_ = false;
   }
 
   /*
@@ -81,6 +82,9 @@ public:
     //problem expert client to communicate with problem expert node of plansys2
     problem_expert_ = std::make_shared<ProblemExpertClient>();
 
+    // last pddl problem known at the moment init (just empty string)
+    last_pddl_problem_ = "";
+
     //Init belief set
     belief_set_ = set<ManagedBelief>();
 
@@ -89,6 +93,15 @@ public:
     
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
+
+    //Check for plansys2 active state flags init to false
+    psys2_domain_expert_active_ = false;
+    psys2_problem_expert_active_ = false;
+
+    //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
+    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+                "plansys2_state", qos_keep_all,
+                bind(&BeliefManager::callbackPsys2State, this, _1));
 
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
@@ -125,14 +138,16 @@ public:
         
         case STARTING:
         {
-            if(isProblemExpertActive()){
-                problem_expert_up_ = true;
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_ ){
                 psys2_comm_errors_ = 0;
                 tryInitBeliefSet();
                 setState(SYNC);
+            
             }else{
-                problem_expert_up_ = false;
-                RCLCPP_ERROR(this->get_logger(), "Impossible to communicate with PlanSys2 problem expert");
+                if(!psys2_domain_expert_active_)
+                    RCLCPP_ERROR(this->get_logger(), "PlanSys2 Domain Expert still not active");
+                if(!psys2_problem_expert_active_)
+                    RCLCPP_ERROR(this->get_logger(), "PlanSys2 Problem Expert still not active");
                 psys2_comm_errors_++;
             }
 
@@ -163,29 +178,13 @@ private:
         state_ = state;
     }
 
-
     /*
-        Check if the plansys2 problem expert node is up by checking for the presence of one of its services 
-        (specifically problem_expert/get_problem_instances) and testing then out by adding and removing instances
-        through the cpp api calls
+       Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    bool isProblemExpertActive()
-    {   
-        //check for service to be up
-        rclcpp::Client<GetProblemInstances>::SharedPtr client_ = 
-            this->create_client<GetProblemInstances>("problem_expert/get_problem_instances");
-        if(!client_->wait_for_service(std::chrono::seconds(1))){
-            //service seems not even present, just return false
-            RCLCPP_WARN(this->get_logger(), "problem_expert/get_problem_instances server does not appear to be up");
-            return false;
-        }
-
-        //service listed, but is the node actually in an active state? test it with the cpp api (add+remove test instance)
-        auto test_name = "bm" + agent_id_ + "_wyp";
-        bool isUp = problem_expert_->addInstance(Instance{test_name, "waypoint"});//check if up with test instance
-        isUp = isUp && problem_expert_->removeInstance(Instance{test_name, "waypoint"});
-        
-        return isUp;
+    void callbackPsys2State(const PlanSys2State::SharedPtr msg)
+    {
+        psys2_problem_expert_active_ = msg->problem_expert_active;
+        psys2_domain_expert_active_ = msg->domain_expert_active;
     }
 
     /*
@@ -227,14 +226,21 @@ private:
         update belief set accordingly
     */
     void updatedPDDLProblem(const Empty::SharedPtr msg)
-    {
+    {   
+        string pddlProblemNow = problem_expert_->getProblem();
+        //strip off goal part (the belief regards just instances, predicates, fluents)
+        pddlProblemNow = pddlProblemNow.substr(0,pddlProblemNow.find(":goal")-1);
+        if(pddlProblemNow == last_pddl_problem_)//nothing has changed (maybe goal has been set)
+            return;
+
+        last_pddl_problem_ = pddlProblemNow;
         bool notify;//if anything changes, put it to true
                 
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "update problem notification");
+            RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
 
         mtx_sync.lock();
-            if(problem_expert_up_ || isProblemExpertActive())
+            if(psys2_problem_expert_active_)
             {
                 vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
                 vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
@@ -673,9 +679,17 @@ private:
     shared_ptr<ProblemExpertClient> problem_expert_;
     // domain expert instance to call the problem expert api
     shared_ptr<DomainExpertClient> domain_expert_;
-    // flag to denote if the problem expert node seems to correctly answer 
-    bool problem_expert_up_;
-
+    // contain last pddl problem string known at the moment (goal part stripped away)
+    string last_pddl_problem_;
+    
+    
+    // flag to denote if the problem expert node seems to be up and active
+    bool psys2_problem_expert_active_;
+    // flag to denote if the domain expert node seems to be up and active
+    bool psys2_domain_expert_active_;
+    // plansys2 node status monitor subscription
+    rclcpp::Subscription<PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+    
     // belief set of the agent <agent_id_>
     set<ManagedBelief> belief_set_;
 

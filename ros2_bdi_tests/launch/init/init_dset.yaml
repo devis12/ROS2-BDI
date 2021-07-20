@@ -1,7 +1,7 @@
 -
   name: "clean_rooms"
   priority: 0.6
-  deadline: 28.0
+  deadline: 36.0
   value:
     -
       name: "cleaned"

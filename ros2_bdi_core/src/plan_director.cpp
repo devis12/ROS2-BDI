@@ -12,6 +12,7 @@
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
+#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
@@ -44,6 +45,7 @@ using plansys2_msgs::msg::PlanItem;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 
@@ -59,8 +61,6 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
 
-    psys2_executor_up_ = false;
-
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
     no_plan_msg_.target = Desire();
@@ -69,7 +69,6 @@ public:
     no_plan_msg_.actions = vector<PlanItem>();
     no_plan_msg_.current_time = 0.0f;
     no_plan_msg_.estimated_deadline = 0.0f;
-    setNoPlanMsg();
   }
 
   /*
@@ -86,10 +85,22 @@ public:
     // initializing executor client for psys2
     executor_client_ = std::make_shared<plansys2::ExecutorClient>();
 
+    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
+    qos_keep_all.keep_all();
+
+    //Check for plansys2 active state flags init to false
+    psys2_executor_active_ = false;
+    //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
+    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+                "plansys2_state", qos_keep_all,
+                bind(&PlanDirector::callbackPsys2State, this, _1));
+
     // init server for triggering new plan execution
     server_plan_exec_ = this->create_service<BDIPlanExecution>("plan_execution", 
         bind(&PlanDirector::handlePlanRequest, this, _1, _2));
 
+    // set NO_PLAN as current_plan_ 
+    setNoPlanMsg();
     // plan execution notification
     plan_exec_publisher_ = this->create_publisher<BDIPlanExecutionInfo>("plan_execution_info", 10);
 
@@ -97,11 +108,6 @@ public:
     do_work_timer_ = this->create_wall_timer(
         milliseconds(500),
         bind(&PlanDirector::step, this));
-    
-    //check if executor is still up (cancel timer if plansys2 seems up)
-    check_executor_timer_ = this->create_wall_timer(
-        milliseconds(2000),
-        bind(&PlanDirector::executorUp, this));
 
     RCLCPP_INFO(this->get_logger(), "Plan director node initialized");
   }
@@ -119,14 +125,11 @@ public:
         
         case STARTING:
         {
-            if(psys2_executor_up_){
-                this->check_executor_timer_->cancel();
+            if(psys2_executor_active_){
                 psys2_comm_errors_ = 0;
                 setState(READY);
             }else{
-                executorUp();
-                psys2_executor_up_ = false;
-                RCLCPP_ERROR(this->get_logger(), "Impossible to communicate with PlanSys2 executor");
+                RCLCPP_ERROR(this->get_logger(), "PlanSys2 Executor still not active");
                 psys2_comm_errors_++;
             }
 
@@ -135,8 +138,8 @@ public:
 
         case READY:
         {
-
-            RCLCPP_DEBUG(this->get_logger(), "Ready to accept new plan to be executed");
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Ready to accept new plan to be executed");
             publishNoPlanExec();//notify node it is currently on idle, i.e. not executing any plan
             break;
         }
@@ -181,38 +184,13 @@ private:
             plan_exec_publisher_->publish(no_plan_msg_);
         }
     }
-
-    void executorUp()
-    {
-        shared_ptr<thread> thr = 
-                std::make_shared<thread>(bind(&PlanDirector::checkExecutorUp, this));
-        thr->detach();
-    }
-
-     /*
-        Check for the presence of two topic to decide if the plansys2 executor is alive
+    
+    /*
+       Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    void checkExecutorUp()
+    void callbackPsys2State(const PlanSys2State::SharedPtr msg)
     {
-        //check for service to be up
-        rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr client_ = 
-            this->create_client<lifecycle_msgs::srv::GetState>("executor/get_state");
-        if(!client_->wait_for_service(std::chrono::seconds(1))){
-            //service seems not even present, just return false
-            RCLCPP_WARN(this->get_logger(), "executor/get_state server does not appear to be up");
-            return;
-        }
-
-        auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
-        
-        auto future = client_->async_send_request(request);
-
-        try{
-            auto response = future.get();
-            psys2_executor_up_ = response->current_state.id == 3 && response->current_state.label == "active";
-        }catch(const std::exception &e){
-            RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
-        }
+        psys2_executor_active_ = msg->executor_active;
     }
 
     /*
@@ -303,7 +281,7 @@ private:
         // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
         vector<PlanItem> current_plan_body = current_plan_.getBody();
         
-        float start_time_s, status_time_s;
+        float start_time_s = -1.0, status_time_s = -1.0;
 
         //find executing action status
         for (int i=0; i<feedback.action_execution_status.size(); i++) {
@@ -356,7 +334,7 @@ private:
         //float current_time_ms =  (float) (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count()) / pow(10, 3);
         
         // current time s computed by difference from fist start ts of first action executed within the plan
-        planExecutionInfo.current_time = status_time_s;
+        planExecutionInfo.current_time = (status_time_s >= 0.0f)? status_time_s : 0.0f;
         planExecutionInfo.status = planExecutionInfo.RUNNING;
         
         if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
@@ -437,15 +415,17 @@ private:
 
     // timer to trigger callback to perform main loop of work regularly
     rclcpp::TimerBase::SharedPtr do_work_timer_;
-    // timer to trigger check for executor to be up
-    rclcpp::TimerBase::SharedPtr check_executor_timer_;
 
     // counter of communication errors with plansys2
     int psys2_comm_errors_;
     // executor client contacting psys2 for the execution of a plan, then receiving feedback for it 
     shared_ptr<ExecutorClient> executor_client_;
 
-    bool psys2_executor_up_;
+    // flag to denote if plansys2 executor appears to be active
+    bool psys2_executor_active_;
+    // plansys2 node status monitor subscription
+    rclcpp::Subscription<PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     ManagedPlan current_plan_;
     // time at which plan started (NOT DOING this anymore -> using first start_ts from first action executed in plan)

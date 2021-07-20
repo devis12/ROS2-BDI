@@ -38,7 +38,7 @@ private:
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 
-    RCLCPP_DEBUG(this->get_logger(), 
+    RCLCPP_INFO(this->get_logger(), 
         "[move " + args[0] + " from " +  args[1] + " toward " + args[2] + "] "+ 
         "progress: %.1f%%", progress_100);
   }
@@ -57,7 +57,7 @@ int main(int argc, char ** argv)
   node->set_parameter(rclcpp::Parameter("action_name", "movetoward"));
   node->set_parameter(rclcpp::Parameter("specialized_arguments", specialized_arguments));
   
-  RCLCPP_DEBUG(node->get_logger(), 
+  RCLCPP_INFO(node->get_logger(), 
       "\"" + node->get_parameter("action_name").as_string() + 
       "\" action performer for agent: " + node->get_parameter("specialized_arguments").as_string_array()[0]);
 

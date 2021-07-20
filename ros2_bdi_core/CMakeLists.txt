@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(ament_cmake REQUIRED) 
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(plansys2_msgs REQUIRED)
 find_package(plansys2_executor REQUIRED)
 find_package(plansys2_problem_expert REQUIRED)
@@ -24,6 +25,7 @@ include_directories(include)
 set(common_dependencies
   rclcpp
   plansys2_msgs
+  lifecycle_msgs
   ros2_bdi_utils ros2_bdi_interfaces
 )
 
@@ -59,15 +61,22 @@ ament_target_dependencies(plan_director
   plansys2_executor
 )
 
-
-add_executable(test_node src/test_node.cpp)
-target_link_libraries(test_node
-  yaml-cpp  
-)
-ament_target_dependencies(test_node
+add_executable(plansys2_monitor src/plansys2_monitor.cpp)
+ament_target_dependencies(plansys2_monitor 
   rclcpp
   ros2_bdi_interfaces
+  lifecycle_msgs
 )
+
+
+#add_executable(test_node src/test_node.cpp)
+#target_link_libraries(test_node
+#  yaml-cpp  
+#)
+#ament_target_dependencies(test_node
+#  rclcpp
+#  ros2_bdi_interfaces
+#)
 
 
 install(DIRECTORY include/
@@ -78,15 +87,16 @@ install(TARGETS
   belief_manager
   scheduler
   plan_director
-  test_node
+  plansys2_monitor
+#  test_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
 
-install(DIRECTORY
-  pddl
-  DESTINATION share/${PROJECT_NAME}
-)
+#install(DIRECTORY
+#  pddl
+#  DESTINATION share/${PROJECT_NAME}
+#)
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})

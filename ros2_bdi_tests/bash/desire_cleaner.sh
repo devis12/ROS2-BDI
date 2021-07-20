@@ -10,5 +10,5 @@ source ~/.bashrc
 echo "I'm going to add a desire to agent$1"
 
 # add desire    (bathroom$1 waypoint) - INSTANCE
-ros2 topic pub /agent1/add_desire ros2_bdi_interfaces/msg/Desire "{name: 'clean_rooms', priority: 0.9, deadline: 28.0, value:[{name: 'cleaned', params: {'kitchen$1'}, pddl_type: 2},{name: 'cleaned', params: {'bathroom$1'}, pddl_type: 2}]}" -1
+ros2 topic pub /agent1/add_desire ros2_bdi_interfaces/msg/Desire "{name: 'clean_rooms', priority: 0.9, deadline: 36.0, value:[{name: 'cleaned', params: {'kitchen$1'}, pddl_type: 2},{name: 'cleaned', params: {'bathroom$1'}, pddl_type: 2},{name: 'cleaned', params: {'bedroom$1'}, pddl_type: 2}]}" -1
 exit 0
