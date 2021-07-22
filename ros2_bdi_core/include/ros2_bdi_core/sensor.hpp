@@ -35,11 +35,11 @@ public:
 
         //Erroneous type will generate sensors that do not publish any sensing info
         if(belief_proto.pddl_type == Belief().INSTANCE_TYPE)
-        sensed_belief_.pddl_type = Belief().INSTANCE_TYPE;
+          sensed_belief_.pddl_type = Belief().INSTANCE_TYPE;
         else if(belief_proto.pddl_type == Belief().PREDICATE_TYPE)
-        sensed_belief_.pddl_type = Belief().PREDICATE_TYPE;
+          sensed_belief_.pddl_type = Belief().PREDICATE_TYPE;
         else if(belief_proto.pddl_type == Belief().FUNCTION_TYPE)
-        sensed_belief_.pddl_type = Belief().FUNCTION_TYPE;
+          sensed_belief_.pddl_type = Belief().FUNCTION_TYPE;
 
         sensed_belief_.name = belief_proto.name;
         sensed_belief_.params = belief_proto.params;

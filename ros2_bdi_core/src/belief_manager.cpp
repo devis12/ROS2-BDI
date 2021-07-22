@@ -439,10 +439,13 @@ private:
         Add Belief in the belief set, just after having appropriately sync the pddl_problem to add it there too
     */
     void addBeliefSyncPDDL(const ManagedBelief& mb)
-    {
+    {   
+        bool alreadyThere = true;//belief already in belief set (check later)
         mtx_sync.lock();
             if(belief_set_.count(mb)==0)
             {
+                alreadyThere = false;//belief NOT already in belief set (check later)
+
                 if(mb.pddlType() == Belief().INSTANCE_TYPE)
                 {   
                     //try to add new instance; if fails (word conflicts, wrong/missing type), no biggie!
@@ -478,6 +481,9 @@ private:
                     modifyBelief(mb);
             }
         mtx_sync.unlock();
+        
+        if(!alreadyThere && belief_set_.count(mb) > 0)//modification to belief set
+            publishBeliefSet();
     }
 
     /*
@@ -585,6 +591,7 @@ private:
             RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
                     + getParamList(mb) +  " (value = " + std::to_string(mb.getValue()) +")");
         
+        delBeliefSyncPDDL(mb);
     }
 
 
@@ -593,7 +600,7 @@ private:
     */
    void delBeliefSyncPDDL(const ManagedBelief& mb)
    {
-       bool done = false;
+        bool done = false;
         mtx_sync.lock();
             if(belief_set_.count(mb)==1)
             {
@@ -621,6 +628,9 @@ private:
                     belief_set_.erase(mb);
             }
         mtx_sync.unlock();
+
+        if(done)//modification has happened, publish new belief set
+            publishBeliefSet();
    }
 
     /*

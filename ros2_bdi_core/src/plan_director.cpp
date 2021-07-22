@@ -26,6 +26,8 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
+#define NO_PLAN_INTERVAL 1000
+#define PLAN_INTERVAL 250
 
 using std::string;
 using std::thread;
@@ -106,7 +108,7 @@ public:
 
     //loop to be called regularly to perform work (publish belief_set_, sync with plansys2 problem_expert node...)
     do_work_timer_ = this->create_wall_timer(
-        milliseconds(500),
+        milliseconds(NO_PLAN_INTERVAL),
         bind(&PlanDirector::step, this));
 
     RCLCPP_INFO(this->get_logger(), "Plan director node initialized");
@@ -205,10 +207,21 @@ private:
         setNoPlanMsg();
     }
 
-    //clear info about current plan execution
+    // clear info about current plan execution
     void setNoPlanMsg()
     {
         current_plan_ = ManagedPlan{};
+    }
+
+    // redefine workint timer interval
+    void resetWorkTimer(const int& ms)
+    {
+        if(!do_work_timer_->is_canceled())
+            do_work_timer_->cancel();
+        
+        do_work_timer_ = this->create_wall_timer(
+            milliseconds(ms),
+            bind(&PlanDirector::step, this));
     }
 
     /*  
@@ -232,6 +245,8 @@ private:
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
                 done = true;
+
+                resetWorkTimer(NO_PLAN_INTERVAL);
             }
         }
         else if(request->EXECUTE && state_ == READY)//no plan currently in exec
@@ -259,6 +274,7 @@ private:
                 }
                     
                 done = true;
+                resetWorkTimer(PLAN_INTERVAL);
 
                 //checkPlanExecution
                 checkPlanExecution();
@@ -351,6 +367,7 @@ private:
                 planExecutionInfo.status =  planExecutionInfo.ABORT;
             
             //in any case plan execution has stopped, so go back to printing out you're not executing any plan
+            resetWorkTimer(NO_PLAN_INTERVAL);
             setNoPlanMsg();
             setState(READY);
         }   

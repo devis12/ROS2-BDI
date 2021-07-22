@@ -5,6 +5,7 @@
 #include <mutex>
 #include <vector>
 #include <set>   
+#include <map>   
 #include <thread>    
 
 #include <yaml-cpp/exceptions.h>
@@ -32,10 +33,12 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
+#define PARAM_MAX_TRIES_DISCARD "tries_desire_discard"
 
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
 using std::thread;
 using std::mutex;
 using std::shared_ptr;
@@ -71,6 +74,7 @@ public:
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_MAX_TRIES_DISCARD, 4);
 
   }
 
@@ -355,9 +359,16 @@ private:
                     }
                     else if(!validGoal(md)) //check if the problem is the goal not being valid          
                     {
+                        int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
+                        int maxTries = this->get_parameter(PARAM_MAX_TRIES_DISCARD).as_int();
+
+                        string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: desire will be rescheduled later");
-                        //discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
+                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: " +  
+                                desireOperation + " (invalid counter = %d).", invCounter);
+                        
+                        if(invCounter >= maxTries)//desire now has to be discarded
+                            discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
                     }
                 }
                 
@@ -437,7 +448,7 @@ private:
             else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
             {
                 //  for now mantain the desire
-                // (if not valid anymore, it'll be removed in next rescheduling, otherwise the plan will be commissioned again)
+                // (if not valid anymore, it'll be removed in next reschedulings, otherwise the plan will be commissioned again)
             }
 
             current_plan_ = ManagedPlan{};//no current plan in execution
@@ -458,7 +469,7 @@ private:
         Someone has publish a new desire to be fulfilled in the respective topic
     */
     void addDesireTopicCallBack(const Desire::SharedPtr msg)
-    {
+    {   
         bool added = addDesire(ManagedDesire{(*msg)});
 
         if(added)//if any alteration to the desire_set has occured, reschedule
@@ -484,9 +495,10 @@ private:
     {
         bool added = false;
         mtx_sync.lock();
-            if(desire_set_.count(md)==0)
+            if(invalid_desire_map_.count(md.getName())==0 && desire_set_.count(md)==0)//desire already there (or diff. desire but with same name identifier)
             {
                 desire_set_.insert(md);
+                invalid_desire_map_.insert(std::pair<string, int>(md.getName(), 0));//to count invalid goal computations and discard after x
                 added = true;
             }
         mtx_sync.unlock();
@@ -503,7 +515,11 @@ private:
             if(desire_set_.count(md)!=0)
             {
                 desire_set_.erase(desire_set_.find(md));
+                invalid_desire_map_.erase(md.getName());
                 deleted = true;
+                RCLCPP_INFO(this->get_logger(), "Desire removed!");//TODO remove when assured there is no bug in deletion
+            }else{
+                RCLCPP_INFO(this->get_logger(), "Desire to be removed not found!");//TODO remove when assured there is no bug in deletion
             }
         mtx_sync.unlock();
         return deleted;
@@ -540,6 +556,9 @@ private:
 
     // desire set of the agent <agent_id_>
     set<ManagedDesire> desire_set_;
+
+    // hashmap for invalid desire counters (after x tries desire will be discarded)
+    map<string, int> invalid_desire_map_;
 
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     ManagedPlan current_plan_;

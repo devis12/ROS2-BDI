@@ -36,14 +36,13 @@ def loadInitFile(pathsource, agent_id):
         print(pathsource + init_bset_filename + '\t invalid path for init. belief set file')
 
     # load init desire set file in /tmp/{agent_id}/init_dset.yaml
-    '''
-    init_dset_filename = '/init_dset.yaml'
+    
+    init_dset_filename = '/init_dset1.yaml'
 
     if os.path.exists(pathsource + init_dset_filename):
         shutil.copyfile(pathsource + init_dset_filename, '/tmp/'+agent_id+'/init_dset.yaml')
     else:
         print(pathsource + init_bset_filename + '\t invalid path for init. desire set file')
-    '''
 
 
 
@@ -98,7 +97,8 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": AGENT_NAME},
+            {"tries_desire_discard": 16}
         ])
 
     plan_director = Node(

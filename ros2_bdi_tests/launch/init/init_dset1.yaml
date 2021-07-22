@@ -1,0 +1,20 @@
+-
+  name: "clean_rooms"
+  priority: 0.6
+  deadline: 36.0
+  value:
+    -
+      name: "cleaned"
+      pddl_type: 2
+      params:
+        - "kitchen1"
+#    -
+#      name: "cleaned"
+#      pddl_type: 2
+#      params:
+#        - "bathroom1"
+#    -
+#      name: "cleaned"
+#      pddl_type: 2
+#      params:
+#        - "bedroom1"
