@@ -436,23 +436,52 @@ private:
     void updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
     {
         auto planExecInfo = (*msg);
-        if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
+        if(!noPlanSelected() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
         {
-            if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
+            if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
+            {
+                if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Plan successfully executed: desire achieved! Remove it from desire set");
+                    delDesire(ManagedDesire{planExecInfo.target});//desire achieved
+                }
+
+                else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
+                {
+                    //  for now mantain the desire
+                    // (if not valid anymore, it'll be removed in next reschedulings, otherwise the plan will be commissioned again)
+                }
+
+                current_plan_ = ManagedPlan{};//no current plan in execution
+                reschedule();// reschedule for new plan execution
+            }
+        }
+    }
+
+    /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
+        beliefs which shows they're already fulfilled
+    */
+    void checkForSatisfiedDesires()
+    {
+        for(ManagedDesire md : desire_set_)
+        {
+            bool satisfied = true;
+            for(ManagedBelief targetb : md.getValue())
+                if(belief_set_.count(targetb) == 0)//desire still not achieved
+                {
+                    satisfied = false;
+                    break;
+                }
+            
+            if(satisfied)//desire already achieved, remove it
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Plan successfully executed: desire achieved! Remove it from desire set");
-                delDesire(ManagedDesire{planExecInfo.target});//desire achieved
+                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
+                        "target appears to be already fulfilled given the current belief set");
+                
+                delDesire(md);
             }
-
-            else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
-            {
-                //  for now mantain the desire
-                // (if not valid anymore, it'll be removed in next reschedulings, otherwise the plan will be commissioned again)
-            }
-
-            current_plan_ = ManagedPlan{};//no current plan in execution
-            reschedule();// reschedule for new plan execution
         }
     }
 
@@ -462,7 +491,7 @@ private:
     void updatedBeliefSet(const BeliefSet::SharedPtr msg)
     {
         belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-        // TOCHECK has anything to be called after?
+        checkForSatisfiedDesires();
     }
 
     /*  
@@ -517,9 +546,7 @@ private:
                 desire_set_.erase(desire_set_.find(md));
                 invalid_desire_map_.erase(md.getName());
                 deleted = true;
-                RCLCPP_INFO(this->get_logger(), "Desire removed!");//TODO remove when assured there is no bug in deletion
-            }else{
-                RCLCPP_INFO(this->get_logger(), "Desire to be removed not found!");//TODO remove when assured there is no bug in deletion
+                //RCLCPP_INFO(this->get_logger(), "Desire removed!");//TODO remove when assured there is no bug in deletion
             }
         mtx_sync.unlock();
         return deleted;

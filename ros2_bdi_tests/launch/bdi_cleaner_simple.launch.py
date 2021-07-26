@@ -75,7 +75,7 @@ def generate_launch_description():
             'plansys2_bringup_launch_distributed.py')),
 
         launch_arguments={
-            'model_file': bdi_tests_share_dir + '/pddl/cleaner-domain.pddl',
+            'model_file': bdi_tests_share_dir + '/pddl/cleaner_simple/cleaner-domain.pddl',
             'namespace': namespace
             }.items()
     )
@@ -173,7 +173,7 @@ def generate_launch_description():
 
     # Declare plansys2 monitor node
     ld.add_action(plansys2_monitor)
-    
+
     #Add belief manager
     ld.add_action(belief_manager)
     #Add BDI scheduler
@@ -188,5 +188,5 @@ def generate_launch_description():
 
     #Sensors for agent
     ld.add_action(wp_sensor)
-    
+
     return ld

@@ -64,9 +64,17 @@ bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
     if(md1_value.size() < md2_value.size())
         return true;
 
-    // check in order mg. belief by  mg. belief
-    for(int i=0; i<md1_value.size(); i++)
-        if(md1_value[i] < md2_value[i])
+    // order do not count, so put them into two sets
+    set<ManagedBelief> md1_beliefs;
+    for(ManagedBelief mb : md1_value)
+        md1_beliefs.insert(mb);
+    set<ManagedBelief> md2_beliefs;
+    for(ManagedBelief mb : md2_value)
+        md2_beliefs.insert(mb);
+
+    // check for every belief of one mg. desire if it is contained also in the other mg. desire
+    for(ManagedBelief mb1 : md1_beliefs)
+        if(md2_beliefs.count(mb1)==0)
             return true;
 
     return false; //otherwise return false
@@ -85,9 +93,17 @@ bool operator==(ManagedDesire const &md1, ManagedDesire const &md2){
     if(md1_value.size() < md2_value.size())
         return false;
 
-    // check in order mg. belief by  mg. belief
-    for(int i=0; i<md1_value.size(); i++)
-        if(!(md1_value[i] == md2_value[i]))
+    // order do not count, so put them into two sets
+    set<ManagedBelief> md1_beliefs;
+    for(ManagedBelief mb : md1_value)
+        md1_beliefs.insert(mb);
+    set<ManagedBelief> md2_beliefs;
+    for(ManagedBelief mb : md2_value)
+        md2_beliefs.insert(mb);
+
+    // check for every belief of one mg. desire if it is contained also in the other mg. desire
+    for(ManagedBelief mb1 : md1_beliefs)
+        if(md2_beliefs.count(mb1)==0)
             return false;
 
     //otherwise equals
