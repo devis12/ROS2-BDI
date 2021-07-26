@@ -37,6 +37,12 @@ ament_target_dependencies(recharge ${psys2_act_client_dep})
 add_executable(doclean src/actions/cleaner_cli/doclean.cpp)
 ament_target_dependencies(doclean ${psys2_act_client_dep})
 
+add_executable(asksweeping src/actions/cleaner_cli/asksweeping.cpp)
+ament_target_dependencies(asksweeping ros2_bdi_interfaces ${psys2_act_client_dep})
+
+add_executable(waitsweeping src/actions/cleaner_cli/waitsweeping.cpp)
+ament_target_dependencies(waitsweeping ros2_bdi_interfaces ${psys2_act_client_dep})
+
 add_executable(dosweep src/actions/sweeper_cli/dosweep.cpp)
 ament_target_dependencies(dosweep ${psys2_act_client_dep})
 
@@ -48,6 +54,8 @@ install(TARGETS
   movetoward
   recharge
   doclean
+  asksweeping
+  waitsweeping
   dosweep
 
   wp_sensor

@@ -1,0 +1,10 @@
+-
+  name: "sweep_rooms"
+  priority: 0.6
+  deadline: 36.0
+  value:
+    -
+      name: "sweeped"
+      pddl_type: 2
+      params:
+        - "kitchen"

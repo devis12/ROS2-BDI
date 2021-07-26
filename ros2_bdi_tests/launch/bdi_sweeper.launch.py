@@ -28,35 +28,38 @@ def loadInitFile(pathsource, agent_id):
     os.mkdir('/tmp/'+agent_id)
 
     # load init belief set file in /tmp/{agent_id}/init_bset.yaml
-    init_bset_filename = '/init_bset.yaml'
+    init_bset_filename = '/init_'+agent_id+'_bset.yaml'
     
     if os.path.exists(pathsource + init_bset_filename):
         shutil.copyfile(pathsource + init_bset_filename, '/tmp/'+agent_id+'/init_bset.yaml')
+        print(pathsource + init_bset_filename + ' copied into ' + '/tmp/'+agent_id+'/init_bset.yaml')
     else:
-        print(pathsource + init_bset_filename + '\t invalid path for init. belief set file')
+        print(pathsource + init_bset_filename + ' invalid path for init. belief set file')
 
     # load init desire set file in /tmp/{agent_id}/init_dset.yaml
     
-    init_dset_filename = '/init_dset1.yaml'
+    init_dset_filename = '/init_'+agent_id+'_dset.yaml'
 
     if os.path.exists(pathsource + init_dset_filename):
         shutil.copyfile(pathsource + init_dset_filename, '/tmp/'+agent_id+'/init_dset.yaml')
+        print(pathsource + init_dset_filename + ' copied into ' + '/tmp/'+agent_id+'/init_dset.yaml')
     else:
-        print(pathsource + init_dset_filename + '\t invalid path for init. desire set file')
+        print(pathsource + init_dset_filename + ' invalid path for init. desire set file')
 
 
 
 def generate_launch_description():
-    AGENT_NAME = "agent1"
+    
+    SWEEPER_NAME = "sweeper"
     
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
-    loadInitFile(bdi_tests_share_dir+'/launch/init_cleaner_simple', AGENT_NAME)
+    loadInitFile(bdi_tests_share_dir+'/launch/init_cleaner_sweeper', SWEEPER_NAME)
 
     namespace = LaunchConfiguration('namespace')
 
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace',
-        default_value=AGENT_NAME,
+        default_value=SWEEPER_NAME,
         description='Namespace definition')
     
     log_level_cmd = DeclareLaunchArgument(
@@ -75,7 +78,7 @@ def generate_launch_description():
             'plansys2_bringup_launch_distributed.py')),
 
         launch_arguments={
-            'model_file': bdi_tests_share_dir + '/pddl/cleaner_simple/cleaner-domain.pddl',
+            'model_file': bdi_tests_share_dir + '/pddl/cleaner_sweeper/sweeper-domain.pddl',
             'namespace': namespace
             }.items()
     )
@@ -88,7 +91,7 @@ def generate_launch_description():
         name='belief_manager',
         namespace=namespace,
         output='screen',
-        parameters=[{"agent_id": AGENT_NAME}])
+        parameters=[{"agent_id": SWEEPER_NAME}])
 
     scheduler = Node(
         package='ros2_bdi_core',
@@ -97,7 +100,7 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME},
+            {"agent_id": SWEEPER_NAME},
             {"tries_desire_discard": 16}
         ])
 
@@ -108,7 +111,7 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": SWEEPER_NAME}
         ])
     
     plansys2_monitor = Node(
@@ -118,7 +121,7 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": SWEEPER_NAME}
         ])
 
     action_movetoward = Node(
@@ -128,17 +131,17 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": SWEEPER_NAME}
         ])
 
-    action_doclean = Node(
+    action_dosweep = Node(
         package='ros2_bdi_tests',
-        executable='doclean',
-        name='doclean',
+        executable='dosweep',
+        name='dosweep',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": SWEEPER_NAME}
         ])
     
     action_recharge = Node(
@@ -148,18 +151,7 @@ def generate_launch_description():
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
-        ])
-
-    wp_sensor = Node(
-        package='ros2_bdi_tests',
-        executable='wp_sensor',
-        name='wp_sensor',
-        namespace=namespace,
-        output='screen',
-        parameters=[
-            {"agent_id": AGENT_NAME},
-            {"init_sleep": 4}
+            {"agent_id": SWEEPER_NAME}
         ])
 
 
@@ -183,10 +175,7 @@ def generate_launch_description():
 
     #Action performers for agent
     ld.add_action(action_movetoward)
-    ld.add_action(action_doclean)
     ld.add_action(action_recharge)
-
-    #Sensors for agent
-    ld.add_action(wp_sensor)
+    ld.add_action(action_dosweep)
 
     return ld
