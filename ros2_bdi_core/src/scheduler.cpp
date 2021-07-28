@@ -184,7 +184,18 @@ public:
         case SCHEDULING:
         {   
             publishDesireSet();
-            reschedule();
+            bool noPlan = noPlanSelected();
+          
+            if(noPlan)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
+
+                reschedule();
+
+            }else{
+                //already selected a plan currently in exec
+            }
         }
 
         case PAUSE:
@@ -309,94 +320,86 @@ private:
     */
     void reschedule()
     {   
-        if(noPlanSelected())
+        // priority of selected plan
+        float highestPriority = 0.0f;
+        // deadline of selected plan
+        float selectedDeadline = -1.0f;//  init to negative value
+        
+        ManagedPlan selectedPlan;
+        
+        vector<ManagedDesire> discarded_desires;
+
+        for(ManagedDesire md : desire_set_)
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
-
-            // priority of selected plan
-            float highestPriority = 0.0f;
-            // deadline of selected plan
-            float selectedDeadline = -1.0f;//  init to negative value
-            
-            ManagedPlan selectedPlan;
-            
-            vector<ManagedDesire> discarded_desires;
-
-            for(ManagedDesire md : desire_set_)
-            {
-                //select just desires of higher or equal priority with respect to the one currently selected
-                if(md.getPriority() >= highestPriority){
-                    optional<Plan> opt_p = computePlan(md);
-                    if(opt_p.has_value())
+            //select just desires of higher or equal priority with respect to the one currently selected
+            if(md.getPriority() >= highestPriority){
+                optional<Plan> opt_p = computePlan(md);
+                if(opt_p.has_value())
+                {
+                    ManagedPlan mp = ManagedPlan{md, opt_p.value().items};
+                    // does computed deadline for this plan respect desire deadline?
+                    if(mp.getPlanDeadline() <= md.getDeadline()) 
                     {
-                        ManagedPlan mp = ManagedPlan{md, opt_p.value().items};
-                        // does computed deadline for this plan respect desire deadline?
-                        if(mp.getPlanDeadline() <= md.getDeadline()) 
-                        {
-                            // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
-                            // or equal priority, but smaller deadline
-                            if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlanDeadline() < selectedDeadline)
-                            {    
-                                selectedDeadline = mp.getPlanDeadline();
-                                highestPriority = md.getPriority();
-                                selectedPlan = mp;
-                            
-                            }else if(md.getPriority() <= highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
-                                RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+ 
-                                    "it it's not the desire (among which a plan can be selected) with highest priority right now");
-
-                            }else if(mp.getPlanDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
-                                RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+
-                                    "it it's not the desire (among which a plan can be selected) with highest priority and earliest deadline right now");
-                            }
-
-                            
-
-                        }else if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but it does not respect the deadline constraint");
+                        // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
+                        // or equal priority, but smaller deadline
+                        if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlanDeadline() < selectedDeadline)
+                        {    
+                            selectedDeadline = mp.getPlanDeadline();
+                            highestPriority = md.getPriority();
+                            selectedPlan = mp;
                         
-                    }
-                    else if(!validGoal(md)) //check if the problem is the goal not being valid          
-                    {
-                        int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
-                        int maxTries = this->get_parameter(PARAM_MAX_TRIES_DISCARD).as_int();
+                        }else if(md.getPriority() <= highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
+                            RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+ 
+                                "it it's not the desire (among which a plan can be selected) with highest priority right now");
 
-                        string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
-                        if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: " +  
-                                desireOperation + " (invalid counter = %d).", invCounter);
-                        
-                        if(invCounter >= maxTries)//desire now has to be discarded
-                            discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
-                    }
+                        }else if(mp.getPlanDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
+                            RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+
+                                "it it's not the desire (among which a plan can be selected) with highest priority and earliest deadline right now");
+                        }
+
+                    }else if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but it does not respect the deadline constraint");
+
                 }
-                
-            }
+                else if(!validGoal(md)) //check if the problem is the goal not being valid          
+                {
+                    int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
+                    int maxTries = this->get_parameter(PARAM_MAX_TRIES_DISCARD).as_int();
 
-            //removed discarded desires
-            for(ManagedDesire md : discarded_desires)
-                delDesire(md);
-
-            //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
-            if(selectedPlan.getBody().size() > 0 && desire_set_.count(selectedPlan.getDesire())==1)
-            {
-                current_plan_ = selectedPlan;
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
-                        
-                //trigger plan execution
-                shared_ptr<thread> thr = 
-                    std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this));
-                thr->detach();
+                    string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: " +  
+                            desireOperation + " (invalid counter = %d).", invCounter);
+                    
+                    if(invCounter >= maxTries)//desire now has to be discarded
+                        discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
+                }
             }
+            
+        }
+
+        //removed discarded desires
+        for(ManagedDesire md : discarded_desires)
+            delDesire(md);
+
+        //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
+        if(selectedPlan.getBody().size() > 0 && desire_set_.count(selectedPlan.getDesire())==1)
+        {
+            current_plan_ = selectedPlan;
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
+                    
+            //trigger plan execution
+            shared_ptr<thread> thr = 
+                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().EXECUTE));
+            thr->detach();
         }
     }
 
     /*
         Contact plan executor to trigger the execution of the current_plan_
     */
-    void triggerPlanExecution()
+    void triggerPlanExecution(const int& PLAN_EXEC_REQUEST)
     {
         //check for service to be up
         rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
@@ -412,18 +415,31 @@ private:
         }
 
         auto request = std::make_shared<BDIPlanExecution::Request>();
-        request->request = request->EXECUTE;
+        request->request = PLAN_EXEC_REQUEST;
         request->plan = current_plan_.toPlan();
         auto future = client_->async_send_request(request);
 
         try{
             auto response = future.get();
-            if(!response->success)//notifying you're not executing any plan right now
+            if(PLAN_EXEC_REQUEST == request->EXECUTE && !response->success)
             {
-                current_plan_ = ManagedPlan{};//no current_plan_
-            }else{
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Triggered new plan execution");
+                    RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+                reschedule();
+            }
+            else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+            }
+            else if(PLAN_EXEC_REQUEST == request->ABORT && response->success)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
+                
+                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+                reschedule();
             }
         }catch(const std::exception &e){
             RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
@@ -431,7 +447,7 @@ private:
     }
 
     /*
-        The belief set has been updated
+        Received update on current plan execution
     */
     void updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
     {
@@ -442,9 +458,15 @@ private:
             {
                 if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
                 {
+                    bool desireAchieved = isDesireSatisfied(planExecInfo.target);
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Plan successfully executed: desire achieved! Remove it from desire set");
-                    delDesire(ManagedDesire{planExecInfo.target});//desire achieved
+                    {   
+                        string addNote = desireAchieved? "desire achieved will be removed from desire set" : "desire still not achieved! It'll not removed from the desire set yet";
+                        RCLCPP_INFO(this->get_logger(), "Plan successfully executed: " + addNote);
+                    }
+
+                    if(desireAchieved)
+                        delDesire(ManagedDesire{planExecInfo.target});//desire achieved
                 }
 
                 else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
@@ -459,28 +481,41 @@ private:
         }
     }
 
+    /*
+        Given the current knowledge of the belief set, decide if a given desire
+        is already fulfilled
+    */
+    bool isDesireSatisfied(const ManagedDesire& md)
+    {
+        for(ManagedBelief targetb : md.getValue())
+            if(belief_set_.count(targetb) == 0)
+                return false;//desire still not achieved
+                
+        return true;//all target conditions already met       
+    }
+
     /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
         beliefs which shows they're already fulfilled
     */
     void checkForSatisfiedDesires()
     {
         for(ManagedDesire md : desire_set_)
-        {
-            bool satisfied = true;
-            for(ManagedBelief targetb : md.getValue())
-                if(belief_set_.count(targetb) == 0)//desire still not achieved
-                {
-                    satisfied = false;
-                    break;
-                }
-            
-            if(satisfied)//desire already achieved, remove it
+        {   
+            if(isDesireSatisfied(md))//desire already achieved, remove it
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
                         "target appears to be already fulfilled given the current belief set");
                 
                 delDesire(md);
+
+                if(!noPlanSelected() && current_plan_.getDesire() == md)
+                {
+                    //abort plan execution since current target desire is already achieved
+                    shared_ptr<thread> thr = 
+                        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                    thr->detach();
+                }
             }
         }
     }
