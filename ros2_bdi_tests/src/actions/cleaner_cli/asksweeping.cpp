@@ -37,6 +37,7 @@ public:
   {
     string sweeper_id = this->get_parameter(PARAM_SWEEPER_ID).as_string();
     sweeper_desire_publisher_ = this->create_publisher<Desire>("/" + sweeper_id + "/add_desire", 10);
+    progress_ = 0.0f;
     sweeper_desire_publisher_->on_activate();
 
     return ActionExecutorClient::on_activate(previous_state);
@@ -61,7 +62,6 @@ private:
       askToSweep(args[1]);
     } else {
       finish(true, 1.0, args[0] + " asksweeping " + args[1] + " completed");
-      progress_ = 0.0;
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 

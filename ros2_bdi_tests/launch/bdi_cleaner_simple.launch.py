@@ -37,7 +37,7 @@ def loadInitFile(pathsource, agent_id):
 
     # load init desire set file in /tmp/{agent_id}/init_dset.yaml
     
-    init_dset_filename = '/init_dset1.yaml'
+    init_dset_filename = '/init_dset.yaml'
 
     if os.path.exists(pathsource + init_dset_filename):
         shutil.copyfile(pathsource + init_dset_filename, '/tmp/'+agent_id+'/init_dset.yaml')

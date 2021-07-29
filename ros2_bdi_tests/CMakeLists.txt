@@ -10,9 +10,13 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(plansys2_msgs REQUIRED)
 find_package(plansys2_executor REQUIRED)
+find_package(plansys2_problem_expert REQUIRED)
 find_package(ros2_bdi_core REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(gazebo_msgs REQUIRED)
 
 set(psys2_act_client_dep
     rclcpp
@@ -46,6 +50,12 @@ ament_target_dependencies(waitsweeping ros2_bdi_interfaces ${psys2_act_client_de
 add_executable(dosweep src/actions/sweeper_cli/dosweep.cpp)
 ament_target_dependencies(dosweep ${psys2_act_client_dep})
 
+add_executable(doclean_gazebo src/actions/cleaner_gazebo/doclean_gazebo.cpp)
+ament_target_dependencies(doclean_gazebo geometry_msgs ${psys2_act_client_dep})
+
+add_executable(movetoward_gazebo src/actions/cleaner_gazebo/movetoward_gazebo.cpp)
+ament_target_dependencies(movetoward_gazebo geometry_msgs sensor_msgs gazebo_msgs plansys2_problem_expert ${psys2_act_client_dep})
+
 add_executable(wp_sensor src/sensors/wp_sensor.cpp)
 ament_target_dependencies(wp_sensor ${sensors_dep})
 
@@ -57,6 +67,8 @@ install(TARGETS
   asksweeping
   waitsweeping
   dosweep
+  doclean_gazebo
+  movetoward_gazebo
 
   wp_sensor
 

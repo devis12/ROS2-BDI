@@ -43,6 +43,8 @@ public:
     sweeped_publisher_ = this->create_publisher<Belief>("add_belief", 10);
     sweeped_publisher_->on_activate();
 
+    progress_ = 0.0f;
+
     return ActionExecutorClient::on_activate(previous_state);
   }
 
@@ -72,8 +74,6 @@ private:
     } else if(sweeped_){
       notifySweeped();
       finish(true, 1.0, args[0] + " waiting for sweeping in " + args[1] + " completed");
-
-      progress_ = 0.0;
     }
     
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 

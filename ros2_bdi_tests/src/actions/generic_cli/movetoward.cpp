@@ -24,17 +24,24 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
   }
 
+         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_activate(const rclcpp_lifecycle::State & previous_state)
+  {
+    progress_ = 0.0f;
+
+    return ActionExecutorClient::on_activate(previous_state);
+  }
+
 private:
   void do_work()
   {
     vector<string> args = get_arguments();
     if (progress_ < 1.0) {
       progress_ += 0.0625;
-      send_feedback(progress_, args[0] + " move toward " + args[2] + " running");
-    } else {
-      finish(true, 1.0, args[0] + " move toward " + args[2] + " completed");
-
-      progress_ = 0.0;
+      if(progress_ >= 1.0)
+        finish(true, 1.0, args[0] + " moving from " + args[1] + " toward " + args[2] + " completed");
+      else
+        send_feedback(progress_, args[0] + " moving from " + args[1] + " toward " + args[2] + " running");
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 

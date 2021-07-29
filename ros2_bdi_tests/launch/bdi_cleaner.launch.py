@@ -165,16 +165,21 @@ def generate_launch_description():
             {"sweeper_id": "sweeper"}
         ])
     
-    action_waitsweeping = Node(
-        package='ros2_bdi_tests',
-        executable='waitsweeping',
-        name='waitsweeping',
-        namespace=namespace,
-        output='screen',
-        parameters=[
-            {"agent_id": CLEANER_NAME},
-            {"sweeper_id": "sweeper"}
-        ])
+    actions_waitsweeping = []
+    for i in range(0, 3):
+        actions_waitsweeping.append( 
+            Node(
+                package='ros2_bdi_tests',
+                executable='waitsweeping',
+                name='waitsweeping{}'.format(i),
+                namespace=namespace,
+                output='screen',
+                parameters=[
+                    {"agent_id": CLEANER_NAME},
+                    {"sweeper_id": "sweeper"}
+                ]
+            )
+        )
 
 
     # Set environment variables
@@ -200,6 +205,7 @@ def generate_launch_description():
     ld.add_action(action_doclean)
     ld.add_action(action_recharge)
     ld.add_action(action_asksweeping)
-    ld.add_action(action_waitsweeping)
+    for act_waits in actions_waitsweeping:
+        ld.add_action(act_waits)
 
     return ld

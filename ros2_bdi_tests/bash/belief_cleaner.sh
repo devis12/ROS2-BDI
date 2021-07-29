@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ "$#" -ne 1 ]; then
-    echo "Illegal number of parameters: ./belief_cleaner.sh <agent_id>"
+if [ ! "$#" -gt 1 ]; then
+    echo "Illegal number of parameters: ./belief_cleaner.sh <agent_id> [already_cleaned]"
     exit -1
 fi
 
@@ -31,4 +31,9 @@ ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'workfr
 ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'recharging_station', params: {'dock$1'}, pddl_type: 2}" -1
 # add belief    (battery_charge=90) - FUNCTION
 ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'battery_charge', params: {}, pddl_type: 3, value: $charge}" -1
+
+if [ $2 -eq true ]; then # already cleaned (with param set to 1) 
+    ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'kitchen1'}, pddl_type: 2}" -1 && ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'bedroom1'}, pddl_type: 2}" -1 && ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'bathroom1'}, pddl_type: 2}" -1
+fi
+
 exit 0

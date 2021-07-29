@@ -34,6 +34,8 @@
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
 #define PARAM_MAX_TRIES_DISCARD "tries_desire_discard"
+#define PARAM_RESCHEDULE_POLICY "reschedule_policy"
+#define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_IF_EXEC"
 
 using std::string;
 using std::vector;
@@ -75,6 +77,7 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_MAX_TRIES_DISCARD, 4);
+    this->declare_parameter(PARAM_RESCHEDULE_POLICY, VAL_RESCHEDULE_POLICY_NO_IF_EXEC);
 
   }
 
@@ -184,9 +187,15 @@ public:
         case SCHEDULING:
         {   
             publishDesireSet();
+            string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
             bool noPlan = noPlanSelected();
-          
-            if(noPlan)
+
+            /*
+                Either the reschedule policy is no if a plan is executing AND there is no plan currently in exec
+                or the reschedule policy allows rescheduling while plan is in exec
+            */
+            if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && noPlan 
+                || reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC)
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
@@ -320,6 +329,14 @@ private:
     */
     void reschedule()
     {   
+        string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
+        bool noPlan = noPlanSelected();
+        if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)//rescheduling not ammitted
+            return;
+        
+        //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
+        bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
+
         // priority of selected plan
         float highestPriority = 0.0f;
         // deadline of selected plan
@@ -331,6 +348,10 @@ private:
 
         for(ManagedDesire md : desire_set_)
         {
+            //plan in exec has higher priority than this one, skip this desire
+            if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
+                continue;
+
             //select just desires of higher or equal priority with respect to the one currently selected
             if(md.getPriority() >= highestPriority){
                 optional<Plan> opt_p = computePlan(md);
@@ -382,9 +403,47 @@ private:
         for(ManagedDesire md : discarded_desires)
             delDesire(md);
 
+        tryTriggerPlanExecution(selectedPlan);
+    }
+
+
+    /*
+        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
+        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
+    */
+    void tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
+    {
+        string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
+        bool noPlan = noPlanSelected();
+        //rescheduling not ammitted -> a plan already executing and policy not admit any switch with higher priority plans
+        if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)
+            return;
+
+        //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
+        bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
+
         //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
         if(selectedPlan.getBody().size() > 0 && desire_set_.count(selectedPlan.getDesire())==1)
         {
+            if(planinExec)
+            {
+                //before triggering new plan, abort the one currently in exec
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
+                                    " in order to trigger plan execution for desire \"" + current_plan_.getDesire().getName() + "\"");
+                    
+                //trigger plan execution
+                shared_ptr<thread> thr = 
+                    std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                thr->detach();
+
+                //mutex to handle better ABORT old plan -> EXECUTE new plan sequence
+                while(mtx_abort_trigger.try_lock())//when you fail it means that aborting thread has started
+                    mtx_abort_trigger.unlock();
+                mtx_abort_trigger.lock();//wait aborting thread to be finished
+                mtx_abort_trigger.unlock();
+            }
+
             current_plan_ = selectedPlan;
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
@@ -401,6 +460,8 @@ private:
     */
     void triggerPlanExecution(const int& PLAN_EXEC_REQUEST)
     {
+        mtx_abort_trigger.lock();
+
         //check for service to be up
         rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
             this->create_client<BDIPlanExecution>("plan_execution");
@@ -444,6 +505,8 @@ private:
         }catch(const std::exception &e){
             RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
         }
+
+        mtx_abort_trigger.unlock();
     }
 
     /*
@@ -454,6 +517,7 @@ private:
         auto planExecInfo = (*msg);
         if(!noPlanSelected() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
         {
+            current_plan_exec_info_ = planExecInfo;
             if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
             {
                 if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
@@ -503,21 +567,48 @@ private:
         {   
             if(isDesireSatisfied(md))//desire already achieved, remove it
             {
+                if(!noPlanSelected() && current_plan_.getDesire() == md && 
+                    !executingLastAction() && current_plan_exec_info_.status != current_plan_exec_info_.SUCCESSFUL)
+                {
+                    int lastAction = current_plan_exec_info_.actions.size() -1;
+                    int executingAction = current_plan_exec_info_.executing[0].index;
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Current plan execution fulfilling desire \"" + md.getName() + 
+                            "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
+                            "(executing %d out of %d)", executingAction, lastAction);
+
+                    //abort plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
+                    shared_ptr<thread> thr = 
+                        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                    thr->detach();
+                }
+
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
                         "target appears to be already fulfilled given the current belief set");
                 
                 delDesire(md);
-
-                if(!noPlanSelected() && current_plan_.getDesire() == md)
-                {
-                    //abort plan execution since current target desire is already achieved
-                    shared_ptr<thread> thr = 
-                        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
-                    thr->detach();
-                }
             }
         }
+    }
+
+    /*
+        wrt the current plan execution...
+        return true iff currently executing last action
+        return false if otherwise or not executing any plan
+    */
+    bool executingLastAction()
+    {   
+        // not exeuting any plan or last update not related to currently triggered plan
+        if(noPlanSelected() || current_plan_exec_info_.target.name != current_plan_.getDesire().getName())
+            return false;
+
+        bool executingLast = false;
+        for(auto currentExecutingAction : current_plan_exec_info_.executing)
+            if(currentExecutingAction.index == current_plan_exec_info_.actions.size() - 1)//currentlyExecutingLast action
+                executingLast = true;
+
+        return executingLast;
     }
 
     /*
@@ -624,9 +715,13 @@ private:
 
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     ManagedPlan current_plan_;
+    // last plan execution info
+    BDIPlanExecutionInfo current_plan_exec_info_;
 
     //mutex for sync when modifying desire_set
     mutex mtx_sync;
+    //mutex to regulate abort -> trigger new one flow
+    mutex mtx_abort_trigger;
 
     // string representing a pddl domain to supply to the plansys2 planner
     string pddl_domain_;
