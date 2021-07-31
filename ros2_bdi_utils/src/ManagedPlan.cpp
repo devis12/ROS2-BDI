@@ -10,8 +10,8 @@
 
 ManagedPlan::ManagedPlan():
     body_(vector<PlanItem>()),
-    precondition_(vector<ManagedBelief>()),
-    context_(vector<ManagedBelief>()),
+    precondition_(vector<ManagedCondition>()),
+    context_(vector<ManagedCondition>()),
     plan_deadline_(0.0f)
     {
         Desire d = Desire{};
@@ -22,14 +22,20 @@ ManagedPlan::ManagedPlan():
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems):
     desire_(md),
-    body_(planitems)
+    body_(planitems),
+    precondition_(vector<ManagedCondition>()),
+    context_(vector<ManagedCondition>())
     {   
-        // TODO
-        // precondition_ = beliefs of first action picked
-        // context_ = OR of over_all condition along all actions picked
-        precondition_ = computePrecondition(planitems);
-        context_ = computeContext(planitems);
-        
+        plan_deadline_ = computeDeadline(planitems);
+    }
+
+ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
+    const vector<ManagedCondition>& precondition, const vector<ManagedCondition>& context):
+    desire_(md),
+    body_(planitems),
+    precondition_(precondition),
+    context_(context)
+    {   
         plan_deadline_ = computeDeadline(planitems);
     }
 
@@ -46,57 +52,19 @@ BDIPlan ManagedPlan::toPlan() const
     p.desire = desire_.toDesire();
     p.actions = body_;
 
-    /*
-    TO DO build ManagedCondition
-    vector<Belief> preconditions_msg = vector<Belief>();
-    for(ManagedBelief mb : precondition_)
-        preconditions_msg.push_back(mb.toBelief());
+    vector<Condition> preconditions_msg = vector<Condition>();
+    for(ManagedCondition mc : precondition_)
+        preconditions_msg.push_back(mc.toCondition());
     p.precondition = preconditions_msg;
 
-    vector<Belief> context_msg = vector<Belief>();
-    for(ManagedBelief mb : context_)
-        context_msg.push_back(mb.toBelief());
+    vector<Condition> context_msg = vector<Condition>();
+    for(ManagedCondition mc : context_)
+        context_msg.push_back(mc.toCondition());
     p.context = context_msg;
-    */
+
     return p;
 }
 
-/*
-    before the first version, just empty
-    
-    for a first version...
-    Compute it as the precondition of the first action picked in the plan
-*/
-vector<ManagedBelief> ManagedPlan::computePrecondition(const vector<PlanItem>& planitems)
-{
-    //std::shared_ptr<DomainExpertClient> domain_expert = std::make_shared<plansys2::DomainExpertClient>();
-
-    vector<ManagedBelief> precondition = vector<ManagedBelief>();
-    /*
-    PlanItem first_action = plan.items[0];
-    Action pddlAction = domain_expert->getAction(first_action.action);
-    if(pddlAction.name != "")
-    {
-        for(auto pddlPrecondition : pddlAction.preconditions)
-        {
-            pddlPrecondition.
-        }
-    }
-    */
-    return precondition;
-}
-
-/*
-    before the first version, just empty
-    
-    for a first version...
-    Compute it as the disjunction of the over all conditions of actions picked in the plan
-*/
-vector<ManagedBelief> ManagedPlan::computeContext(const vector<PlanItem>& planitems)
-{
-    vector<ManagedBelief> context = vector<ManagedBelief>();
-    return context;
-}
 
 float ManagedPlan::computeDeadline(const vector<PlanItem>& planitems)
 {
@@ -124,30 +92,41 @@ bool operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
         if(mp1_body[i].action != mp2_body[i].action)
             return false;
     
-    vector<ManagedBelief> mp1_precondition = mp1.getPrecondition();
-    vector<ManagedBelief> mp2_precondition = mp2.getPrecondition();
+    vector<ManagedCondition> mp1_precondition = mp1.getPrecondition();
+    vector<ManagedCondition> mp2_precondition = mp2.getPrecondition();
 
-    // check based # of mg. Belief in its preconditions 
-    if(mp1_precondition.size() != mp2_precondition.size())
-        return false;
+    vector<ManagedCondition> mp1_context = mp1.getContext();
+    vector<ManagedCondition> mp2_context = mp2.getContext();
 
-    // check in order precondition belief by precondition belief
-    for(int i=0; i<mp1_precondition.size(); i++)
-        if(!(mp1_precondition[i] == mp2_precondition[i]))
+    // check based # of mg. condition(s) in preconditions and context conditions 
+    if(mp1_precondition.size() < mp2_precondition.size() || mp1_context.size() < mp2_context.size())
+        return true;
+
+    // order do not count, so put them into four sets
+    set<ManagedCondition> mp1_preconditionS;
+    for(ManagedCondition mc : mp1_precondition)
+        mp1_preconditionS.insert(mc);
+    set<ManagedCondition> mp1_contextS;
+    for(ManagedCondition mc : mp1_context)
+        mp1_contextS.insert(mc);
+
+    set<ManagedCondition> mp2_preconditionS;
+    for(ManagedCondition mc : mp2_precondition)
+        mp2_preconditionS.insert(mc);
+    set<ManagedCondition> mp2_contextS;
+    for(ManagedCondition mc : mp2_context)
+        mp2_contextS.insert(mc);
+
+    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
+    for(ManagedCondition mc1 : mp1_preconditionS)
+        if(mp2_preconditionS.count(mc1)==0)
             return false;
-    
-    vector<ManagedBelief> mp1_context = mp1.getContext();
-    vector<ManagedBelief> mp2_context = mp2.getContext();
 
-    // check based # of mg. Belief in its context 
-    if(mp1_context.size() != mp2_context.size())
-        return false;
-
-    // check in order context condition by context condition
-    for(int i=0; i<mp1_context.size(); i++)
-        if(!(mp1_context[i] == mp2_context[i]))
+    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
+    for(ManagedCondition mc1 : mp1_contextS)
+        if(mp2_contextS.count(mc1)==0)
             return false;
-    
+
     //otherwise equals
     return true;
 }
@@ -161,11 +140,11 @@ std::ostream& operator<<(std::ostream& os, const ManagedPlan& mp)
         os << pi.action << " - " << pi.time << "\n";
     
     os << "\n\nPreconditions to be checked BEFORE execution:\n";
-    for(ManagedBelief prec : mp.getPrecondition())
+    for(ManagedCondition prec : mp.getPrecondition())
         os << prec << "\n";
     
     os << "\n\nContext conditions to be checked DURING execution:\n";
-    for(ManagedBelief cont : mp.getContext())
+    for(ManagedCondition cont : mp.getContext())
         os << cont << "\n";
     
     os << "\n\nDeadline: " << mp.getPlanDeadline();

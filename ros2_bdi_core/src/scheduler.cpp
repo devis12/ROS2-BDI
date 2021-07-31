@@ -357,7 +357,7 @@ private:
                 optional<Plan> opt_p = computePlan(md);
                 if(opt_p.has_value())
                 {
-                    ManagedPlan mp = ManagedPlan{md, opt_p.value().items};
+                    ManagedPlan mp = ManagedPlan{md, opt_p.value().items, md.getPrecondition(), md.getContext()};
                     // does computed deadline for this plan respect desire deadline?
                     if(mp.getPlanDeadline() <= md.getDeadline()) 
                     {
@@ -443,7 +443,8 @@ private:
                 mtx_abort_trigger.lock();//wait aborting thread to be finished
                 mtx_abort_trigger.unlock();
             }
-
+            
+            // selectedPlan can now be set as currently executing plan
             current_plan_ = selectedPlan;
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
@@ -563,6 +564,7 @@ private:
     */
     void checkForSatisfiedDesires()
     {
+        vector<ManagedDesire> satisfiedDesires;
         for(ManagedDesire md : desire_set_)
         {   
             if(isDesireSatisfied(md))//desire already achieved, remove it
@@ -587,9 +589,12 @@ private:
                     RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
                         "target appears to be already fulfilled given the current belief set");
                 
-                delDesire(md);
+                satisfiedDesires.push_back(md);
             }
         }
+
+        for(ManagedDesire md : satisfiedDesires)//delete all satisfied desires from desire set
+            delDesire(md);
     }
 
     /*
@@ -646,7 +651,7 @@ private:
     /*
         Add desire to desire_set (if there is not yet)
     */
-    bool addDesire(const ManagedDesire& md)
+    bool addDesire(const ManagedDesire md)
     {
         bool added = false;
         mtx_sync.lock();
@@ -663,17 +668,19 @@ private:
     /*
         Del desire from desire_set if present (Access through lock!)
     */
-    bool delDesire(const ManagedDesire& md)
+    bool delDesire(const ManagedDesire md)
     {
         bool deleted = false;
         mtx_sync.lock();
             if(desire_set_.count(md)!=0)
             {
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" to be removed found!");
                 desire_set_.erase(desire_set_.find(md));
                 invalid_desire_map_.erase(md.getName());
                 deleted = true;
-                //RCLCPP_INFO(this->get_logger(), "Desire removed!");//TODO remove when assured there is no bug in deletion
-            }
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
+            }else
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" to be removed NOT found!");
         mtx_sync.unlock();
         return deleted;
     }
