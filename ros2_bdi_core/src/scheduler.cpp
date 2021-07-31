@@ -352,8 +352,11 @@ private:
             if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
                 continue;
 
-            //select just desires of higher or equal priority with respect to the one currently selected
-            if(md.getPriority() >= highestPriority){
+            // select just desires with satisyfing precondition and 
+            // with higher or equal priority with respect to the one currently selected
+            if(ManagedCondition::verifyAllManagedConditions(md.getPrecondition(), belief_set_) 
+                && md.getPriority() >= highestPriority){
+                
                 optional<Plan> opt_p = computePlan(md);
                 if(opt_p.has_value())
                 {
@@ -538,6 +541,7 @@ private:
                 {
                     //  for now mantain the desire
                     // (if not valid anymore, it'll be removed in next reschedulings, otherwise the plan will be commissioned again)
+                    RCLCPP_INFO(this->get_logger(), "Plan execution has been aborted");
                 }
 
                 current_plan_ = ManagedPlan{};//no current plan in execution

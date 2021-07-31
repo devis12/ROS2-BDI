@@ -76,6 +76,7 @@ ament_target_dependencies(plansys2_monitor
 #ament_target_dependencies(test_node
 #  rclcpp
 #  ros2_bdi_interfaces
+#  ros2_bdi_utils
 #)
 
 

@@ -11,6 +11,7 @@
 #include "plansys2_executor/ExecutorClient.hpp"
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
+#include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
@@ -19,6 +20,7 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
+#include "ros2_bdi_utils/BDIFilter.hpp"
 
 #include "lifecycle_msgs/srv/get_state.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -46,6 +48,7 @@ using plansys2_msgs::msg::PlanItem;
 
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
@@ -96,6 +99,11 @@ public:
     plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
                 "plansys2_state", qos_keep_all,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
+    
+    //belief_set_subscriber_ 
+    belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                "belief_set", qos_keep_all,
+                bind(&PlanDirector::updatedBeliefSet, this, _1));
 
     // init server for triggering new plan execution
     server_plan_exec_ = this->create_service<BDIPlanExecution>("plan_execution", 
@@ -149,7 +157,7 @@ public:
         case EXECUTING:
         {    
             //RCLCPP_INFO(this->get_logger(), "Checking plan execution");
-            checkPlanExecution();
+            executingPlan();
             break;
         }
 
@@ -170,6 +178,15 @@ private:
     void setState(StateType state)
     {
         state_ = state;
+    }
+
+    /*
+        Check planExecution feedback from plansys2 executor + check for context conditions
+    */
+    void executingPlan()
+    {
+        checkPlanExecution(); // get feedback from executor
+        checkContextCondition(); // check if context conditions are still valid and true -> abort otherwise
     }
 
     /*
@@ -196,16 +213,62 @@ private:
     }
 
     /*
+        Currently executing no plan
+    */
+    bool executingNoPlan()
+    {
+        return state_ != EXECUTING && current_plan_.getBody().size() == 0 && current_plan_.getDesire().getName() == ManagedPlan{}.getDesire().getName();
+    }
+
+    /*
         Cancel current plan execution (if any) and information preserved in it
     */
     void cancelCurrentPlanExecution()
     {
         //cancel plan execution
         executor_client_->cancel_plan_execution();
-
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
         //clear info about current plan execution
         setNoPlanMsg();
+
+        //WORK TIMER set to NO PLAN MODE (callback checks less frequent)
+        resetWorkTimer(NO_PLAN_INTERVAL);
     }
+
+
+    /*
+        Start new plan execution -> true if correctly started
+    */
+    bool startPlanExecution(const ManagedPlan& mp)
+    {
+        // prepare plansys2 msg for plan execution
+        Plan plan_to_execute = Plan();
+        plan_to_execute.items = mp.getBody();
+
+        // select current_plan_ which will start execution
+        current_plan_ = mp;
+        // current_plan_start_ = high_resolution_clock::now();//plan started now
+        bool started = executor_client_->start_plan_execution(plan_to_execute);
+
+        if(started && this->get_parameter(PARAM_DEBUG).as_bool())
+        {
+            string plan_string = "";
+            for(PlanItem pi : plan_to_execute.items)
+                plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
+            RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
+        }
+                            
+        //reset value, so they can be set at the first action execution feedback
+        first_ts_plan_sec = -1;//reset this value
+        first_ts_plan_nanosec = -1;//reset this value
+
+        //WORK TIMER set to PLAN EXEC MODE (callback checks more frequent)
+        resetWorkTimer(PLAN_INTERVAL);
+
+        return started;
+    }
+
 
     // clear info about current plan execution
     void setNoPlanMsg()
@@ -242,48 +305,42 @@ private:
             {
                 cancelCurrentPlanExecution();
                 setState(READY);//put node in ready state (ready to receive plan to execute, not executing any plan right now)
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
-                done = true;
-
-                resetWorkTimer(NO_PLAN_INTERVAL);
+                done = executingNoPlan();
             }
         }
         else if(request->EXECUTE && state_ == READY)//no plan currently in exec
         {
-            //start plan execution
-            Plan plan_to_execute = Plan();
-            plan_to_execute.items = request->plan.actions;
-            if(executor_client_->start_plan_execution(plan_to_execute))
+            ManagedPlan requestedPlan = ManagedPlan{request->plan.desire, request->plan.actions};
+            // verify precondition before actually trying triggering executor
+            if(ManagedCondition::verifyAllManagedConditions(requestedPlan.getPrecondition(), belief_set_))
             {
-                current_plan_ = ManagedPlan{request->plan.desire, request->plan.actions};
-                //current_plan_start_ = high_resolution_clock::now();//plan started now
-                
-                //reset value, so they can be set at the first action execution feedback
-                first_ts_plan_sec = -1;//reset this value
-                first_ts_plan_nanosec = -1;//reset this value
-                
+                bool started = startPlanExecution(requestedPlan);
                 setState(EXECUTING);//put node in executing state
-                
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                {
-                    string plan_string = "";
-                    for(PlanItem pi : plan_to_execute.items)
-                        plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
-                    RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
-                }
-                    
-                done = true;
-                resetWorkTimer(PLAN_INTERVAL);
+                done = started && EXECUTING;
 
-                //checkPlanExecution
-                checkPlanExecution();
+                if(done)
+                    checkPlanExecution();// 1st checkPlanExecution
             } 
         }
 
         response->success = done;
     }
 
+    /*
+        Plan currently in execution, monitor and publish the feedback of its development
+    */
+    void checkContextCondition()
+    {
+        if(!ManagedCondition::verifyAllManagedConditions(current_plan_.getContext(), belief_set_))
+        {
+            //need to abort current plan execution because context condition are not valid anymore
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Aborting current plan execution because context conditions are not satisfied");
+            
+            cancelCurrentPlanExecution();
+        }
+    }
+    
     /*
         Plan currently in execution, monitor and publish the feedback of its development
     */
@@ -424,6 +481,14 @@ private:
         return foundIndex;
     }
 
+    /*
+        The belief set has been updated
+    */
+    void updatedBeliefSet(const BeliefSet::SharedPtr msg)
+    {
+        belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
+    }
+
     // internal state of the node
     StateType state_;
     
@@ -449,6 +514,11 @@ private:
     //high_resolution_clock::time_point current_plan_start_;
     // msg to notify the idle-ready state, i.e. no current plan execution, but ready to do it
     BDIPlanExecutionInfo no_plan_msg_;
+
+    // current belief set (in order to check precondition && context condition)
+    set<ManagedBelief> belief_set_;
+    // belief set subscriber
+    rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;//belief set sub.
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
     int first_ts_plan_sec;
