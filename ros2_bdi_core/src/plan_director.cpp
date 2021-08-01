@@ -19,6 +19,7 @@
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
+#include "ros2_bdi_utils/ManagedCondition.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
@@ -185,8 +186,9 @@ private:
     */
     void executingPlan()
     {
+        counter_check_++; 
         checkPlanExecution(); // get feedback from executor
-        checkContextCondition(); // check if context conditions are still valid and true -> abort otherwise
+        checkContextConditions(); // check if context conditions are still valid and true -> abort otherwise
     }
 
     /*
@@ -229,11 +231,6 @@ private:
         executor_client_->cancel_plan_execution();
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
-        //clear info about current plan execution
-        setNoPlanMsg();
-
-        //WORK TIMER set to NO PLAN MODE (callback checks less frequent)
-        resetWorkTimer(NO_PLAN_INTERVAL);
     }
 
 
@@ -251,20 +248,27 @@ private:
         // current_plan_start_ = high_resolution_clock::now();//plan started now
         bool started = executor_client_->start_plan_execution(plan_to_execute);
 
-        if(started && this->get_parameter(PARAM_DEBUG).as_bool())
+        if(started)
         {
-            string plan_string = "";
-            for(PlanItem pi : plan_to_execute.items)
-                plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
-            RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
-        }
-                            
-        //reset value, so they can be set at the first action execution feedback
-        first_ts_plan_sec = -1;//reset this value
-        first_ts_plan_nanosec = -1;//reset this value
+            setState(EXECUTING);//put node in executing state
+            //reset value, so they can be set at the first action execution feedback
+            first_ts_plan_sec = -1;//reset this value
+            first_ts_plan_nanosec = -1;//reset this value
+            
+            counter_check_ = 0;//checks performed during this plan exec
 
-        //WORK TIMER set to PLAN EXEC MODE (callback checks more frequent)
-        resetWorkTimer(PLAN_INTERVAL);
+            //WORK TIMER set to PLAN EXEC MODE (callback checks more frequent)
+            resetWorkTimer(PLAN_INTERVAL);
+
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+            {
+                string plan_string = "";
+                for(PlanItem pi : plan_to_execute.items)
+                    plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
+                RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
+            }
+            
+        }
 
         return started;
     }
@@ -296,40 +300,42 @@ private:
         string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
         RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire: " + request->plan.desire.name);
 
+        ManagedDesire mdPlan = ManagedDesire{request->plan.desire};
+        vector<ManagedCondition> mdPlanPrecondition = ManagedCondition::buildArrayMGCondition(request->plan.precondition);
+        vector<ManagedCondition> mdPlanContext = ManagedCondition::buildArrayMGCondition(request->plan.context);
         bool done = false;
         if(request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
         {
-            ManagedDesire md_abort = ManagedDesire{request->plan.desire};
-            ManagedPlan mp_abort = ManagedPlan{md_abort, request->plan.actions};
+            ManagedPlan mp_abort = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
+
             if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
             {
                 cancelCurrentPlanExecution();
-                setState(READY);//put node in ready state (ready to receive plan to execute, not executing any plan right now)
+                checkPlanExecution();// last plan check for this plan execution
                 done = executingNoPlan();
             }
         }
         else if(request->EXECUTE && state_ == READY)//no plan currently in exec
         {
-            ManagedPlan requestedPlan = ManagedPlan{request->plan.desire, request->plan.actions};
+            ManagedPlan requestedPlan = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
             // verify precondition before actually trying triggering executor
             if(ManagedCondition::verifyAllManagedConditions(requestedPlan.getPrecondition(), belief_set_))
             {
                 bool started = startPlanExecution(requestedPlan);
-                setState(EXECUTING);//put node in executing state
-                done = started && EXECUTING;
-
+                done = started && state_ == EXECUTING;
                 if(done)
-                    checkPlanExecution();// 1st checkPlanExecution
+                    checkPlanExecution();// 1st checkPlanExecution for this plan (if started)
             } 
         }
 
+    
         response->success = done;
     }
 
     /*
         Plan currently in execution, monitor and publish the feedback of its development
     */
-    void checkContextCondition()
+    void checkContextConditions()
     {
         if(!ManagedCondition::verifyAllManagedConditions(current_plan_.getContext(), belief_set_))
         {
@@ -338,7 +344,12 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Aborting current plan execution because context conditions are not satisfied");
             
             cancelCurrentPlanExecution();
+            checkPlanExecution();//to publish aborting and notifying subscribers
+        }else{
+            if(counter_check_ % 4 == 0 && this->get_parameter(PARAM_DEBUG).as_bool())//print just every 4 checks
+                RCLCPP_INFO(this->get_logger(), "Current plan execution can go on: all #%d context conditions are satisfied",current_plan_.getContext().size());
         }
+
     }
     
     /*
@@ -346,14 +357,36 @@ private:
     */
     void checkPlanExecution()
     {
-        // msg to publish about the plan execution
-        BDIPlanExecutionInfo planExecutionInfo = BDIPlanExecutionInfo();
-
         //get feedback from plansys2 api
         auto feedback = executor_client_->getFeedBack();
+
+        // msg to publish about the plan execution
+        BDIPlanExecutionInfo planExecutionInfo = getPlanExecutionInfo(feedback);
+
+        plan_exec_publisher_->publish(planExecutionInfo);
+
+        if(planExecutionInfo.status != planExecutionInfo.RUNNING)
+        {
+            //in any case plan execution has stopped, so go back to printing out you're not executing any plan
+            resetWorkTimer(NO_PLAN_INTERVAL);
+            setNoPlanMsg();
+            setState(READY);
+            
+            // ended run log 
+            if(this->get_parameter(PARAM_DEBUG).as_bool()){
+                string result_s =   ((planExecutionInfo.status == planExecutionInfo.SUCCESSFUL)?
+                    "executed successfully" : "aborted");
+                RCLCPP_INFO(this->get_logger(), "Plan " + result_s + ": READY to execute new plan now\n");    
+            }
+        }
+    }
+
+    BDIPlanExecutionInfo getPlanExecutionInfo(const ExecutorClient::ExecutePlan::Feedback& feedback)
+    {
         // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
         vector<PlanItem> current_plan_body = current_plan_.getBody();
-        
+
+        BDIPlanExecutionInfo planExecutionInfo = BDIPlanExecutionInfo();
         float start_time_s = -1.0, status_time_s = -1.0;
 
         //find executing action status
@@ -408,28 +441,23 @@ private:
         
         // current time s computed by difference from fist start ts of first action executed within the plan
         planExecutionInfo.current_time = (status_time_s >= 0.0f)? status_time_s : 0.0f;
-        planExecutionInfo.status = planExecutionInfo.RUNNING;
-        
+        planExecutionInfo.status = getPlanExecutionStatus();
+
+        return planExecutionInfo;
+    }
+
+    uint8_t getPlanExecutionStatus()
+    {
+        uint8_t result = BDIPlanExecutionInfo().RUNNING;
         if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
         {      
             if(executor_client_->getResult().value().success)//successful  run
-            {
-                planExecutionInfo.status = planExecutionInfo.SUCCESSFUL;
-                //not executing any plan now
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Plan executed successfully: READY to execute new plan now\n");
-            }
+                result = BDIPlanExecutionInfo().SUCCESSFUL;
             
             else //plan aborted
-                planExecutionInfo.status =  planExecutionInfo.ABORT;
-            
-            //in any case plan execution has stopped, so go back to printing out you're not executing any plan
-            resetWorkTimer(NO_PLAN_INTERVAL);
-            setNoPlanMsg();
-            setState(READY);
+                result = BDIPlanExecutionInfo().ABORT;
         }   
-
-        plan_exec_publisher_->publish(planExecutionInfo);
+        return result;
     }
 
 
@@ -510,6 +538,8 @@ private:
 
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     ManagedPlan current_plan_;
+    // # checks performed during the current plan exec
+    int counter_check_;
     // time at which plan started (NOT DOING this anymore -> using first start_ts from first action executed in plan)
     //high_resolution_clock::time_point current_plan_start_;
     // msg to notify the idle-ready state, i.e. no current plan execution, but ready to do it

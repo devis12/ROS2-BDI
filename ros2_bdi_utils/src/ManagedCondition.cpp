@@ -28,15 +28,15 @@ bool ManagedCondition::performCheckAgainstBelief(const ManagedBelief& mb)
     {
         //now check the value wrt the given check request
         if(check_ == c.SMALLER_CHECK)
-            return condition_to_check_.getValue() < mb.getValue();
+            return mb.getValue() < condition_to_check_.getValue();
         else if(check_ == c.SMALLER_OR_EQUALS_CHECK)
-            return condition_to_check_.getValue() <= mb.getValue();
+            return mb.getValue() <= condition_to_check_.getValue();
         else if(check_ == c.EQUALS_CHECK)
             return condition_to_check_.getValue() == mb.getValue();
         else if(check_ == c.GREATER_OR_EQUALS_CHECK)
-            return condition_to_check_.getValue() >= mb.getValue();
+            return mb.getValue() >= condition_to_check_.getValue();
         else if(check_ == c.GREATER_CHECK)
-            return condition_to_check_.getValue() > mb.getValue();
+            return mb.getValue() > condition_to_check_.getValue();
     }
 
     return false;//different fluent or some other error(s), hence give false
@@ -47,7 +47,10 @@ bool ManagedCondition::performCheckAgainstBeliefs(const vector<ManagedBelief>& m
         return false;
     for(ManagedBelief mb : mbArray)
         if(performCheckAgainstBelief(mb))
+        {
+            std::cout << "HEYHEYHEY" << check_ << " verified against " << mb << std::endl; 
             return true;
+        }
     return false;
 }
 
@@ -98,6 +101,24 @@ bool ManagedCondition::isCheckStringForFluent() const
     return check_ == c.EQUALS_CHECK || check_ == c.GREATER_CHECK || check_ == c.SMALLER_CHECK ||
         check_ == c.SMALLER_OR_EQUALS_CHECK || check_ == c.GREATER_OR_EQUALS_CHECK;
 }
+
+bool ManagedCondition::verifyAllManagedConditions(
+        const vector<ManagedCondition>& mcArray, const set<ManagedBelief>& mbSet)
+{
+    for(ManagedCondition mc : mcArray)
+        if(!mc.performCheckAgainstBeliefs(mbSet))//one condition not valid and/or not verified
+            return false;
+            
+    return true;
+}
+
+ vector<ManagedCondition> ManagedCondition::buildArrayMGCondition(const vector<Condition>& conditions)
+ {
+    vector<ManagedCondition> result;
+    for(Condition c : conditions)
+        result.push_back(ManagedCondition{c});
+    return result;
+ }
 
 std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
 {
