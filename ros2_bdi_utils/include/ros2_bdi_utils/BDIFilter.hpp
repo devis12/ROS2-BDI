@@ -82,6 +82,15 @@ namespace BDIFilter
     Extract from passed set just beliefs of type function and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGFunctions(const set<ManagedBelief> managed_beliefs);
+
+  /*
+            given array of ManagedCondition, desire name, desire priority, desire deadline
+            use it to build a ManagedDesire putting as value the conditions
+            NOTE: for now just work around with condition(s) containing PREDICATE type as values,
+            if @conditions do not contain any Belief with PREDICATE type, returns std::nullopt
+  */      
+  std::optional<ManagedDesire> conditionsToMGDesire(const vector<ManagedCondition>& conditions, 
+                  const string& desireName, const float& desirePriority, const float& desireDeadline);
   
 }  // namespace BDIFilter
 

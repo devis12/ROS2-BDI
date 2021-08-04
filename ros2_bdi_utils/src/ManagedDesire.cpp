@@ -77,12 +77,21 @@ Desire ManagedDesire::toDesire() const
 
 std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
 {
-    os << md.getName();
+    os << "\n" << md.getName();
 
     for(ManagedBelief mb : md.getValue())
-        os << mb << " ";
+        os << "\n" << mb ;
 
-    os << "\n P:" << md.getPriority() << "\tD:" << md.getDeadline();
+    os << "\n Priority: " << md.getPriority() << "\tDeadline:" << md.getDeadline();
+    
+    os << "\n Preconditions: ";
+    for(ManagedCondition mc : md.getPrecondition())
+        os << mc << "\t";
+
+    os << "\n Context: ";
+    for(ManagedCondition mc : md.getContext())
+        os << mc << "\t";
+    
     return os;
 }
 
@@ -90,8 +99,14 @@ std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
 bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
 {   
     // first check based on "simple" values (name, priority, deadline)
-    if(md1.getName() < md2.getName() || md1.getPriority() < md2.getPriority() || md1.getDeadline() < md2.getDeadline())
-        return true;
+    if(md1.getName() != md2.getName())
+        return md1.getName() < md2.getName();
+
+    else if(md1.getPriority() != md2.getPriority())
+        return md1.getPriority() < md2.getPriority();
+    
+    else if(md1.getDeadline() != md2.getDeadline())
+        return md1.getDeadline() < md2.getDeadline();
     
     vector<ManagedBelief> md1_value = md1.getValue();
     vector<ManagedBelief> md2_value = md2.getValue();

@@ -112,13 +112,13 @@ bool ManagedCondition::verifyAllManagedConditions(
     return true;
 }
 
- vector<ManagedCondition> ManagedCondition::buildArrayMGCondition(const vector<Condition>& conditions)
- {
-    vector<ManagedCondition> result;
-    for(Condition c : conditions)
-        result.push_back(ManagedCondition{c});
-    return result;
- }
+vector<ManagedCondition> ManagedCondition::buildArrayMGCondition(const vector<Condition>& conditions)
+{
+vector<ManagedCondition> result;
+for(Condition c : conditions)
+    result.push_back(ManagedCondition{c});
+return result;
+}
 
 std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
 {
@@ -141,7 +141,7 @@ std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
     else if(check_string == c.GREATER_CHECK)
         check_string = "GREATER";
 
-    os << "CHECK TO BE PERFORMED:" << check_string  << " \n" << mc.getMGBelief();
+    os << "\nCHECK TO BE PERFORMED:" << check_string  << " \nCONDITION TO BE CHECKED: " << mc.getMGBelief();
     return os;
 }
 

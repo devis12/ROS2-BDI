@@ -39,11 +39,16 @@ class ManagedCondition
         // convert to condition msg
         Condition toCondition() const;
 
-        // return true iff FOR EVERY CONDITION in ManagedCondition vector 
-        // check is VALID && condition is verified against the beliefs and no belief in set denies it
-        // n.b. result is true if @mcArray is empty
+        /*
+            return true iff FOR EVERY CONDITION in ManagedCondition vector 
+             check is VALID && condition is verified against the beliefs and no belief in set denies it
+             n.b. result is true if @mcArray is empty
+        */
         static bool verifyAllManagedConditions(const vector<ManagedCondition>& mcArray, const set<ManagedBelief>& mbSet);
 
+        /* 
+            given array of Condition msg, convert it into an array of ManagedCondition
+        */
         static vector<ManagedCondition> buildArrayMGCondition(const vector<Condition>& conditions);
         
     private:

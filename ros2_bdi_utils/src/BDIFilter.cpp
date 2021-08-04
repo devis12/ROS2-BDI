@@ -153,4 +153,24 @@ namespace BDIFilter
     return extracted;
   }
 
+std::optional<ManagedDesire> conditionsToMGDesire(const vector<ManagedCondition>& conditions, 
+                           const string& desireName, 
+                           const float& desirePriority, const float& desireDeadline)
+{
+    vector<ManagedBelief> desireValue;
+    for(ManagedCondition mc : conditions)
+    {
+      ManagedBelief mb = mc.getMGBelief();
+      //for now desire can support just value with PREDICATE type Beliefs on TRUE checks
+      if(mc.getCheck() == Condition().TRUE_CHECK && mb.pddlType() == Belief().PREDICATE_TYPE)
+        desireValue.push_back(mb);
+    }
+
+    if(desireValue.size() > 0)
+      return ManagedDesire{desireName, desireValue, desirePriority, desireDeadline};
+    else
+      return std::nullopt;
+}
+
+
 }
