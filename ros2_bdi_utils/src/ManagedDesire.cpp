@@ -4,26 +4,40 @@
 
 ManagedDesire::ManagedDesire():
     name_(""),
+    desire_group_(""),
     priority_(0.0f),
     value_(vector<ManagedBelief>()),
     deadline_(0.0f),
-    precondition_(vector<ManagedCondition>()),
-    context_(vector<ManagedCondition>())
+    precondition_(ManagedConditionsDNF()),
+    context_(ManagedConditionsDNF())
     {}
 
 
 ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline):
     name_(name),
+    desire_group_(name),
     value_ (value),
     priority_(priority),
     deadline_(deadline),
-    precondition_(vector<ManagedCondition>()),
-    context_(vector<ManagedCondition>())
+    precondition_(ManagedConditionsDNF()),
+    context_(ManagedConditionsDNF())
+    {}
+
+
+ManagedDesire::ManagedDesire(const string& name, const string& desire_group, const vector<ManagedBelief>& value,const float& priority,const float& deadline):
+    name_(name),
+    desire_group_(desire_group),
+    value_ (value),
+    priority_(priority),
+    deadline_(deadline),
+    precondition_(ManagedConditionsDNF()),
+    context_(ManagedConditionsDNF())
     {}
 
 ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
-                        const vector<ManagedCondition>& precondition, const vector<ManagedCondition>& context):
+                        const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
     name_(name),
+    desire_group_(name),
     value_ (value),
     priority_(priority),
     deadline_(deadline),
@@ -31,21 +45,18 @@ ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& val
     context_(context)
     {}
 
+
 ManagedDesire::ManagedDesire(const Desire& desire):
     name_(desire.name),
+    desire_group_(desire.name),
     priority_(desire.priority),
     deadline_(desire.deadline)
     {   
         set<ManagedBelief> set_mb = BDIFilter::extractMGPredicates(desire.value);
         value_ = vector<ManagedBelief>(set_mb.begin(), set_mb.end());
         
-        precondition_ = vector<ManagedCondition>();
-        for(Condition c : desire.precondition)
-            precondition_.push_back(ManagedCondition{c});
-        
-        context_ = vector<ManagedCondition>();
-        for(Condition c : desire.context)
-            context_.push_back(ManagedCondition{c});
+        precondition_ = ManagedConditionsDNF{desire.precondition};
+        context_ = ManagedConditionsDNF{desire.context};
     }
 
 Desire ManagedDesire::toDesire() const
@@ -62,15 +73,9 @@ Desire ManagedDesire::toDesire() const
     d.priority = priority_;
     d.deadline = deadline_;
 
-    vector<Condition> precondition = vector<Condition>();
-    for(ManagedCondition mc : precondition_)
-            precondition.push_back(mc.toCondition());
-    d.precondition = precondition;
+    d.precondition = precondition_.toConditionsDNF();
 
-    vector<Condition> context = vector<Condition>();
-    for(ManagedCondition mc : context_)
-            context.push_back(mc.toCondition());
-    d.context = context;
+    d.context = context_.toConditionsDNF();
 
     return d;
 }
@@ -84,13 +89,9 @@ std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
 
     os << "\n Priority: " << md.getPriority() << "\tDeadline:" << md.getDeadline();
     
-    os << "\n Preconditions: ";
-    for(ManagedCondition mc : md.getPrecondition())
-        os << mc << "\t";
+    os << "\n Preconditions: " << md.getPrecondition();
 
-    os << "\n Context: ";
-    for(ManagedCondition mc : md.getContext())
-        os << mc << "\t";
+    os << "\n Context: " << md.getContext();
     
     return os;
 }
@@ -128,41 +129,8 @@ bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
         if(md2_beliefS.count(mb1)==0)
             return true;
     
-    vector<ManagedCondition> md1_precondition = md1.getPrecondition();
-    vector<ManagedCondition> md2_precondition = md2.getPrecondition();
-
-    vector<ManagedCondition> md1_context = md1.getContext();
-    vector<ManagedCondition> md2_context = md2.getContext();
-
-    // check based # of mg. condition(s) in preconditions and context conditions 
-    if(md1_precondition.size() < md2_precondition.size() || md1_context.size() < md2_context.size())
+    if(md1.getPrecondition() < md2.getPrecondition() || md1.getContext() < md1.getContext())
         return true;
-
-    // order do not count, so put them into four sets
-    
-    set<ManagedCondition> md1_preconditionS;
-    for(ManagedCondition mc : md1_precondition)
-        md1_preconditionS.insert(mc);
-    set<ManagedCondition> md1_contextS;
-    for(ManagedCondition mc : md1_context)
-        md1_contextS.insert(mc);
-
-    set<ManagedCondition> md2_preconditionS;
-    for(ManagedCondition mc : md2_precondition)
-        md2_preconditionS.insert(mc);
-    set<ManagedCondition> md2_contextS;
-    for(ManagedCondition mc : md2_context)
-        md2_contextS.insert(mc);
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : md1_preconditionS)
-        if(md2_preconditionS.count(mc1)==0)
-            return false;
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : md1_contextS)
-        if(md2_contextS.count(mc1)==0)
-            return false;
 
     return false; //otherwise return false
 }
@@ -193,41 +161,6 @@ bool operator==(ManagedDesire const &md1, ManagedDesire const &md2){
         if(md2_beliefS.count(mb1)==0)
             return false;
 
-    vector<ManagedCondition> md1_precondition = md1.getPrecondition();
-    vector<ManagedCondition> md2_precondition = md2.getPrecondition();
-
-    vector<ManagedCondition> md1_context = md1.getContext();
-    vector<ManagedCondition> md2_context = md2.getContext();
-
-    // check based # of mg. condition(s) in preconditions and context conditions 
-    if(md1_precondition.size() < md2_precondition.size() || md1_context.size() < md2_context.size())
-        return true;
-
-    // order do not count, so put them into four sets
-    set<ManagedCondition> md1_preconditionS;
-    for(ManagedCondition mc : md1_precondition)
-        md1_preconditionS.insert(mc);
-    set<ManagedCondition> md1_contextS;
-    for(ManagedCondition mc : md1_context)
-        md1_contextS.insert(mc);
-
-    set<ManagedCondition> md2_preconditionS;
-    for(ManagedCondition mc : md2_precondition)
-        md2_preconditionS.insert(mc);
-    set<ManagedCondition> md2_contextS;
-    for(ManagedCondition mc : md2_context)
-        md2_contextS.insert(mc);
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : md1_preconditionS)
-        if(md2_preconditionS.count(mc1)==0)
-            return false;
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : md1_contextS)
-        if(md2_contextS.count(mc1)==0)
-            return false;
-
-    //otherwise equals
-    return true;
+    //otherwise compare precondition & context
+    return md1.getPrecondition() == md2.getPrecondition() && md1.getContext() == md1.getContext();
 }

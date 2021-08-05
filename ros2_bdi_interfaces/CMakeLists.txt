@@ -15,6 +15,8 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/Desire.msg"
   "msg/DesireSet.msg"
   "msg/Condition.msg"
+  "msg/ConditionsConjunction.msg"
+  "msg/ConditionsDNF.msg"
   "msg/BDIPlan.msg"
   "msg/BDIActionExecutionInfo.msg"
   "msg/BDIPlanExecutionInfo.msg"

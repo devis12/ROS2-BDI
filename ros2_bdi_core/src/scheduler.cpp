@@ -18,6 +18,9 @@
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
+#include "ros2_bdi_interfaces/msg/condition.hpp"
+#include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
+#include "ros2_bdi_interfaces/msg/conditions_dnf.hpp"
 #include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
@@ -28,6 +31,9 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
+#include "ros2_bdi_utils/ManagedCondition.hpp"
+#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+#include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #define MAX_COMM_ERRORS 16
@@ -61,6 +67,9 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::DesireSet;
+using ros2_bdi_interfaces::msg::Condition;
+using ros2_bdi_interfaces::msg::ConditionsConjunction;
+using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
@@ -357,7 +366,7 @@ private:
                 continue;
             // select just desires with satisyfing precondition and 
             // with higher or equal priority with respect to the one currently selected
-            bool explicitPreconditionSatisfied = ManagedCondition::verifyAllManagedConditions(md.getPrecondition(), belief_set_);
+            bool explicitPreconditionSatisfied = md.getPrecondition().isSatisfied(belief_set_);
             if(explicitPreconditionSatisfied && md.getPriority() >= highestPriority){
                 optional<Plan> opt_p = computePlan(md);
                 if(opt_p.has_value())
@@ -412,16 +421,18 @@ private:
                 // if it is the case submit desire to itself with higher priority than the one just considered 
                 string fulfillPreconditionDesireName = md.getName() + "_fulfill_precondition";
 
-                std::optional<ManagedDesire> fulfillPreconditionDesire = BDIFilter::conditionsToMGDesire(md.getPrecondition(), 
+                //put slightly lower priority because these would be desires for satisfy the pre precondition
+                vector<ManagedDesire> fulfillPreconditionDesires = BDIFilter::conditionsToMGDesire(md.getPrecondition(), 
                     fulfillPreconditionDesireName, 
-                    std::min(md.getPriority()+0.01f, 1.0f), md.getDeadline());
+                    std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
                 
-                if(fulfillPreconditionDesire.has_value())
+
+                for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
                 {
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
-                            +  " auto-submission desire \"" + fulfillPreconditionDesireName + "\"");
-                    addDesire(fulfillPreconditionDesire.value());
+                            +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
+                    addDesire(fulfillPreconditionD, md, "_preconditions");
                 }
             }
             
@@ -586,23 +597,24 @@ private:
                             RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
                         delDesire(targetDesire);
                     
-                    }else if(!ManagedCondition::verifyAllManagedConditions(targetDesire.getContext(), belief_set_)
+                    }else if(!targetDesire.getContext().isSatisfied(belief_set_)
                         && invalid_desire_map_.count(targetDesire.getName() + "_fulfill_context") == 0){
                         // check for context condition failed 
                         // (just if not already done... that's why you look into the invalid map)
                         // plan exec could have failed cause of them: evaluate if they can be reached and submit the desire to yourself
                         string fulfillContextDesireName = targetDesire.getName() + "_fulfill_context";
                         
-                        std::optional<ManagedDesire> fulfillContextDesire = BDIFilter::conditionsToMGDesire(targetDesire.getContext(), 
+                        // extract a desire (if possible) for each clause in the context conditions
+                        vector<ManagedDesire> fulfillContextDesires = BDIFilter::conditionsToMGDesire(targetDesire.getContext(), 
                             fulfillContextDesireName, 
                             std::min(targetDesire.getPriority()+0.01f, 1.0f), targetDesire.getDeadline());
                         
-                        if(fulfillContextDesire.has_value())
+                        for(ManagedDesire fulfillContextD : fulfillContextDesires)
                         {
                             if(this->get_parameter(PARAM_DEBUG).as_bool())
-                                RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
-                                    +  " auto-submission desire \"" + fulfillContextDesireName + "\"");
-                            addDesire(fulfillContextDesire.value());
+                                RCLCPP_INFO(this->get_logger(), "Context conditions are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
+                                    +  " auto-submission desire \"" + fulfillContextD.getName() + "\"");
+                            addDesire(fulfillContextD, targetDesire, "_context");
                         }
                         
                     }
@@ -727,17 +739,40 @@ private:
     }
 
     /*
-        Add desire to desire_set (if there is not yet)
+        Wrapper for calling addDesire with just desire to added (where not linked to any other desires)
+        N.B see addDesire(const ManagedDesire mdAdd, const optional<ManagedDesire> necessaryForMd)
+        for further explanations
     */
-    bool addDesire(const ManagedDesire md)
+    bool addDesire(const ManagedDesire mdAdd)
+    {
+        return addDesire(mdAdd, std::nullopt, "");
+    }
+
+    /*
+        Add desire @mdAdd to desire_set_ (if there is not yet)
+        add counters for invalid desire and aborted plan in respective maps (both init to zero)
+        @necessaryForMd is another ManagedDesire which can be present if @mdAdd is necessary 
+        for the fulfillment of it (e.g. @mdAdd is derived from preconditions or context)
+        @necessaryForMd value (if exists) has to be already in the desire_set_
+    */
+    bool addDesire(ManagedDesire mdAdd, optional<ManagedDesire> necessaryForMD, const string& suffixDesireGroup)
     {
         bool added = false;
         mtx_sync.lock();
-            if(invalid_desire_map_.count(md.getName())==0 && desire_set_.count(md)==0)//desire already there (or diff. desire but with same name identifier)
+            if(invalid_desire_map_.count(mdAdd.getName())==0 && aborted_plan_desire_map_.count(mdAdd.getName())==0 && 
+                desire_set_.count(mdAdd)==0)//desire already there (or diff. desire but with same name identifier)
             {
-                desire_set_.insert(md);
-                invalid_desire_map_.insert(std::pair<string, int>(md.getName(), 0));//to count invalid goal computations and discard after x
-                aborted_plan_desire_map_.insert(std::pair<string, int>(md.getName(), 0));//to count invalid goal computations and discard after x
+                if(necessaryForMD.has_value() && desire_set_.count(necessaryForMD.value())==1)
+                {
+                  // @mdAdd linked to another MGdesire for which it is necessary in order to grant its execution
+                  // put as @mdAdd's group mdAdd.name + suffix (suffix can be "_precondition"/"_context")
+                  mdAdd.setDesireGroup(necessaryForMD.value().getName() + suffixDesireGroup);
+                }
+
+                desire_set_.insert(mdAdd);
+                invalid_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
+                aborted_plan_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
+                
                 added = true;
             }
         mtx_sync.unlock();
@@ -747,28 +782,44 @@ private:
     /*
         Del desire from desire_set if present (Access through lock!)
     */
-    bool delDesire(const ManagedDesire md)
+    bool delDesire(const ManagedDesire mdDel)
     {
         bool deleted = false;
         mtx_sync.lock();
             
             //erase values from desires map
-            if(invalid_desire_map_.count(md.getName()) > 0)
-                invalid_desire_map_.erase(md.getName());
-            if(aborted_plan_desire_map_.count(md.getName()) > 0)
-                aborted_plan_desire_map_.erase(md.getName());
+            if(invalid_desire_map_.count(mdDel.getName()) > 0)
+                invalid_desire_map_.erase(mdDel.getName());
+            if(aborted_plan_desire_map_.count(mdDel.getName()) > 0)
+                aborted_plan_desire_map_.erase(mdDel.getName());
 
-            if(desire_set_.count(md)!=0)
+            if(desire_set_.count(mdDel)!=0)
             {
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" to be removed found!");
-                desire_set_.erase(desire_set_.find(md));
-                invalid_desire_map_.erase(md.getName());
+                //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed found!");
+                desire_set_.erase(desire_set_.find(mdDel));
+                invalid_desire_map_.erase(mdDel.getName());
                 deleted = true;
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
-            }else
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" to be removed NOT found!");
+                //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
+            }/*else
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed NOT found!");*/
         mtx_sync.unlock();
+
+        if(mdDel.getDesireGroup() != mdDel.getName()) // desire being part of a group where you need to satisfy just one
+            delDesireInGroup(mdDel.getDesireGroup()); // delete others in the same group
+
         return deleted;
+    }
+
+    void delDesireInGroup(const string& desireGroup)
+    {
+        vector<ManagedDesire> toBeDiscarded;
+
+        for(ManagedDesire md : desire_set_)
+            if(md.getDesireGroup() == desireGroup)
+                toBeDiscarded.push_back(md);
+        
+        for(ManagedDesire md : toBeDiscarded)
+            delDesire(md);
     }
 
     // internal state of the node

@@ -53,9 +53,9 @@ namespace BDIYAMLParser
 
     /*
         Given a YAML node representing a desire and the name of the condition vector (e.g. "precondition", "context"),
-        extract a vector of managed condition
+        extract a DNF clause of managed condition
     */
-    vector<ManagedCondition> retrieveMGConditions(YAML::Node& yaml_desire, const string& condition_vect_name);
+    ManagedConditionsDNF retrieveMGConditionsDNF(YAML::Node& yaml_desire, const string& condition_vect_name);
 
 }  // namespace BDIYAMLParser
 

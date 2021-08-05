@@ -153,23 +153,32 @@ namespace BDIFilter
     return extracted;
   }
 
-std::optional<ManagedDesire> conditionsToMGDesire(const vector<ManagedCondition>& conditions, 
-                           const string& desireName, 
+vector<ManagedDesire> conditionsToMGDesire(const ManagedConditionsDNF& conditionsDNF, 
+                           const string& desireBaseName, 
                            const float& desirePriority, const float& desireDeadline)
 {
-    vector<ManagedBelief> desireValue;
-    for(ManagedCondition mc : conditions)
+    vector<ManagedDesire> extractedDesires;
+    int counter = 0;
+    for(ManagedConditionsConjunction mcc : conditionsDNF.getClauses())
     {
-      ManagedBelief mb = mc.getMGBelief();
-      //for now desire can support just value with PREDICATE type Beliefs on TRUE checks
-      if(mc.getCheck() == Condition().TRUE_CHECK && mb.pddlType() == Belief().PREDICATE_TYPE)
-        desireValue.push_back(mb);
+      counter++;
+
+      string desireName = desireBaseName + std::to_string(counter);
+      vector<ManagedBelief> desireValue;
+      for(ManagedCondition mc : mcc.getLiterals())
+      {
+        ManagedBelief mb = mc.getMGBelief();
+        //for now desire can support just value with PREDICATE type Beliefs on TRUE checks
+        if(mc.getCheck() == Condition().TRUE_CHECK && mb.pddlType() == Belief().PREDICATE_TYPE)
+          desireValue.push_back(mb);
+      }
+
+      if(desireValue.size() > 0)
+        extractedDesires.push_back(ManagedDesire{desireName, desireValue, desirePriority, desireDeadline});
     }
 
-    if(desireValue.size() > 0)
-      return ManagedDesire{desireName, desireValue, desirePriority, desireDeadline};
-    else
-      return std::nullopt;
+    return extractedDesires;
+    
 }
 
 

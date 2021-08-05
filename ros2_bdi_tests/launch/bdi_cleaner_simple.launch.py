@@ -159,7 +159,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {"agent_id": AGENT_NAME},
-            {"init_sleep": 4}
+            {"init_sleep": 2}
         ])
 
 
@@ -170,10 +170,10 @@ def generate_launch_description():
 
     # Declare the launch options
     ld.add_action(plansys2_cmd)
-
+    
     # Declare plansys2 monitor node
     ld.add_action(plansys2_monitor)
-
+    
     #Add belief manager
     ld.add_action(belief_manager)
     #Add BDI scheduler
@@ -188,5 +188,5 @@ def generate_launch_description():
 
     #Sensors for agent
     ld.add_action(wp_sensor)
-
+    
     return ld

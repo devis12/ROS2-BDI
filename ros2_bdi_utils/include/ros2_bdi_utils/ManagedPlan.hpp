@@ -27,14 +27,14 @@ class ManagedPlan
         ManagedPlan();
         ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems);
         ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
-            const vector<ManagedCondition>& precondition, const vector<ManagedCondition>& context);
+            const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context);
         
         ManagedDesire getDesire() const {return desire_;};
         vector<PlanItem> getBody() const {return body_;};
         float getPlanDeadline() const {return plan_deadline_;};
 
-        vector<ManagedCondition> getPrecondition() const {return precondition_;};
-        vector<ManagedCondition> getContext() const {return context_;};
+        ManagedConditionsDNF getPrecondition() const {return precondition_;};
+        ManagedConditionsDNF getContext() const {return context_;};
         
         Plan toPsys2Plan() const;
         BDIPlan toPlan() const;
@@ -44,10 +44,9 @@ class ManagedPlan
 
         ManagedDesire desire_;
         vector<PlanItem> body_;
-        vector<ManagedCondition> precondition_;
-        vector<ManagedCondition> context_;
+        ManagedConditionsDNF precondition_;
+        ManagedConditionsDNF context_;
         float plan_deadline_;
-        
 
 };  // class ManagedPlan
 

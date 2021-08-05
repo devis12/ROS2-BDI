@@ -4,10 +4,10 @@
 
 # @desire       -> desire to be achieved through the plan successful execution
 # @actions      -> actions to be performed + when to start each of them + how it is estimated they are going to last
-# @precondition -> condition to be checked before the plan exec. is initiated
-# @context      -> conditions to be checked over all the plan exec. 
+# @precondition -> condition to be checked before the plan exec. is initiated (DNF expression)
+# @context      -> conditions to be checked over all the plan exec. (DNF expression)
 
 Desire                      desire
 plansys2_msgs/PlanItem[]    actions
-Condition[]                 precondition
-Condition[]                 context
+ConditionsDNF               precondition
+ConditionsDNF               context

@@ -141,18 +141,18 @@ std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
     else if(check_string == c.GREATER_CHECK)
         check_string = "GREATER";
 
-    os << "\nCHECK TO BE PERFORMED:" << check_string  << " \nCONDITION TO BE CHECKED: " << mc.getMGBelief();
+    os << "\nCHECK TO BE PERFORMED:" << check_string  << " \t CONDITION TO BE CHECKED: " << mc.getMGBelief();
     return os;
 }
 
 // overload `<` operator 
 bool operator<(const ManagedCondition& mc1, const ManagedCondition& mc2)
 {
-    return mc1.getMGBelief() < mc2.getMGBelief() && mc1.getCheck() < mc2.getCheck();
+    return mc1.getCheck() < mc2.getCheck() && mc1.getMGBelief() < mc2.getMGBelief();
 }
 
 // overload `==` operator 
 bool operator==(const ManagedCondition& mc1, const ManagedCondition& mc2)
 {
-    return mc1.getMGBelief() == mc2.getMGBelief() && mc1.getCheck() == mc2.getCheck();
+    return mc1.getCheck() == mc2.getCheck() && mc1.getMGBelief() == mc2.getMGBelief();
 }   

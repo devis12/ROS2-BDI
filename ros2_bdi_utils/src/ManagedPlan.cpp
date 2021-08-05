@@ -10,8 +10,8 @@
 
 ManagedPlan::ManagedPlan():
     body_(vector<PlanItem>()),
-    precondition_(vector<ManagedCondition>()),
-    context_(vector<ManagedCondition>()),
+    precondition_(ManagedConditionsDNF{}),
+    context_(ManagedConditionsDNF{}),
     plan_deadline_(0.0f)
     {
         Desire d = Desire{};
@@ -23,14 +23,14 @@ ManagedPlan::ManagedPlan():
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems):
     desire_(md),
     body_(planitems),
-    precondition_(vector<ManagedCondition>()),
-    context_(vector<ManagedCondition>())
+    precondition_(ManagedConditionsDNF{}),
+    context_(ManagedConditionsDNF{})
     {   
         plan_deadline_ = computeDeadline(planitems);
     }
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
-    const vector<ManagedCondition>& precondition, const vector<ManagedCondition>& context):
+    const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
     desire_(md),
     body_(planitems),
     precondition_(precondition),
@@ -52,15 +52,8 @@ BDIPlan ManagedPlan::toPlan() const
     p.desire = desire_.toDesire();
     p.actions = body_;
 
-    vector<Condition> preconditions_msg = vector<Condition>();
-    for(ManagedCondition mc : precondition_)
-        preconditions_msg.push_back(mc.toCondition());
-    p.precondition = preconditions_msg;
-
-    vector<Condition> context_msg = vector<Condition>();
-    for(ManagedCondition mc : context_)
-        context_msg.push_back(mc.toCondition());
-    p.context = context_msg;
+    p.precondition = precondition_.toConditionsDNF();
+    p.context = context_.toConditionsDNF();
 
     return p;
 }
@@ -91,44 +84,9 @@ bool operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
     for(int i=0; i<mp1_body.size(); i++)
         if(mp1_body[i].action != mp2_body[i].action)
             return false;
-    
-    vector<ManagedCondition> mp1_precondition = mp1.getPrecondition();
-    vector<ManagedCondition> mp2_precondition = mp2.getPrecondition();
-
-    vector<ManagedCondition> mp1_context = mp1.getContext();
-    vector<ManagedCondition> mp2_context = mp2.getContext();
-
-    // check based # of mg. condition(s) in preconditions and context conditions 
-    if(mp1_precondition.size() < mp2_precondition.size() || mp1_context.size() < mp2_context.size())
-        return true;
-
-    // order do not count, so put them into four sets
-    set<ManagedCondition> mp1_preconditionS;
-    for(ManagedCondition mc : mp1_precondition)
-        mp1_preconditionS.insert(mc);
-    set<ManagedCondition> mp1_contextS;
-    for(ManagedCondition mc : mp1_context)
-        mp1_contextS.insert(mc);
-
-    set<ManagedCondition> mp2_preconditionS;
-    for(ManagedCondition mc : mp2_precondition)
-        mp2_preconditionS.insert(mc);
-    set<ManagedCondition> mp2_contextS;
-    for(ManagedCondition mc : mp2_context)
-        mp2_contextS.insert(mc);
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : mp1_preconditionS)
-        if(mp2_preconditionS.count(mc1)==0)
-            return false;
-
-    // check for every mg condition of one mg. desire if it is contained also in the other mg. desire
-    for(ManagedCondition mc1 : mp1_contextS)
-        if(mp2_contextS.count(mc1)==0)
-            return false;
 
     //otherwise equals
-    return true;
+    return mp1.getPrecondition() == mp2.getPrecondition() && mp1.getContext() == mp2.getContext();
 }
 
 std::ostream& operator<<(std::ostream& os, const ManagedPlan& mp)
@@ -140,12 +98,10 @@ std::ostream& operator<<(std::ostream& os, const ManagedPlan& mp)
         os << pi.action << " - " << pi.time << "\n";
     
     os << "\n\nPreconditions to be checked BEFORE execution:\n";
-    for(ManagedCondition prec : mp.getPrecondition())
-        os << prec << "\n";
+    os << mp.getPrecondition() << "\n";
     
     os << "\n\nContext conditions to be checked DURING execution:\n";
-    for(ManagedCondition cont : mp.getContext())
-        os << cont << "\n";
+    os << mp.getContext() << "\n";
     
     os << "\n\nDeadline: " << mp.getPlanDeadline();
     return os;

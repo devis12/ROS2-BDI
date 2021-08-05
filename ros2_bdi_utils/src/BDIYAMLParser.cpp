@@ -68,8 +68,8 @@ namespace BDIYAMLParser
         }
 
         // retrieving preconditions and context (if there is any, otherwise empty)
-        vector<ManagedCondition> preconditions = retrieveMGConditions(yaml_desire, "precondition");
-        vector<ManagedCondition> context = retrieveMGConditions(yaml_desire, "context");
+        ManagedConditionsDNF preconditions = retrieveMGConditionsDNF(yaml_desire, "precondition");
+        ManagedConditionsDNF context = retrieveMGConditionsDNF(yaml_desire, "context");
                 
         if(desire_value.size() > 0)
             return(ManagedDesire{desire_name, desire_value, 
@@ -117,24 +117,36 @@ namespace BDIYAMLParser
 
     /*
         Given a YAML node representing a desire and the name of the condition vector (e.g. "precondition", "context"),
-        extract a vector of managed condition
+        extract a vector of managed condition DNF clause
     */
-    vector<ManagedCondition> retrieveMGConditions(YAML::Node& yaml_desire, const string& condition_vect_name)
+    ManagedConditionsDNF retrieveMGConditionsDNF(YAML::Node& yaml_desire, const string& condition_vect_name)
     {
-        vector<ManagedCondition> conditions;
-        if(yaml_desire[condition_vect_name].IsDefined())//parse precondition
+        
+        vector<ManagedConditionsConjunction> mg_clauses;
+
+        if(yaml_desire[condition_vect_name].IsDefined()
+            && yaml_desire[condition_vect_name]["clauses"].IsDefined()
+            && yaml_desire[condition_vect_name]["clauses"][0]["literals"].IsDefined())//parse precondition
         {
-            for(YAML::Node::iterator it_precond = yaml_desire[condition_vect_name].begin(); it_precond != yaml_desire[condition_vect_name].end(); it_precond++)
+            auto yaml_clauses = yaml_desire[condition_vect_name]["clauses"];
+
+            for(YAML::Node::iterator it_clause = yaml_clauses.begin(); it_clause != yaml_clauses.end(); it_clause++)
             {
-                auto yaml_precond = (*it_precond);
-                string precond_check = yaml_precond["check"].as<string>();//check to be made
-                auto yalm_precond_to_check = yaml_precond["condition_to_check"];// a belief -> with it you perform the check
-                std::optional<ManagedBelief> opt_mb = parseMGBelief(yalm_precond_to_check);
-                if(opt_mb.has_value())
-                    conditions.push_back(ManagedCondition{opt_mb.value(), precond_check});
+                auto yaml_clause = (*it_clause);
+                vector<ManagedCondition> literals;
+                for(YAML::Node::iterator it_literal = yaml_clause["literals"].begin(); it_literal != yaml_clause["literals"].end(); it_literal++)
+                {
+                    auto yaml_cond = (*it_literal);
+                    string precond_check = yaml_cond["check"].as<string>();//check to be made
+                    auto yalm_cond_to_check = yaml_cond["condition_to_check"];// a belief -> with it you perform the check
+                    std::optional<ManagedBelief> opt_mb = parseMGBelief(yalm_cond_to_check);
+                    if(opt_mb.has_value())
+                        literals.push_back(ManagedCondition{opt_mb.value(), precond_check});
+                }
+                mg_clauses.push_back(ManagedConditionsConjunction{literals});
             }
         }
-        return conditions;
+        return mg_clauses;
     }
 
 }// namespace BDIYAMLParser

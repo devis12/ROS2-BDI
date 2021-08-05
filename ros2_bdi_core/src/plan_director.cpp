@@ -13,6 +13,9 @@
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
+#include "ros2_bdi_interfaces/msg/condition.hpp"
+#include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
+#include "ros2_bdi_interfaces/msg/conditions_dnf.hpp"
 #include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
@@ -20,6 +23,8 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedCondition.hpp"
+#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+#include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
@@ -51,6 +56,9 @@ using ros2_bdi_interfaces::srv::BDIPlanExecution;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::Condition;
+using ros2_bdi_interfaces::msg::ConditionsConjunction;
+using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
@@ -301,8 +309,8 @@ private:
         RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire: " + request->plan.desire.name);
 
         ManagedDesire mdPlan = ManagedDesire{request->plan.desire};
-        vector<ManagedCondition> mdPlanPrecondition = ManagedCondition::buildArrayMGCondition(request->plan.precondition);
-        vector<ManagedCondition> mdPlanContext = ManagedCondition::buildArrayMGCondition(request->plan.context);
+        ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
+        ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
         bool done = false;
         if(request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
         {
@@ -319,7 +327,7 @@ private:
         {
             ManagedPlan requestedPlan = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
             // verify precondition before actually trying triggering executor
-            if(ManagedCondition::verifyAllManagedConditions(requestedPlan.getPrecondition(), belief_set_))
+            if(requestedPlan.getPrecondition().isSatisfied(belief_set_))
             {
                 bool started = startPlanExecution(requestedPlan);
                 done = started && state_ == EXECUTING;
@@ -337,7 +345,7 @@ private:
     */
     void checkContextConditions()
     {
-        if(!ManagedCondition::verifyAllManagedConditions(current_plan_.getContext(), belief_set_))
+        if(!current_plan_.getContext().isSatisfied(belief_set_))
         {
             //need to abort current plan execution because context condition are not valid anymore
             if(this->get_parameter(PARAM_DEBUG).as_bool())
@@ -347,7 +355,7 @@ private:
             checkPlanExecution();//to publish aborting and notifying subscribers
         }else{
             if(counter_check_ % 4 == 0 && this->get_parameter(PARAM_DEBUG).as_bool())//print just every 4 checks
-                RCLCPP_INFO(this->get_logger(), "Current plan execution can go on: all #%d context conditions are satisfied",current_plan_.getContext().size());
+                RCLCPP_INFO(this->get_logger(), "Current plan execution can go on: at least a context condition clause is satisfied");
         }
 
     }

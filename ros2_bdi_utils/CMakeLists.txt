@@ -22,6 +22,8 @@ set(UTILS-SOURCES
   src/ManagedBelief.cpp
   src/ManagedDesire.cpp
   src/ManagedCondition.cpp
+  src/ManagedConditionsConjunction.cpp
+  src/ManagedConditionsDNF.cpp
   src/ManagedPlan.cpp
 
   src/BDIYAMLParser.cpp

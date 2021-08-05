@@ -6,6 +6,9 @@
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
+#include "ros2_bdi_utils/ManagedCondition.hpp"
+#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+#include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -14,6 +17,7 @@
 
 using std::vector;
 using std::set;
+using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
@@ -84,13 +88,13 @@ namespace BDIFilter
   set<ManagedBelief> extractMGFunctions(const set<ManagedBelief> managed_beliefs);
 
   /*
-            given array of ManagedCondition, desire name, desire priority, desire deadline
-            use it to build a ManagedDesire putting as value the conditions
-            NOTE: for now just work around with condition(s) containing PREDICATE type as values,
-            if @conditions do not contain any Belief with PREDICATE type, returns std::nullopt
+    given array of ManagedCondition, desire base name (added a counter as suffix to distinguish them among each other),
+    desire priority, desire deadline use it to build a ManagedDesire putting as value the conditions
+    NOTE: for now just work around with condition(s) containing PREDICATE type as values,
+    if @conditions do not contain any Belief with PREDICATE type, returns std::nullopt
   */      
-  std::optional<ManagedDesire> conditionsToMGDesire(const vector<ManagedCondition>& conditions, 
-                  const string& desireName, const float& desirePriority, const float& desireDeadline);
+  vector<ManagedDesire> conditionsToMGDesire(const ManagedConditionsDNF& conditionsDNF, 
+                  const string& desireBaseName, const float& desirePriority, const float& desireDeadline);
   
 }  // namespace BDIFilter
 

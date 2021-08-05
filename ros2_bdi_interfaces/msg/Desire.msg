@@ -6,12 +6,12 @@
 # @value        -> array of belief expressing the desirable state of the world to be reached
 # @priority     -> real value between 0 and 1 to express the priority of the desire (higher the value, higher the priority) 
 # @deadline     -> desirable deadline in seconds
-# @precondition -> precondition in order to start an intention satisfying the given desire
-# @context      -> context conditions which has to remain true while satisfying the given desire
+# @precondition -> precondition in order to start an intention satisfying the given desire (DNF expression)
+# @context      -> context conditions which has to remain true while satisfying the given desire (DNF expression)
 
-string      name
-Belief[]    value
-float32     priority
-float32     deadline
-Condition[] precondition
-Condition[] context
+string          name
+Belief[]        value
+float32         priority
+float32         deadline
+ConditionsDNF   precondition
+ConditionsDNF   context
