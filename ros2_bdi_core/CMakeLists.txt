@@ -68,6 +68,13 @@ ament_target_dependencies(plansys2_monitor
   lifecycle_msgs
 )
 
+add_executable(communications src/communications.cpp)
+ament_target_dependencies(communications 
+  rclcpp
+  ros2_bdi_interfaces
+  ros2_bdi_utils
+)
+
 
 #add_executable(test_node src/test_node.cpp)
 #target_link_libraries(test_node
@@ -89,6 +96,7 @@ install(TARGETS
   scheduler
   plan_director
   plansys2_monitor
+  communications
 #  test_node
   DESTINATION lib/${PROJECT_NAME}
 )

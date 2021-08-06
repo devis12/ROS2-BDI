@@ -1,0 +1,12 @@
+# This is AddDesire service message used to request among agents to push new desire in their desire set
+# returns accepted = true if they are (already) there or successfully added
+
+# @desire           -> desire to be added to agent's desire set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request accepted by agent
+
+Desire desire
+string agent_group
+---
+bool   accepted

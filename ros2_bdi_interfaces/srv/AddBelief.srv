@@ -1,0 +1,12 @@
+# This is AddBelief service message used to request among agents to push new belief in their belief set
+# returns accepted = true if they are (already) there or successfully added
+
+# @belief           -> belief to be added to agent's belief set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request accepted by agent
+
+Belief belief
+string agent_group
+---
+bool   accepted

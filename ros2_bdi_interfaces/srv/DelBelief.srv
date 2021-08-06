@@ -1,0 +1,12 @@
+# This is DelBelief service message used to request among agents to delete beliefs in their belief set
+# returns accepted = true if they are not there or successfully removed
+
+# @belief           -> belief to be added to agent's belief set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request accepted by agent
+
+Belief belief
+string agent_group
+---
+bool   accepted

@@ -82,6 +82,17 @@ namespace BDIFilter
   }
 
   /*
+    Extract from passed vector desires and put them into a set of ManagedDesire objects
+  */
+  set<ManagedDesire> extractMGDesires(const vector<Desire> desires)
+  {
+    set<ManagedDesire> extracted = set<ManagedDesire>();
+    for(Desire d : desires)
+      extracted.insert(ManagedDesire{d});
+    return extracted;
+  }
+
+  /*
     Extract from passed vector beliefs and put them into a set of ManagedBelief objects
   */
   set<ManagedBelief> extractMGInstances(const vector<Belief> beliefs)
