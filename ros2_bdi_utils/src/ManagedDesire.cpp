@@ -21,7 +21,13 @@ ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& val
     deadline_(deadline),
     precondition_(ManagedConditionsDNF()),
     context_(ManagedConditionsDNF())
-    {}
+    {
+        if(priority_ < 0.0f)
+            priority_ = 0.0f;
+        
+        if(deadline_ < 0.0f)
+            deadline_ = 0.0f;
+    }
 
 
 ManagedDesire::ManagedDesire(const string& name, const string& desire_group, const vector<ManagedBelief>& value,const float& priority,const float& deadline):
@@ -32,7 +38,13 @@ ManagedDesire::ManagedDesire(const string& name, const string& desire_group, con
     deadline_(deadline),
     precondition_(ManagedConditionsDNF()),
     context_(ManagedConditionsDNF())
-    {}
+    {
+        if(priority_ < 0.0f)
+            priority_ = 0.0f;
+        
+        if(deadline_ < 0.0f)
+            deadline_ = 0.0f;
+    }
 
 ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
                         const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
@@ -43,7 +55,13 @@ ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& val
     deadline_(deadline),
     precondition_(precondition),
     context_(context)
-    {}
+    {
+        if(priority_ < 0.0f)
+            priority_ = 0.0f;
+        
+        if(deadline_ < 0.0f)
+            deadline_ = 0.0f;
+    }
 
 
 ManagedDesire::ManagedDesire(const Desire& desire):
@@ -52,6 +70,12 @@ ManagedDesire::ManagedDesire(const Desire& desire):
     priority_(desire.priority),
     deadline_(desire.deadline)
     {   
+        if(priority_ < 0.0f)
+            priority_ = 0.0f;
+        
+        if(deadline_ < 0.0f)
+            deadline_ = 0.0f;
+
         set<ManagedBelief> set_mb = BDIFilter::extractMGPredicates(desire.value);
         value_ = vector<ManagedBelief>(set_mb.begin(), set_mb.end());
         
@@ -103,10 +127,10 @@ bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
     if(md1.getName() != md2.getName())
         return md1.getName() < md2.getName();
 
-    else if(md1.getPriority() != md2.getPriority())
+    else if(md1.getPriority() != md2.getPriority() && (md1.getPriority()-md2.getPriority()) > 0.01f)//lower digit diff do not count as actual difference
         return md1.getPriority() < md2.getPriority();
     
-    else if(md1.getDeadline() != md2.getDeadline())
+    else if(md1.getDeadline() != md2.getDeadline() && (md1.getDeadline()-md2.getDeadline()) > 0.01f)//lower digit diff do not count as actual difference
         return md1.getDeadline() < md2.getDeadline();
     
     vector<ManagedBelief> md1_value = md1.getValue();
@@ -138,7 +162,13 @@ bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
 // overload `==` operator 
 bool operator==(ManagedDesire const &md1, ManagedDesire const &md2){
      // first check based on "simple" values (name, priority, deadline)
-    if(md1.getName() != md2.getName() || md1.getPriority() != md2.getPriority() || md1.getDeadline() != md2.getDeadline())
+    if(md1.getName() != md2.getName())
+        return false;
+
+    else if(md1.getPriority() != md2.getPriority() && (md1.getPriority()-md2.getPriority()) > 0.01f)//lower digit diff do not count as actual difference
+        return false;
+    
+    else if(md1.getDeadline() != md2.getDeadline() && (md1.getDeadline()-md2.getDeadline()) > 0.01f)//lower digit diff do not count as actual difference
         return false;
     
     vector<ManagedBelief> md1_value = md1.getValue();

@@ -35,9 +35,9 @@ class ManagedConditionsConjunction
         // n.b. result is true if literals_ array is empty
         bool isSatisfied(const set<ManagedBelief>& mbSet);
         
-        // return ConditionsConjunction msg generated from current ManagedConditionsConjunction object
+        // convert to ConditionsConjunction msg generated from current ManagedConditionsConjunction object
         ConditionsConjunction toConditionsConjunction() const;
-        
+
     private:
         vector<ManagedCondition> literals_;
 

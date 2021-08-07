@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <ctime>
+#include <mutex>
 #include <memory>
 #include <vector>
 #include <thread>
@@ -8,10 +9,8 @@
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
-#include "ros2_bdi_interfaces/srv/add_belief.hpp"
-#include "ros2_bdi_interfaces/srv/del_belief.hpp"
-#include "ros2_bdi_interfaces/srv/add_desire.hpp"
-#include "ros2_bdi_interfaces/srv/del_desire.hpp"
+#include "ros2_bdi_interfaces/srv/upd_belief_set.hpp"
+#include "ros2_bdi_interfaces/srv/upd_desire_set.hpp"
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
@@ -26,9 +25,13 @@
 #define PARAM_DESIRE_MAX_PRIORITIES "accept_desires_max_priorities"
 #define PARAM_DEBUG "debug"
 
+#define ADD_I 1
+#define DEL_I 0
+
 using std::string;
 using std::vector;
 using std::set;
+using std::mutex;
 using std::thread;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -40,12 +43,10 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::DesireSet;
-using ros2_bdi_interfaces::srv::AddBelief;
-using ros2_bdi_interfaces::srv::DelBelief;
-using ros2_bdi_interfaces::srv::AddDesire;
-using ros2_bdi_interfaces::srv::DelDesire;
+using ros2_bdi_interfaces::srv::UpdBeliefSet;
+using ros2_bdi_interfaces::srv::UpdDesireSet;
 
-typedef enum {BELIEF, DESIRE} RequestObjType;   
+typedef enum {BELIEF, DESIRE} RequestObjType;  
 
 class CommunicationManager : public rclcpp::Node
 {
@@ -71,22 +72,27 @@ public:
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
+    // to make the belief/desire set subscription callbacks to run on different threads of execution wrt srv callbacks
+    callback_group_upd_subscribers_ = this->create_callback_group(rclcpp::callback_group::CallbackGroupType::Reentrant);
+    auto sub_opt = rclcpp::SubscriptionOptions();
+    sub_opt.callback_group = callback_group_upd_subscribers_;
+
     //register to belief set updates to have the mirroring of the last published version of it
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
                 "belief_set", qos_keep_all,
-                bind(&CommunicationManager::updatedBeliefSet, this, _1));
+                bind(&CommunicationManager::updatedBeliefSet, this, _1), sub_opt);
     
     //register to desire set updates to have the mirroring of the last published version of it
     desire_set_subscriber_ = this->create_subscription<DesireSet>(
                 "desire_set", qos_keep_all,
-                bind(&CommunicationManager::updatedDesireSet, this, _1));
+                bind(&CommunicationManager::updatedDesireSet, this, _1), sub_opt);
 
     // init server for handling add belief requests from other agents
-    add_belief_server_ = this->create_service<AddBelief>("add_belief_srv", 
+    add_belief_server_ = this->create_service<UpdBeliefSet>("add_belief_srv", 
         bind(&CommunicationManager::handleAddBeliefRequest, this, _1, _2));
       
      // init server for handling del belief requests from other agents
-    del_belief_server_ = this->create_service<DelBelief>("del_belief_srv", 
+    del_belief_server_ = this->create_service<UpdBeliefSet>("del_belief_srv", 
         bind(&CommunicationManager::handleDelBeliefRequest, this, _1, _2));
     
     // add belief publisher -> to publish on the topic and alter the belief set when the request can go through
@@ -94,13 +100,17 @@ public:
     // del belief publisher -> to publish on the topic and alter the belief set when the request can go through
     del_belief_publisher_ = this->create_publisher<Belief>("del_belief", 10);
 
+    // init two locks for waiting belief upd
+    belief_set_upd_locks_ = vector<mutex>(2);
+    // init two counter for waiting belief upd
+    belief_waiting_for_counter_ = vector<int>(2);
 
     // init server for handling add belief requests from other agents
-    add_desire_server_ = this->create_service<AddDesire>("add_desire_srv", 
+    add_desire_server_ = this->create_service<UpdDesireSet>("add_desire_srv", 
         bind(&CommunicationManager::handleAddDesireRequest, this, _1, _2));
       
      // init server for handling del belief requests from other agents
-    del_desire_server_ = this->create_service<DelDesire>("del_desire_srv", 
+    del_desire_server_ = this->create_service<UpdDesireSet>("del_desire_srv", 
         bind(&CommunicationManager::handleDelDesireRequest, this, _1, _2));
 
     // add desire publisher -> to publish on the topic and alter the desire set when the request can go through
@@ -108,7 +118,38 @@ public:
     // del desire publisher -> to publish on the topic and alter the desire set when the request can go through
     del_desire_publisher_ = this->create_publisher<Desire>("del_desire", 10);
 
-    RCLCPP_INFO(this->get_logger(), "Communications Manager node initialized");
+    // init two locks for waiting desire upd
+    desire_set_upd_locks_ = vector<mutex>(2);
+    // init two counter for waiting desire upd
+    desire_waiting_for_counter_ = vector<int>(2);
+
+    string acceptingBeliefsMsg = "accepting beliefs alteration from: ";
+    vector<string> acceptingBeliefsGroups = this->get_parameter(PARAM_BELIEF_ACCEPT).as_string_array();
+    if(acceptingBeliefsGroups.size() == 0)
+      acceptingBeliefsMsg += "no group";
+    else
+      for(int i = 0; i<acceptingBeliefsGroups.size(); i++)
+        acceptingBeliefsMsg += acceptingBeliefsGroups[i]  + (((i+1)==acceptingBeliefsGroups.size()) ? "" : ", ");
+
+    string acceptingDesiresMsg = "accepting desires alteration from: ";
+    vector<string> acceptingDesiresGroups = this->get_parameter(PARAM_DESIRE_ACCEPT).as_string_array();
+    vector<double> acceptingDesiresPrioritiesGroups = this->get_parameter(PARAM_DESIRE_MAX_PRIORITIES).as_double_array();
+    if(acceptingDesiresGroups.size() == 0)
+      acceptingDesiresMsg += "no group";
+    else
+      for(int i = 0; i<acceptingDesiresGroups.size(); i++)
+      {
+        acceptingDesiresMsg += acceptingDesiresGroups[i];
+        
+        acceptingDesiresMsg += (acceptingDesiresPrioritiesGroups.size() > i)? 
+          "(max_pr = " + std::to_string(acceptingDesiresPrioritiesGroups[i]) + ")" : 
+          "(max_pr = 0.01)"; 
+         
+        acceptingDesiresMsg +=  (((i+1)==acceptingDesiresGroups.size()) ? "" : ", ");
+      }
+
+    RCLCPP_INFO(this->get_logger(), "Communications Manager node initialized:\n" + 
+        acceptingBeliefsMsg + ";\n" + acceptingDesiresMsg);
   }
   
 
@@ -125,9 +166,11 @@ private:
       {
         case BELIEF:
           acceptedGroups = this->get_parameter(PARAM_BELIEF_ACCEPT).as_string_array();
+          break;
 
          case DESIRE:
           acceptedGroups = this->get_parameter(PARAM_DESIRE_ACCEPT).as_string_array();
+          break;
       }
 
       for(string accepted : acceptedGroups)
@@ -152,19 +195,46 @@ private:
         if(acceptedGroups[i] == requestingAgentGroup)
           indexAccepted = i;
 
-      if(indexAccepted > 0)//if found
+      if(indexAccepted >= 0)//if found
       {
         // retrieve correspondent priority from accept_desires_max_priorities double array
         vector<double> acceptedPriorities = this->get_parameter(PARAM_DESIRE_MAX_PRIORITIES).as_double_array();
         
         if(indexAccepted < acceptedPriorities.size())
-          maxAcceptedPriority = std::max(0.0f, std::min(1.0f, (float)acceptedPriorities[indexAccepted]));//priority has to be between 0 and 1
+          maxAcceptedPriority = std::max(0.000f, std::min(1.0f, (float)acceptedPriorities[indexAccepted]));//priority has to be between 0.001 and 1
         
         else
-          maxAcceptedPriority = 0.0f; //bad formatted accept_desires_max_priorities array, but do not refuse just put 0.0 as priority of the desire
+          maxAcceptedPriority = 0.000f; //bad formatted accept_desires_max_priorities array, but do not refuse just put 0.001 as priority of the desire
       }
 
       return maxAcceptedPriority;
+    }
+
+    /*
+      @updIndex to be used to know which lock has to be checked among the two in desire_set_upd_locks_
+      and which waiting counter has to be incremented and/or checked
+
+      @countCheck in order to check if desire is present (ADD op) or not present (DEL op)
+    */
+    void checkDesireSetWaitingUpd(const int& updIndex, const int& countCheck)
+    {
+      if(updIndex > desire_set_upd_locks_.size() || countCheck < 0)//invalid params
+        return;
+
+       
+      if(desire_set_upd_locks_[updIndex].try_lock())//try lock 
+      {
+        // if acquired, release immediately (no waiting for any belief upd operation)
+        desire_set_upd_locks_[updIndex].unlock();
+      }
+      else
+      {
+        //waiting for a belief upd operation
+        if(desire_set_.count(desire_waiting_for_) == countCheck || desire_waiting_for_counter_[updIndex] == 4)
+          desire_set_upd_locks_[updIndex].unlock();// acquired by add_desire/del_desire srv, release it so it can proceed if alteration done or waited too much already
+        else
+          desire_waiting_for_counter_[updIndex]++;
+      }
     }
 
     /*
@@ -173,6 +243,38 @@ private:
     void updatedDesireSet(const DesireSet::SharedPtr msg)
     {
         desire_set_ = BDIFilter::extractMGDesires(msg->value);
+
+                
+        //check for waiting belief set alteration
+        checkDesireSetWaitingUpd(ADD_I, 1);//check belief set for addition
+        checkDesireSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    }
+
+    /*
+      @updIndex to be used to know which lock has to be checked among the two in belief_set_upd_locks_
+      and which waiting counter has to be incremented and/or checked
+
+      @countCheck in order to check if belief is present (ADD op) or not present (DEL op)
+    */
+    void checkBeliefSetWaitingUpd(const int& updIndex, const int& countCheck)
+    {
+      if(updIndex > belief_set_upd_locks_.size() || countCheck < 0)//invalid params
+        return;
+
+       
+      if(belief_set_upd_locks_[updIndex].try_lock())//try lock 
+      {
+        // if acquired, release immediately (no waiting for any belief upd operation)
+        belief_set_upd_locks_[updIndex].unlock();
+      }
+      else
+      {
+        //waiting for a belief upd operation
+        if(belief_set_.count(belief_waiting_for_) == countCheck || belief_waiting_for_counter_[updIndex] == 4)
+          belief_set_upd_locks_[updIndex].unlock();// acquired by add_belief/del_belief srv, release it so it can proceed if alteration done or waited too much already
+        else
+          belief_waiting_for_counter_[updIndex]++;
+      }
     }
     
     /*
@@ -181,14 +283,18 @@ private:
     void updatedBeliefSet(const BeliefSet::SharedPtr msg)
     {
         belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
+        
+        //check for waiting belief set alteration
+        checkBeliefSetWaitingUpd(ADD_I, 1);//check belief set for addition
+        checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
     }
 
 
     /*  
         Add Belief Request service handler
     */
-    void handleAddBeliefRequest(const AddBelief::Request::SharedPtr request,
-        const AddBelief::Response::SharedPtr response)
+    void handleAddBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
+        const UpdBeliefSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
       if(!isAcceptableRequest(request->agent_group, BELIEF))
@@ -196,16 +302,25 @@ private:
 
       else
       {
+        //shared_ptr<thread> waiting_add_thread = std::make_shared<thread>(bind(&CommunicationManager::waitingUpdBelief, this, ADD_I));
+        //waiting_add_thread->detach();
         add_belief_publisher_->publish(request->belief);
-        response->accepted = true;// [TODO] check if the modification has gone forward
+        
+        belief_set_upd_locks_[ADD_I].lock();
+          belief_waiting_for_ = ManagedBelief{request->belief};
+          belief_waiting_for_counter_[ADD_I] = 0;
+        belief_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
+        belief_set_upd_locks_[ADD_I].unlock();//release it
+
+        response->accepted = belief_set_.count(ManagedBelief{request->belief}) == 1;
       }
     }
 
     /*  
         Del Belief Request service handler        
     */
-    void handleDelBeliefRequest(const DelBelief::Request::SharedPtr request,
-        const DelBelief::Response::SharedPtr response)
+    void handleDelBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
+        const UpdBeliefSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
       if(!isAcceptableRequest(request->agent_group, BELIEF))
@@ -214,7 +329,14 @@ private:
       else
       {
         del_belief_publisher_->publish(request->belief);
-        response->accepted = true;// [TODO] check if the modification has gone forward
+        
+        belief_set_upd_locks_[DEL_I].lock();
+          belief_waiting_for_ = ManagedBelief{request->belief};
+          belief_waiting_for_counter_[DEL_I] = 0;
+        belief_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
+        belief_set_upd_locks_[DEL_I].unlock();//release it
+
+        response->accepted = belief_set_.count(ManagedBelief{request->belief}) == 0;
       }
     }
 
@@ -222,8 +344,8 @@ private:
     /*  
         Add Desire Request service handler        
     */
-    void handleAddDesireRequest(const AddDesire::Request::SharedPtr request,
-        const AddDesire::Response::SharedPtr response)
+    void handleAddDesireRequest(const UpdDesireSet::Request::SharedPtr request,
+        const UpdDesireSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
       if(!isAcceptableRequest(request->agent_group, DESIRE))
@@ -232,12 +354,20 @@ private:
       else
       {
         float maxAcceptedPriority = getMaxAcceptedPriority(request->agent_group);
+        
         if(maxAcceptedPriority >= 0)
         {
           // set at most the desire priority to the fixed upper threshold
-          request->desire.priority = std::min(request->desire.priority, maxAcceptedPriority); 
+          request->desire.priority = std::max(0.000f, std::min(request->desire.priority, maxAcceptedPriority)); 
           add_desire_publisher_->publish(request->desire);
-          response->accepted = true;// [TODO] check if the modification has gone forward
+                  
+          desire_set_upd_locks_[ADD_I].lock();
+            desire_waiting_for_ = ManagedDesire{request->desire};
+            desire_waiting_for_counter_[ADD_I] = 0;
+          desire_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
+          desire_set_upd_locks_[ADD_I].unlock();//release it
+
+          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 1;
         }
         else
           response->accepted = false;// max priority for given agent's requesting group is negative -> not accepted
@@ -248,8 +378,8 @@ private:
     /*  
          Del Desire Request service handler       
     */
-    void handleDelDesireRequest(const DelDesire::Request::SharedPtr request,
-        const DelDesire::Response::SharedPtr response)
+    void handleDelDesireRequest(const UpdDesireSet::Request::SharedPtr request,
+        const UpdDesireSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
       if(!isAcceptableRequest(request->agent_group, DESIRE))
@@ -258,7 +388,13 @@ private:
       else
       {
         del_desire_publisher_->publish(request->desire);
-        response->accepted = true;// [TODO] check if the modification has gone forward
+        desire_set_upd_locks_[DEL_I].lock();
+            desire_waiting_for_ = ManagedDesire{request->desire};
+            desire_waiting_for_counter_[DEL_I] = 0;
+          desire_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
+          desire_set_upd_locks_[DEL_I].unlock();//release it
+
+          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 0;
       }
     }
     
@@ -269,6 +405,8 @@ private:
     set<ManagedBelief> belief_set_;
     // belief set update subscription
     rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;
+    
+    rclcpp::callback_group::CallbackGroup::SharedPtr callback_group_upd_subscribers_;
 
     // mirroring of the current state of the desire set
     set<ManagedDesire> desire_set_;
@@ -276,18 +414,34 @@ private:
     rclcpp::Subscription<DesireSet>::SharedPtr desire_set_subscriber_;
 
     // handle add belief requests from other agents
-    rclcpp::Service<AddBelief>::SharedPtr add_belief_server_;
+    rclcpp::Service<UpdBeliefSet>::SharedPtr add_belief_server_;
     // handle del belief requests from other agents
-    rclcpp::Service<DelBelief>::SharedPtr del_belief_server_;
+    rclcpp::Service<UpdBeliefSet>::SharedPtr del_belief_server_;
+    
+    // lock to put waiting for next belief set addition/deletion
+    vector<mutex> belief_set_upd_locks_;
+    // managed belief you're waiting for (to be added or deleted)
+    ManagedBelief belief_waiting_for_;
+    // belief operation in waiting and not performed in last belief set upd counter
+    vector<int> belief_waiting_for_counter_;
+    
     //add_belief publisher
     rclcpp::Publisher<Belief>::SharedPtr add_belief_publisher_;
     //del_belief publisher
     rclcpp::Publisher<Belief>::SharedPtr del_belief_publisher_;
 
     // handle add desire requests from other agents
-    rclcpp::Service<AddDesire>::SharedPtr add_desire_server_;
+    rclcpp::Service<UpdDesireSet>::SharedPtr add_desire_server_;
     // handle del desire requests from other agents
-    rclcpp::Service<DelDesire>::SharedPtr del_desire_server_;
+    rclcpp::Service<UpdDesireSet>::SharedPtr del_desire_server_;
+    
+    // lock to put waiting for next desire set addition/deletion
+    vector<mutex> desire_set_upd_locks_;
+    // managed desire you're waiting for (to be added or deleted)
+    ManagedDesire desire_waiting_for_;
+    // desire operation in waiting and not performed in last desire set upd counter
+    vector<int> desire_waiting_for_counter_;
+    
     //add_desire publisher
     rclcpp::Publisher<Desire>::SharedPtr add_desire_publisher_;
     //del_desire publisher
@@ -301,7 +455,9 @@ int main(int argc, char ** argv)
   auto node = std::make_shared<CommunicationManager>();
 
   node->init();
-  rclcpp::spin(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
 
   return 0;

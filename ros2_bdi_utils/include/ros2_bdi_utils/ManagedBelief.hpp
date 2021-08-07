@@ -17,6 +17,7 @@ class ManagedBelief
 {
 
     public:
+        ManagedBelief();
         ManagedBelief(const Belief& belief);
         
         static ManagedBelief buildMBInstance(const string& name, const string& instance_type);

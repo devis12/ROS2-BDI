@@ -1,5 +1,6 @@
-# This is AddDesire service message used to request among agents to push new desire in their desire set
+# This is UpdDesireSet service message used to request among agents to push/delete new/old desire in their desire set
 # returns accepted = true if they are (already) there or successfully added
+# returns accepted = true if they are not (already) there or successfully deleted in case of deletion requested
 
 # @desire           -> desire to be added to agent's desire set
 # @agent_group      -> requesting agent's group

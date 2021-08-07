@@ -5,6 +5,12 @@
 #define PREDICATE_S PDDLBDIConstants::PREDICATE_TYPE
 #define FUNCTION_S PDDLBDIConstants::FUNCTION_TYPE
 
+ManagedBelief::ManagedBelief():
+    name_(""),
+    pddl_type_(-1)
+    {
+    }
+    
 ManagedBelief::ManagedBelief(const string& name,const int& type,const vector<string>& params,const float& value):
     name_(name),
     pddl_type_(type),

@@ -1,6 +1,6 @@
 -
-  name: "clean_rooms"
-  priority: 0.6
+  name: "clean_kitchen"
+  priority: -0.5
   deadline: 36.0
   value:
     -

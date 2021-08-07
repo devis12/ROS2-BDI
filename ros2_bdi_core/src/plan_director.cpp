@@ -306,7 +306,7 @@ private:
         const BDIPlanExecution::Response::SharedPtr response)
     {
         string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
-        RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire: " + request->plan.desire.name);
+        RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire \"" + request->plan.desire.name + "\"");
 
         ManagedDesire mdPlan = ManagedDesire{request->plan.desire};
         ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};

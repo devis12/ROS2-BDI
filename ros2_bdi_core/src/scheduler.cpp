@@ -334,7 +334,7 @@ private:
     */
     bool noPlanSelected()
     {
-        return current_plan_.getDesire().getPriority() == 0.0f || current_plan_.getBody().size() == 0;
+        return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getBody().size() == 0;
     }
 
     /*
@@ -351,7 +351,7 @@ private:
         bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
 
         // priority of selected plan
-        float highestPriority = 0.0f;
+        float highestPriority = -1.0f;
         // deadline of selected plan
         float selectedDeadline = -1.0f;//  init to negative value
         

@@ -1,0 +1,13 @@
+# This is UpdBeliefSet service message used to request among agents to push/delete new/old belief in their belief set
+# returns accepted = true if they are (already) there or successfully added in case of addition requested
+# returns accepted = true if they are not (already) there or successfully deleted in case of deletion requested
+
+# @belief           -> belief to be added to agent's belief set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request accepted by agent
+
+Belief belief
+string agent_group
+---
+bool   accepted

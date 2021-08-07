@@ -22,10 +22,8 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/BDIPlanExecutionInfo.msg"
   "msg/PlanSys2State.msg"
   
-  "srv/AddBelief.srv"
-  "srv/DelBelief.srv"
-  "srv/AddDesire.srv"
-  "srv/DelDesire.srv"
+  "srv/UpdBeliefSet.srv"
+  "srv/UpdDesireSet.srv"
   "srv/BDIPlanExecution.srv"
 
   DEPENDENCIES plansys2_msgs
