@@ -25,6 +25,15 @@ set(psys2_act_client_dep
     plansys2_executor
 )
 
+set(bdi_act_client_dep
+  rclcpp
+  rclcpp_action
+  plansys2_msgs
+  plansys2_executor
+  ros2_bdi_interfaces
+  ros2_bdi_core
+)
+
 set(sensors_dep
   rclcpp
   ros2_bdi_interfaces
@@ -32,22 +41,31 @@ set(sensors_dep
   ros2_bdi_core
 )
 
-add_executable(movetoward src/actions/generic_cli/movetoward.cpp)
+add_executable(movetoward src/actions/generic_cli/generic_cli_raw/movetoward.cpp)
 ament_target_dependencies(movetoward ${psys2_act_client_dep})
 
-add_executable(recharge src/actions/generic_cli/recharge.cpp)
+add_executable(recharge src/actions/generic_cli/generic_cli_raw/recharge.cpp)
 ament_target_dependencies(recharge ${psys2_act_client_dep})
 
-add_executable(doclean src/actions/cleaner_cli/doclean.cpp)
+add_executable(movetoward_bdi src/actions/generic_cli/generic_cli_bdi/movetoward.cpp)
+ament_target_dependencies(movetoward_bdi ${bdi_act_client_dep})
+
+add_executable(recharge_bdi src/actions/generic_cli/generic_cli_bdi/recharge.cpp)
+ament_target_dependencies(recharge_bdi ${bdi_act_client_dep})
+
+add_executable(doclean_bdi src/actions/cleaner_cli/cleaner_cli_bdi/doclean.cpp)
+ament_target_dependencies(doclean_bdi ${bdi_act_client_dep})
+
+add_executable(doclean src/actions/cleaner_cli/cleaner_cli_raw/doclean.cpp)
 ament_target_dependencies(doclean ${psys2_act_client_dep})
 
-add_executable(asksweeping src/actions/cleaner_cli/asksweeping.cpp)
+add_executable(asksweeping src/actions/cleaner_cli/cleaner_cli_raw/asksweeping.cpp)
 ament_target_dependencies(asksweeping ros2_bdi_interfaces ${psys2_act_client_dep})
 
-add_executable(waitsweeping src/actions/cleaner_cli/waitsweeping.cpp)
+add_executable(waitsweeping src/actions/cleaner_cli/cleaner_cli_raw/waitsweeping.cpp)
 ament_target_dependencies(waitsweeping ros2_bdi_interfaces ${psys2_act_client_dep})
 
-add_executable(dosweep src/actions/sweeper_cli/dosweep.cpp)
+add_executable(dosweep src/actions/sweeper_cli/sweeper_cli_raw/dosweep.cpp)
 ament_target_dependencies(dosweep ${psys2_act_client_dep})
 
 #add_executable(doclean_gazebo src/actions/cleaner_gazebo/doclean_gazebo.cpp)
@@ -62,8 +80,11 @@ ament_target_dependencies(wp_sensor ${sensors_dep})
 
 install(TARGETS
   movetoward
+  movetoward_bdi
   recharge
+  recharge_bdi
   doclean
+  doclean_bdi
   asksweeping
   waitsweeping
   dosweep

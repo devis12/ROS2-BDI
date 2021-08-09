@@ -55,6 +55,7 @@ public:
   : rclcpp::Node("communication_manager")
   {
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_BELIEF_ACCEPT, vector<string>());
     this->declare_parameter(PARAM_DESIRE_ACCEPT, vector<string>());

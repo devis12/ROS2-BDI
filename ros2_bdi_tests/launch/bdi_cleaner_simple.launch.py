@@ -48,6 +48,7 @@ def loadInitFile(pathsource, agent_id):
 
 def generate_launch_description():
     AGENT_NAME = "agent1"
+    AGENT_GROUP_NAME = "agent_group1"
     
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
     loadInitFile(bdi_tests_share_dir+'/launch/init_cleaner_simple', AGENT_NAME)
@@ -111,6 +112,20 @@ def generate_launch_description():
             {"agent_id": AGENT_NAME}
         ])
     
+    communications_manager = Node(
+        package='ros2_bdi_core',
+        executable='communications',
+        name='communications',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": AGENT_NAME},
+            {"agent_group": AGENT_GROUP_NAME},
+            {"accept_beliefs_from": [AGENT_GROUP_NAME]},
+            {"accept_desires_from": [AGENT_GROUP_NAME]},
+            {"accept_desires_max_priorities": [0.6]}
+        ])
+    
     plansys2_monitor = Node(
         package='ros2_bdi_core',
         executable='plansys2_monitor',
@@ -123,32 +138,35 @@ def generate_launch_description():
 
     action_movetoward = Node(
         package='ros2_bdi_tests',
-        executable='movetoward',
+        executable='movetoward_bdi',
         name='movetoward',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": AGENT_NAME},
+            {"agent_group": AGENT_GROUP_NAME}
         ])
 
     action_doclean = Node(
         package='ros2_bdi_tests',
-        executable='doclean',
+        executable='doclean_bdi',
         name='doclean',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": AGENT_NAME},
+            {"agent_group": AGENT_GROUP_NAME}
         ])
     
     action_recharge = Node(
         package='ros2_bdi_tests',
-        executable='recharge',
+        executable='recharge_bdi',
         name='recharge',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": AGENT_NAME}
+            {"agent_id": AGENT_NAME},
+            {"agent_group": AGENT_GROUP_NAME}
         ])
 
     wp_sensor = Node(
@@ -180,6 +198,8 @@ def generate_launch_description():
     ld.add_action(scheduler)
     #Add plan director
     ld.add_action(plan_director)
+    #Add communication manager node
+    ld.add_action(communications_manager)
 
     #Action performers for agent
     ld.add_action(action_movetoward)
