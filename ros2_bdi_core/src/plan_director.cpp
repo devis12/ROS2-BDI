@@ -34,6 +34,7 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
+#define PARAM_CANCEL_AFTER_DEADLINE "cancel_after_deadline"
 #define NO_PLAN_INTERVAL 1000
 #define PLAN_INTERVAL 250
 
@@ -74,6 +75,7 @@ public:
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_CANCEL_AFTER_DEADLINE, 2.0);
 
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
@@ -239,6 +241,8 @@ private:
         executor_client_->cancel_plan_execution();
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
+
+        checkPlanExecution();//to publish aborting and notifying subscribers
     }
 
 
@@ -319,7 +323,6 @@ private:
             if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
             {
                 cancelCurrentPlanExecution();
-                checkPlanExecution();// last plan check for this plan execution
                 done = executingNoPlan();
             }
         }
@@ -352,7 +355,6 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Aborting current plan execution because context conditions are not satisfied");
             
             cancelCurrentPlanExecution();
-            checkPlanExecution();//to publish aborting and notifying subscribers
         }else{
             if(counter_check_ % 4 == 0 && this->get_parameter(PARAM_DEBUG).as_bool())//print just every 4 checks
                 RCLCPP_INFO(this->get_logger(), "Current plan execution can go on: at least a context condition clause is satisfied");
@@ -386,6 +388,13 @@ private:
                     "executed successfully" : "aborted");
                 RCLCPP_INFO(this->get_logger(), "Plan " + result_s + ": READY to execute new plan now\n");    
             }
+        }else{
+            //STILL running...
+            
+            //check if you've surpassed N times the estimated deadline (N ros2 parameter && >= 1.0)
+            float cancelAfterDeadline = std::max(1.0f, (float) this->get_parameter(PARAM_CANCEL_AFTER_DEADLINE).as_double());
+            if(planExecutionInfo.current_time >= cancelAfterDeadline * planExecutionInfo.estimated_deadline)
+                cancelCurrentPlanExecution();
         }
     }
 

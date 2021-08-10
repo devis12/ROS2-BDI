@@ -636,13 +636,9 @@ private:
         Given the current knowledge of the belief set, decide if a given desire
         is already fulfilled
     */
-    bool isDesireSatisfied(const ManagedDesire& md)
+    bool isDesireSatisfied(ManagedDesire& md)
     {
-        for(ManagedBelief targetb : md.getValue())
-            if(belief_set_.count(targetb) == 0)
-                return false;//desire still not achieved
-                
-        return true;//all target conditions already met       
+        return md.isFulfilled(belief_set_);
     }
 
     /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
