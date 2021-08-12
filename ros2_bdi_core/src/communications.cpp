@@ -9,6 +9,7 @@
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
+#include "ros2_bdi_interfaces/srv/is_accepted_group.hpp"
 #include "ros2_bdi_interfaces/srv/upd_belief_set.hpp"
 #include "ros2_bdi_interfaces/srv/upd_desire_set.hpp"
 
@@ -43,6 +44,7 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::DesireSet;
+using ros2_bdi_interfaces::srv::IsAcceptedGroup;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;
 using ros2_bdi_interfaces::srv::UpdDesireSet;
 
@@ -69,6 +71,10 @@ public:
   { 
     // agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
+
+    // init server for handling is accepted group queries
+    accepted_server_ = this->create_service<IsAcceptedGroup>("is_accepted_group", 
+        bind(&CommunicationManager::handleIsAcceptedGroup, this, _1, _2));
 
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
@@ -179,6 +185,29 @@ private:
           return true;// found among accepted ones
 
       return false;// not found among accepted ones
+    }
+
+    /*  
+        Accepted group service handler
+    */
+    void handleIsAcceptedGroup(const IsAcceptedGroup::Request::SharedPtr request,
+        const IsAcceptedGroup::Response::SharedPtr response)
+    {
+      bool validType = request->type == request->BELIEF_TYPE || request->type == request->DESIRE_TYPE;
+
+      RequestObjType objType = (request->type==request->DESIRE_TYPE)? DESIRE : BELIEF;
+      if(!validType || !isAcceptableRequest(request->agent_group, objType))
+          response->accepted = false;
+
+      else
+      {
+          response->accepted = true;
+          if(objType == DESIRE)
+            response->desire_max_priority = getMaxAcceptedPriority(request->agent_group);
+          else
+            response->desire_max_priority = -1.0f;
+      }
+
     }
 
     /*
@@ -303,8 +332,6 @@ private:
 
       else
       {
-        //shared_ptr<thread> waiting_add_thread = std::make_shared<thread>(bind(&CommunicationManager::waitingUpdBelief, this, ADD_I));
-        //waiting_add_thread->detach();
         add_belief_publisher_->publish(request->belief);
         
         belief_set_upd_locks_[ADD_I].lock();
@@ -314,6 +341,7 @@ private:
         belief_set_upd_locks_[ADD_I].unlock();//release it
 
         response->accepted = belief_set_.count(ManagedBelief{request->belief}) == 1;
+
       }
     }
 
@@ -401,6 +429,9 @@ private:
     
     // agent id that defines the namespace in which the node operates
     string agent_id_;
+
+    // handle accepted group queries by other agents
+    rclcpp::Service<IsAcceptedGroup>::SharedPtr accepted_server_;
 
     // mirroring of the current state of the belief set
     set<ManagedBelief> belief_set_;

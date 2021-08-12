@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
+#include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 
 #include "plansys2_executor/ActionExecutorClient.hpp"
@@ -11,14 +12,17 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 
 #define PARAM_AGENT_ID "agent_id"
-#define PARAM_SWEEPER_ID "sweeper_id"
+#define PARAM_AGENT_GROUP_ID "agent_group"
 
 using namespace std::chrono_literals;
 
 using std::vector;
 using std::string;
+using std::bind;
+using std::placeholders::_1;
 
 using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 
 class AskSweeping : public plansys2::ActionExecutorClient
@@ -29,16 +33,25 @@ public:
   {
     progress_ = 0.0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
-    this->declare_parameter(PARAM_SWEEPER_ID, "sweeper");
+    this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
   }
 
      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_activate(const rclcpp_lifecycle::State & previous_state)
   {
-    string sweeper_id = this->get_parameter(PARAM_SWEEPER_ID).as_string();
+    vector<string> args = get_arguments();
+    string sweeper_id = args[1];
+    waypoint_ = args[2];
+    initSweeperBSetSubscriber(sweeper_id);
+    
+    cleaner_add_bel_publisher_ = this->create_publisher<Belief>("add_belief", 10);
+    cleaner_add_bel_publisher_->on_activate();
+    
     sweeper_desire_publisher_ = this->create_publisher<Desire>("/" + sweeper_id + "/add_desire", 10);
-    progress_ = 0.0f;
     sweeper_desire_publisher_->on_activate();
+
+    progress_ = 0.0f;
+    swept_ = false;
 
     return ActionExecutorClient::on_activate(previous_state);
   }
@@ -46,27 +59,69 @@ public:
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_deactivate(const rclcpp_lifecycle::State & previous_state)
   {
+    cleaner_add_bel_publisher_->on_deactivate();
     sweeper_desire_publisher_->on_deactivate();
 
     return ActionExecutorClient::on_deactivate(previous_state);
   }
 
 private:
+
+  //subscribe to sweeper belief set
+  void initSweeperBSetSubscriber(const  string& sweeper_id)
+  {
+    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
+    qos_keep_all.keep_all();
+    sweeper_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                "/"+sweeper_id+"/belief_set", qos_keep_all,
+                bind(&AskSweeping::sweeperBeliefSetCallback, this, _1));
+  }
+
+
+  //receive update of sweeper belief set
+  void sweeperBeliefSetCallback(const BeliefSet::SharedPtr msg)
+  {
+    BeliefSet sweeperBSet = (*msg);
+    for(Belief b : sweeperBSet.value)
+      if(b.name == "swept" && b.params[0] == waypoint_)
+        swept_ = true;
+    /*
+    if(!swept_)
+      std::cout << waypoint_ << " still not swept by sweeper" << std::endl;
+    else
+      std::cout << waypoint_ << " finally swept by sweeper!" << std::endl;*/
+  }
+
+  // notify waypoint has been swept to cleaner itself
+  void notifySwept()
+  {
+    Belief b =  Belief();
+    b.pddl_type = Belief().PREDICATE_TYPE;
+    b.name = "swept";
+    b.params = vector<string>({waypoint_});
+    cleaner_add_bel_publisher_->publish(b);
+  }
+
   void do_work()
   {
     vector<string> args = get_arguments();
-    progress_ += 0.5;
+
+    if(progress_ == 0.0f)
+        askToSweep(waypoint_);//first do_work call -> inject desire into sweeper
+
+    //advance progress to 100% if swept. otherwise advance slowly iff you do not reach or go over 100%
+    progress_ += (swept_)? 1.0f : ((progress_ + 0.0625f) >= 1.0f)? 0.0f : 0.0625f;
     
     if (progress_ < 1.0) {
-      send_feedback(progress_, args[0] + " asksweeping " + args[1] + " running");
-      askToSweep(args[1]);
+      send_feedback(progress_, args[0] + " asksweeping to " + args[1] + " for wp " + args[2] + " running");
     } else {
-      finish(true, 1.0, args[0] + " asksweeping " + args[1] + " completed");
+      notifySwept();
+      finish(true, 1.0, args[0] + " asksweeping to " + args[1] + " for wp " + args[2] + " completed");
     }
 
     float progress_100 = ((progress_ * 100.0) < 100.0)? (progress_ * 100.0) : 100.0; 
     RCLCPP_INFO(this->get_logger(), 
-        "[" + args[0] + " asksweeping " +  args[1] + "] "+ 
+        "[" + args[0] + " asksweeping to " + args[1] + " for wp " + args[2] + "] "+ 
         "progress: %.1f%%", progress_100);
   }
 
@@ -78,14 +133,14 @@ private:
       vector<Belief> target;
       Belief b =  Belief();
       b.pddl_type = Belief().PREDICATE_TYPE;
-      b.name = "sweeped";
+      b.name = "swept";
       b.params = vector<string>({waypoint});
       target.push_back(b);
 
       Desire desire = Desire();
       desire.name = "sweep_" + waypoint;
       desire.deadline = 16.0;
-      desire.priority = 1.0;
+      desire.priority = 0.6;
       desire.value = target;
       
       sweeper_desire_publisher_->publish(desire);
@@ -94,6 +149,15 @@ private:
   float progress_;
   // desire publisher
   rclcpp_lifecycle::LifecyclePublisher<Desire>::SharedPtr sweeper_desire_publisher_;
+
+  // waypoint has been swept
+  bool swept_;
+  // name of the waypoint you're waiting to be swept
+  string waypoint_;
+  //listen to belief set of sweeper to know when it's done
+  rclcpp::Subscription<BeliefSet>::SharedPtr sweeper_belief_set_subscriber_;
+  // add belief publisher
+  rclcpp_lifecycle::LifecyclePublisher<Belief>::SharedPtr cleaner_add_bel_publisher_;
 };
 
 int main(int argc, char ** argv)

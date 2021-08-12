@@ -15,8 +15,9 @@
         (workfree ?r - robot)
         (recharging_station ?wp - waypoint)
         (cleaned ?wp - waypoint)
-        (sweeped ?wp - waypoint)
-        (waitforsweeped ?wp - waypoint)
+        (swept ?wp - waypoint)
+        (waitforsweep ?wp - waypoint)
+        (issweeper ?r_sweeper - robot)
     )
 
     (:functions
@@ -41,24 +42,15 @@
     )
 
     (:durative-action asksweeping
-        :parameters (?r - robot ?wp - waypoint)
-        :duration (= ?duration 1)
+        :parameters (?r_me ?r_sweeper - robot ?wp - waypoint)
+        :duration (= ?duration 8)
         :condition (and
+            (over all (issweeper ?r_sweeper))
         )
         :effect (and
-            (at start (waitforsweeped ?wp))
-        )
-    )
-
-     (:durative-action waitsweeping
-        :parameters (?r - robot ?wp - waypoint)
-        :duration (= ?duration 10)
-        :condition (and
-            (over all (waitforsweeped ?wp))
-        )
-        :effect (and
-            (at end (not(waitforsweeped ?wp)))
-            (at end (sweeped ?wp))
+            (at start (waitforsweep ?wp))
+            (at end (not(waitforsweep ?wp)))
+            (at end (swept ?wp))
         )
     )
 
@@ -69,7 +61,7 @@
             (at start (> (battery_charge) 50))
             (over all (> (battery_charge) 25))
             (over all (in ?r ?wp))
-            (over all (sweeped ?wp))
+            (over all (swept ?wp))
         )
         :effect (and
             (at end (workfree ?r))

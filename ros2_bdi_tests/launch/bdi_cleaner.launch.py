@@ -51,6 +51,8 @@ def loadInitFile(pathsource, agent_id):
 def generate_launch_description():
     
     CLEANER_NAME = "cleaner"
+    CLEANER_GROUP_NAME = "cleaners"
+    SWEEPER_GROUP_NAME = "sweepers"
     
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
     loadInitFile(bdi_tests_share_dir+'/launch/init_cleaner_sweeper', CLEANER_NAME)
@@ -124,61 +126,67 @@ def generate_launch_description():
             {"agent_id": CLEANER_NAME}
         ])
 
-    action_movetoward = Node(
-        package='ros2_bdi_tests',
-        executable='movetoward',
-        name='movetoward',
-        namespace=namespace,
-        output='screen',
-        parameters=[
-            {"agent_id": CLEANER_NAME}
-        ])
-
-    action_doclean = Node(
-        package='ros2_bdi_tests',
-        executable='doclean',
-        name='doclean',
-        namespace=namespace,
-        output='screen',
-        parameters=[
-            {"agent_id": CLEANER_NAME}
-        ])
-    
-    action_recharge = Node(
-        package='ros2_bdi_tests',
-        executable='recharge',
-        name='recharge',
-        namespace=namespace,
-        output='screen',
-        parameters=[
-            {"agent_id": CLEANER_NAME}
-        ])
-
-    action_asksweeping = Node(
-        package='ros2_bdi_tests',
-        executable='asksweeping',
-        name='asksweeping',
+    communications_manager = Node(
+        package='ros2_bdi_core',
+        executable='communications',
+        name='communications',
         namespace=namespace,
         output='screen',
         parameters=[
             {"agent_id": CLEANER_NAME},
-            {"sweeper_id": "sweeper"}
+            {"agent_group": CLEANER_GROUP_NAME},
+            {"accept_beliefs_from": [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME]},
+            {"accept_desires_from": [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME]},
+            {"accept_desires_max_priorities": [0.8, 0.6]}
+        ])
+
+    action_movetoward = Node(
+        package='ros2_bdi_tests',
+        executable='movetoward_bdi',
+        name='movetoward',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": CLEANER_NAME},
+            {"agent_group": CLEANER_GROUP_NAME}
+        ])
+
+    action_doclean = Node(
+        package='ros2_bdi_tests',
+        executable='doclean_bdi',
+        name='doclean',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": CLEANER_NAME},
+            {"agent_group": CLEANER_GROUP_NAME}
         ])
     
-    actions_waitsweeping = []
+    action_recharge = Node(
+        package='ros2_bdi_tests',
+        executable='recharge_bdi',
+        name='recharge',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": CLEANER_NAME},
+            {"agent_group": CLEANER_GROUP_NAME}
+        ])
+    
+    action_asksweeping = []
     for i in range(0, 3):
-        actions_waitsweeping.append( 
+        action_asksweeping.append( 
             Node(
                 package='ros2_bdi_tests',
-                executable='waitsweeping',
-                name='waitsweeping{}'.format(i),
+                executable='asksweeping_bdi',
+                name='asksweeping_{}'.format(i),
                 namespace=namespace,
                 output='screen',
                 parameters=[
                     {"agent_id": CLEANER_NAME},
-                    {"sweeper_id": "sweeper"}
-                ]
-            )
+                    {"agent_id": CLEANER_NAME},
+                    {"agent_group": CLEANER_GROUP_NAME}
+                ])
         )
 
 
@@ -199,13 +207,14 @@ def generate_launch_description():
     ld.add_action(scheduler)
     #Add plan director
     ld.add_action(plan_director)
+    #Add communication manager
+    ld.add_action(communications_manager)
 
     #Action performers for agent
     ld.add_action(action_movetoward)
     ld.add_action(action_doclean)
     ld.add_action(action_recharge)
-    ld.add_action(action_asksweeping)
-    for act_waits in actions_waitsweeping:
-        ld.add_action(act_waits)
+    for act_asks in action_asksweeping:
+        ld.add_action(act_asks)
 
     return ld

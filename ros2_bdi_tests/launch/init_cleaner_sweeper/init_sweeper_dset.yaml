@@ -4,7 +4,7 @@
   deadline: 36.0
   value:
     -
-      name: "sweeped"
+      name: "swept"
       pddl_type: 2
       params:
         - "kitchen"

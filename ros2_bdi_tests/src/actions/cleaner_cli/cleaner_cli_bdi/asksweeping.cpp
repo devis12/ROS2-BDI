@@ -1,0 +1,90 @@
+#include "ros2_bdi_core/bdi_action_executor.hpp"
+#include "rclcpp/rclcpp.hpp"
+
+class AskSweeping : public BDIActionExecutor
+{
+    public:
+        AskSweeping()
+        : BDIActionExecutor("asksweeping", 4)
+        {
+            sent_ = false;
+        }
+
+        float advanceWork()
+        {
+            float currProgress = getProgress();
+            float advancement = 0.0f;
+            vector<string> args = getArguments();
+            string sweeper_id = args[1];
+            string waypoint = args[2];
+
+            if(currProgress == 0.0f)
+            {
+                sweep_desire_ = buildSweepRequest(waypoint);
+                
+                if(!sent_){
+                    sendDesireRequest(sweeper_id, sweep_desire_, ADD, true);
+                    sent_ = true;
+                }
+
+                advancement = 0.0f;// no advancement
+                
+                if(sent_ && lastDesireReqResponseArrived())
+                {
+                    if(lastDesireReqAccepted())
+                        advancement += 0.015625f;//stop asking, wait for the fulfillment or long enough to know action is failed
+
+                    else//desire request not accepted -> fail action    
+                        execFailed("Desire to sweep " + waypoint + " has been denied by " + sweeper_id);
+                }
+            
+            }else if(isMonitoredDesireSatisfied()){
+                advancement = 1.0f - currProgress;//missing part complete
+                execSuccess(waypoint + " has been swept given the update coming from " + sweeper_id);
+                
+            }else if(!isMonitoredDesireSatisfied() && currProgress < 0.96f)
+                advancement = 0.015625f;//action still in progress
+
+            else
+                execFailed("Waited too much! Sweeper does not seem to do what it's been asked to");    
+        
+            return advancement;
+                
+        }
+
+    private:
+
+        // Wrap up the desire to build
+        Desire buildSweepRequest(const string& waypoint)
+        {
+            vector<Belief> target;
+            Belief b =  Belief();
+            b.pddl_type = Belief().PREDICATE_TYPE;
+            b.name = "swept";
+            b.params = vector<string>({waypoint});
+            target.push_back(b);
+
+            Desire desire = Desire();
+            desire.name = "sweep_" + waypoint;
+            desire.deadline = 16.0;
+            desire.priority = 0.6;
+            desire.value = target;
+
+            return desire;
+        }
+
+        Desire sweep_desire_;
+        bool sent_;
+};
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+  
+  auto actionNode = std::make_shared<AskSweeping>();
+  rclcpp::spin(actionNode->get_node_base_interface());
+
+  rclcpp::shutdown();
+
+  return 0;
+}

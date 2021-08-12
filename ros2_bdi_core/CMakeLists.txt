@@ -58,6 +58,7 @@ ament_target_dependencies(scheduler
 add_executable(plan_director src/plan_director.cpp)
 ament_target_dependencies(plan_director 
   ${common_dependencies} 
+  ${pddl_experts}
   plansys2_executor
 )
 

@@ -8,6 +8,8 @@
 #include <boost/algorithm/string.hpp>
 
 #include "plansys2_msgs/msg/action_execution_info.hpp"
+#include "plansys2_domain_expert/DomainExpertClient.hpp"
+#include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_executor/ExecutorClient.hpp"
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
@@ -48,10 +50,14 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 using std::optional;
 
+using plansys2::DomainExpertClient;
+using plansys2::ProblemExpertClient;
 using plansys2::ExecutorClient;
 using plansys2_msgs::msg::ActionExecutionInfo;
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
+using plansys2_msgs::msg::Action;
+using plansys2_msgs::msg::DurativeAction;
 
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 using ros2_bdi_interfaces::msg::Belief;
@@ -100,11 +106,17 @@ public:
 
     // initializing executor client for psys2
     executor_client_ = std::make_shared<plansys2::ExecutorClient>();
+    // initializing domain expert client for psys2
+    domain_expert_client_ = std::make_shared<plansys2::DomainExpertClient>();
+    // initializing problem expert client for psys2
+    problem_expert_client_ = std::make_shared<plansys2::ProblemExpertClient>();
 
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
     //Check for plansys2 active state flags init to false
+    psys2_domain_expert_active_ = false;
+    psys2_problem_expert_active_ = false;
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
@@ -138,6 +150,10 @@ public:
   */
   void step()
   {
+    // all psys2 up -> no psys2 comm. errors
+    if( psys2_executor_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_ )
+        psys2_comm_errors_ = 0;
+
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
@@ -147,7 +163,6 @@ public:
         case STARTING:
         {
             if(psys2_executor_active_){
-                psys2_comm_errors_ = 0;
                 setState(READY);
             }else{
                 RCLCPP_ERROR(this->get_logger(), "PlanSys2 Executor still not active");
@@ -221,6 +236,8 @@ private:
     */
     void callbackPsys2State(const PlanSys2State::SharedPtr msg)
     {
+        psys2_domain_expert_active_ = msg->domain_expert_active;
+        psys2_problem_expert_active_ = msg->problem_expert_active;
         psys2_executor_active_ = msg->executor_active;
     }
 
@@ -266,6 +283,7 @@ private:
             //reset value, so they can be set at the first action execution feedback
             first_ts_plan_sec = -1;//reset this value
             first_ts_plan_nanosec = -1;//reset this value
+            last_ts_plan_exec = -1.0f;//reset this value
             
             counter_check_ = 0;//checks performed during this plan exec
 
@@ -303,22 +321,101 @@ private:
             bind(&PlanDirector::step, this));
     }
 
+    /*
+        Returns all the items within a PlanItem.action string
+        E.g. "(dosweep sweeper kitchen)" -> ["dosweep", "sweeper", "kitchen"]
+    */
+    vector<string> extractPlanItemActionElements(string planItemAction)
+    {
+        vector<string> elems;
+        if(planItemAction.length() > 0)
+        {
+            if(planItemAction.find("(") != string::npos)
+                planItemAction = planItemAction.substr(planItemAction.find("(")+1);
+            if(planItemAction.find(")") != string::npos)
+                planItemAction = planItemAction.substr(0,planItemAction.find(")"));
+            
+            boost::split(elems, planItemAction, [](char c){return c == ' ';});//split string
+        }
+	    return elems;
+    }
+
+    /*
+        Return true if plan exec request is well formed 
+            - request = ABORT | EXECUTE
+            - at least a planitem elem in body
+            - for each plan item action
+                - check its definition exists with domain expert
+                - check its params are valid instances (problem expert) matching the correct types (domain expert)
+    */
+    bool validPlanRequest(const BDIPlanExecution::Request::SharedPtr request)
+    {
+        auto req = request->request;
+        if(req != request->ABORT && req != request->EXECUTE)//invalid request
+            return false;
+
+        auto plan = request->plan;
+        if(plan.actions.size() == 0)
+            return false;
+
+        if(!psys2_domain_expert_active_ || !psys2_problem_expert_active_)
+            psys2_comm_errors_++;
+        else
+        {
+            for(auto planItemObj : plan.actions)
+            {
+                vector<string> actionItems = extractPlanItemActionElements(planItemObj.action);
+                if(actionItems.size() == 0)
+                    return false;//plan item action not valid
+                else
+                {
+                    string actName = actionItems[0];//first position action name
+                    shared_ptr<DurativeAction> actDA = domain_expert_client_->getDurativeAction(actName);//retrieve it from the domain expert
+                    if(actDA->parameters.size() != actionItems.size() - 1)
+                        return false;//plan item not valid -> unexpected num of parameters wrt domain definition of durative act
+                    
+                    for(int i = 0 ; i<actDA->parameters.size(); i++)
+                    {
+                        plansys2_msgs::msg::Param paramDA = actDA->parameters[i];//retrieve param domain definition
+                        std::optional<plansys2::Instance> paramInstanceOpt = problem_expert_client_->getInstance(actionItems[i+1]);//retrieve corresponding parameter from plan item action
+                        if(!paramInstanceOpt.has_value())
+                            return false;//invalid instance
+                        else
+                        {
+                            plansys2::Instance paramInstance = paramInstanceOpt.value();
+                            if(paramInstance.type != paramDA.type)
+                                return false;//instance valid, but do not respect type of the expected param for the action
+                        }    
+                    }
+                }
+                
+            }
+        }
+        return true;
+    }
+
     /*  
         Callback to handle the service request to trigger a new plan execution or abort the current one
     */
     void handlePlanRequest(const BDIPlanExecution::Request::SharedPtr request,
         const BDIPlanExecution::Response::SharedPtr response)
     {
+        if(!validPlanRequest(request))
+        {
+            response->success = false;
+            return;
+        }
+
         string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
         RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire \"" + request->plan.desire.name + "\"");
-
         ManagedDesire mdPlan = ManagedDesire{request->plan.desire};
         ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
         ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
         bool done = false;
         if(request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
         {
-            ManagedPlan mp_abort = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
+            //when aborting do not check preconditions and/or context... plan executed considered equivalent regardless of that
+            ManagedPlan mp_abort = ManagedPlan{mdPlan, request->plan.actions};
 
             if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
             {
@@ -338,8 +435,7 @@ private:
                     checkPlanExecution();// 1st checkPlanExecution for this plan (if started)
             } 
         }
-
-    
+            
         response->success = done;
     }
 
@@ -458,6 +554,9 @@ private:
         
         // current time s computed by difference from fist start ts of first action executed within the plan
         planExecutionInfo.current_time = (status_time_s >= 0.0f)? status_time_s : 0.0f;
+        if(planExecutionInfo.executing.size() == 0 && last_ts_plan_exec > 0.0f)//last steps -> no action executing right now
+            planExecutionInfo.current_time = last_ts_plan_exec + (PLAN_INTERVAL / pow(10,3)); //add plan interval in sec from last check
+        last_ts_plan_exec = planExecutionInfo.current_time;
         planExecutionInfo.status = getPlanExecutionStatus();
 
         return planExecutionInfo;
@@ -545,9 +644,17 @@ private:
 
     // counter of communication errors with plansys2
     int psys2_comm_errors_;
+    // domain expert client contacting psys2 for checking validity of a plan
+    shared_ptr<DomainExpertClient> domain_expert_client_;
+    // problem expert client contacting psys2 for checking validity of a plan
+    shared_ptr<ProblemExpertClient> problem_expert_client_;
     // executor client contacting psys2 for the execution of a plan, then receiving feedback for it 
     shared_ptr<ExecutorClient> executor_client_;
 
+    // flag to denote if plansys2 domain expert appears to be active
+    bool psys2_domain_expert_active_;
+    // flag to denote if plansys2 problem expert appears to be active
+    bool psys2_problem_expert_active_;
     // flag to denote if plansys2 executor appears to be active
     bool psys2_executor_active_;
     // plansys2 node status monitor subscription
@@ -570,6 +677,8 @@ private:
     // record first timestamp in sec of the current plan execution (to subtract from it)
     int first_ts_plan_sec;
     int first_ts_plan_nanosec;
+    // last recorded timestamp during plan execution
+    float last_ts_plan_exec;
 
     // notification about the current plan execution
     rclcpp::Publisher<BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;//belief set publisher

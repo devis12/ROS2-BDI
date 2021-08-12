@@ -51,6 +51,8 @@ def loadInitFile(pathsource, agent_id):
 def generate_launch_description():
     
     SWEEPER_NAME = "sweeper"
+    CLEANER_GROUP_NAME = "cleaners"
+    SWEEPER_GROUP_NAME = "sweepers"
     
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
     loadInitFile(bdi_tests_share_dir+'/launch/init_cleaner_sweeper', SWEEPER_NAME)
@@ -124,34 +126,51 @@ def generate_launch_description():
             {"agent_id": SWEEPER_NAME}
         ])
 
+    communications_manager = Node(
+        package='ros2_bdi_core',
+        executable='communications',
+        name='communications',
+        namespace=namespace,
+        output='screen',
+        parameters=[
+            {"agent_id": SWEEPER_NAME},
+            {"agent_group": SWEEPER_GROUP_NAME},
+            {"accept_beliefs_from": [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME]},
+            {"accept_desires_from": [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME]},
+            {"accept_desires_max_priorities": [0.6, 0.8]}
+        ])
+
     action_movetoward = Node(
         package='ros2_bdi_tests',
-        executable='movetoward',
+        executable='movetoward_bdi',
         name='movetoward',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": SWEEPER_NAME}
+            {"agent_id": SWEEPER_NAME},
+            {"agent_group": SWEEPER_GROUP_NAME}
         ])
 
     action_dosweep = Node(
         package='ros2_bdi_tests',
-        executable='dosweep',
+        executable='dosweep_bdi',
         name='dosweep',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": SWEEPER_NAME}
+            {"agent_id": SWEEPER_NAME},
+            {"agent_group": SWEEPER_GROUP_NAME}
         ])
     
     action_recharge = Node(
         package='ros2_bdi_tests',
-        executable='recharge',
+        executable='recharge_bdi',
         name='recharge',
         namespace=namespace,
         output='screen',
         parameters=[
-            {"agent_id": SWEEPER_NAME}
+            {"agent_id": SWEEPER_NAME},
+            {"agent_group": SWEEPER_GROUP_NAME}
         ])
 
 
@@ -172,6 +191,8 @@ def generate_launch_description():
     ld.add_action(scheduler)
     #Add plan director
     ld.add_action(plan_director)
+    #Add communication manager
+    ld.add_action(communications_manager)
 
     #Action performers for agent
     ld.add_action(action_movetoward)

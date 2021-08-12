@@ -51,6 +51,8 @@ class ManagedDesire
         ManagedConditionsDNF getContext() const {return context_;}
 
         Desire toDesire() const;
+        // return true if empty target or if target appears to be achieved in the passed bset
+        bool isFulfilled(const set<ManagedBelief>& bset);
     private:
         string name_;
         string desire_group_;

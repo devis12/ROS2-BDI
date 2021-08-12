@@ -130,6 +130,10 @@ public:
   */
   void step()
   {
+    // all psys2 up -> no psys2 comm. errors
+    if(psys2_domain_expert_active_ && psys2_problem_expert_active_ )
+            psys2_comm_errors_ = 0;
+
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();

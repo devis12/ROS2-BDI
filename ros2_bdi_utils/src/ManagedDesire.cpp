@@ -104,6 +104,15 @@ Desire ManagedDesire::toDesire() const
     return d;
 }
 
+bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
+{
+    for(ManagedBelief targetb : value_)
+        if(bset.count(targetb) == 0)
+            return false;//desire still not achieved
+            
+    return true;//all target conditions already met    
+}
+
 std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
 {
     os << "\n" << md.getName();

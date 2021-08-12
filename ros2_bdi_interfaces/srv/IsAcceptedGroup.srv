@@ -1,0 +1,8 @@
+string BELIEF_TYPE="BELIEF"
+string DESIRE_TYPE="DESIRE"
+
+string      agent_group
+string      type
+---
+bool        accepted
+float32     desire_max_priority

@@ -165,6 +165,10 @@ public:
   */
   void step()
   {
+    // all psys2 up -> no psys2 comm. errors
+    if(psys2_planner_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_ )
+        psys2_comm_errors_ = 0;
+
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
@@ -358,6 +362,8 @@ private:
         ManagedPlan selectedPlan;
         
         vector<ManagedDesire> discarded_desires;
+        
+        mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
 
         for(ManagedDesire md : desire_set_)
         {
@@ -438,6 +444,8 @@ private:
             
         }
 
+        mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
+
         //removed discarded desires
         for(ManagedDesire md : discarded_desires)
             delDesire(md);
@@ -458,12 +466,6 @@ private:
         //rescheduling not ammitted -> a plan already executing and policy not admit any switch with higher priority plans
         if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)
             return;
-        
-        bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
-        
-        //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
-        if(selectedPlan.getBody().size() <= 0 || !desireInDesireSet)
-            return;
 
         //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
         bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
@@ -481,11 +483,18 @@ private:
             thr->detach();
 
             //mutex to handle better ABORT old plan -> EXECUTE new plan sequence
-            while(mtx_abort_trigger.try_lock())//when you fail it means that aborting thread has started
-                mtx_abort_trigger.unlock();
-            mtx_abort_trigger.lock();//wait aborting thread to be finished
-            mtx_abort_trigger.unlock();
+            while(mtx_abort_trigger_.try_lock())//when you fail it means that aborting thread has started
+                mtx_abort_trigger_.unlock();
+            mtx_abort_trigger_.lock();//wait aborting thread to be finished
+            mtx_abort_trigger_.unlock();
         }
+        
+        //desire still in desire set
+        bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
+        
+        //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
+        if(selectedPlan.getBody().size() <= 0 || !desireInDesireSet)
+            return;
             
         // selectedPlan can now be set as currently executing plan
         current_plan_ = selectedPlan;
@@ -504,7 +513,7 @@ private:
     */
     void triggerPlanExecution(const int& PLAN_EXEC_REQUEST)
     {
-        mtx_abort_trigger.lock();
+        mtx_abort_trigger_.lock();
 
         //check for service to be up
         rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
@@ -531,7 +540,7 @@ private:
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
                 current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                reschedule();
+                //next reschedule(); will select a new plan if computable for a desire in desire set
             }
             else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
             {
@@ -544,13 +553,13 @@ private:
                     RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
                 
                 current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                reschedule();
+                //next reschedule(); will select a new plan if computable for a desire in desire set
             }
         }catch(const std::exception &e){
             RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
         }
 
-        mtx_abort_trigger.unlock();
+        mtx_abort_trigger_.unlock();
     }
 
     /*
@@ -627,7 +636,7 @@ private:
                 }
 
                 current_plan_ = ManagedPlan{};//no current plan in execution
-                reschedule();// reschedule for new plan execution
+                //next reschedule(); will select a new plan if computable for a desire in desire set
             }
         }
     }
@@ -646,6 +655,8 @@ private:
     */
     void checkForSatisfiedDesires()
     {
+        mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
+
         vector<ManagedDesire> satisfiedDesires;
         for(ManagedDesire md : desire_set_)
         {   
@@ -678,6 +689,8 @@ private:
                 satisfiedDesires.push_back(md);
             }
         }
+
+        mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
 
         for(ManagedDesire md : satisfiedDesires)//delete all satisfied desires from desire set
             delDesire(md);
@@ -718,7 +731,7 @@ private:
     {   
         bool added = addDesire(ManagedDesire{(*msg)});
 
-        if(added)//if any alteration to the desire_set has occured, reschedule
+        if(added && noPlanSelected())//addition done and no Plan currently selected, reschedule immediately
             reschedule();
     }
 
@@ -730,8 +743,13 @@ private:
     {
         bool deleted = delDesire(ManagedDesire{(*msg)});
 
-        if(deleted)//if any alteration to the desire_set has occured, reschedule
-            reschedule();
+        if(deleted && ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan
+        {
+            //abort current execution
+            shared_ptr<thread> thr = 
+                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+            thr->detach();
+        }
     }
 
     /*
@@ -754,24 +772,48 @@ private:
     bool addDesire(ManagedDesire mdAdd, optional<ManagedDesire> necessaryForMD, const string& suffixDesireGroup)
     {
         bool added = false;
-        mtx_sync.lock();
-            if(invalid_desire_map_.count(mdAdd.getName())==0 && aborted_plan_desire_map_.count(mdAdd.getName())==0 && 
-                desire_set_.count(mdAdd)==0)//desire already there (or diff. desire but with same name identifier)
-            {
-                if(necessaryForMD.has_value() && desire_set_.count(necessaryForMD.value())==1)
-                {
-                  // @mdAdd linked to another MGdesire for which it is necessary in order to grant its execution
-                  // put as @mdAdd's group mdAdd.name + suffix (suffix can be "_precondition"/"_context")
-                  mdAdd.setDesireGroup(necessaryForMD.value().getName() + suffixDesireGroup);
-                }
+        mtx_add_del_.lock();
+            added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
+        mtx_add_del_.unlock();
+        return added;
+    }
 
-                desire_set_.insert(mdAdd);
-                invalid_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
-                aborted_plan_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
-                
-                added = true;
+    /*
+        Add desire Critical Section (to be executed AFTER having acquired mtx_add_del_.lock())
+
+        Add desire @mdAdd to desire_set_ (if there is not yet)
+        add counters for invalid desire and aborted plan in respective maps (both init to zero)
+        @necessaryForMd is another ManagedDesire which can be present if @mdAdd is necessary 
+        for the fulfillment of it (e.g. @mdAdd is derived from preconditions or context)
+        @necessaryForMd value (if exists) has to be already in the desire_set_
+    */
+    bool addDesireCS(ManagedDesire mdAdd, optional<ManagedDesire> necessaryForMD, const string& suffixDesireGroup)
+    {
+        if(mtx_add_del_.try_lock())
+        {   
+            //if acquired, it means we were not in CS, release it and return false -> operation not valid
+            mtx_add_del_.unlock();
+            return false;
+        }
+        
+        bool added = false;
+        if(invalid_desire_map_.count(mdAdd.getName())==0 && aborted_plan_desire_map_.count(mdAdd.getName())==0 && 
+                desire_set_.count(mdAdd)==0)//desire already there (or diff. desire but with same name identifier)
+        {
+            if(necessaryForMD.has_value() && desire_set_.count(necessaryForMD.value())==1)
+            {
+                // @mdAdd linked to another MGdesire for which it is necessary in order to grant its execution
+                // put as @mdAdd's group mdAdd.name + suffix (suffix can be "_precondition"/"_context")
+                mdAdd.setDesireGroup(necessaryForMD.value().getName() + suffixDesireGroup);
             }
-        mtx_sync.unlock();
+
+            desire_set_.insert(mdAdd);
+            invalid_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
+            aborted_plan_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
+            
+            added = true;
+        }
+
         return added;
     }
     
@@ -781,32 +823,53 @@ private:
     bool delDesire(const ManagedDesire mdDel)
     {
         bool deleted = false;
-        mtx_sync.lock();
-            
-            //erase values from desires map
-            if(invalid_desire_map_.count(mdDel.getName()) > 0)
-                invalid_desire_map_.erase(mdDel.getName());
-            if(aborted_plan_desire_map_.count(mdDel.getName()) > 0)
-                aborted_plan_desire_map_.erase(mdDel.getName());
+        mtx_add_del_.lock();
+            deleted = delDesireCS(mdDel);
+        mtx_add_del_.unlock();
 
-            if(desire_set_.count(mdDel)!=0)
-            {
-                //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed found!");
-                desire_set_.erase(desire_set_.find(mdDel));
-                invalid_desire_map_.erase(mdDel.getName());
-                deleted = true;
-                //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
-            }/*else
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed NOT found!");*/
-        mtx_sync.unlock();
+        return deleted;
+    }
+    
+    /*
+        Del desire from desire_set CRITICAL SECTION (to be called after having acquired mtx_add_del_ lock)
+        In Addition Deleting atomically all the desires within the same desire group
+    */
+    bool delDesireCS(const ManagedDesire mdDel)
+    {
+        if(mtx_add_del_.try_lock())
+        {   
+            //if acquired, it means we were not in CS, release it and return false -> operation not valid
+            mtx_add_del_.unlock();
+            return false;
+        }
 
+        bool deleted = false;
+        //erase values from desires map
+        if(invalid_desire_map_.count(mdDel.getName()) > 0)
+            invalid_desire_map_.erase(mdDel.getName());
+        if(aborted_plan_desire_map_.count(mdDel.getName()) > 0)
+            aborted_plan_desire_map_.erase(mdDel.getName());
+
+        if(desire_set_.count(mdDel)!=0)
+        {
+            desire_set_.erase(desire_set_.find(mdDel));
+            invalid_desire_map_.erase(mdDel.getName());
+            deleted = true;
+            //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
+        }/*else
+            RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed NOT found!");*/
+        
         if(mdDel.getDesireGroup() != mdDel.getName()) // desire being part of a group where you need to satisfy just one
-            delDesireInGroup(mdDel.getDesireGroup()); // delete others in the same group
+            delDesireInGroupCS(mdDel.getDesireGroup()); // delete others in the same group
 
         return deleted;
     }
 
-    void delDesireInGroup(const string& desireGroup)
+    /*
+        Del desire group from desire_set CRITICAL SECTION (to be called after having acquired mtx_add_del_ lock)
+        Deleting atomically all the desires within the same desire group
+    */
+    void delDesireInGroupCS(const string& desireGroup)
     {
         vector<ManagedDesire> toBeDiscarded;
 
@@ -815,7 +878,7 @@ private:
                 toBeDiscarded.push_back(md);
         
         for(ManagedDesire md : toBeDiscarded)
-            delDesire(md);
+            delDesireCS(md);
     }
 
     // internal state of the node
@@ -861,9 +924,11 @@ private:
     BDIPlanExecutionInfo current_plan_exec_info_;
 
     //mutex for sync when modifying desire_set
-    mutex mtx_sync;
+    mutex mtx_add_del_;
     //mutex to regulate abort -> trigger new one flow
-    mutex mtx_abort_trigger;
+    mutex mtx_abort_trigger_;
+    //to sync between iteration in checkForSatisfiedDesires() && reschedule()
+    mutex mtx_iter_dset_;
 
     // string representing a pddl domain to supply to the plansys2 planner
     string pddl_domain_;

@@ -14,7 +14,7 @@
         (in ?r - robot ?wp - waypoint)
         (workfree ?r - robot)
         (recharging_station ?wp - waypoint)
-        (sweeped ?wp - waypoint)
+        (swept ?wp - waypoint)
     )
 
     (:functions
@@ -48,7 +48,7 @@
         )
         :effect (and
             (at end (workfree ?r))
-            (at end (sweeped ?wp))
+            (at end (swept ?wp))
         )
     )
 

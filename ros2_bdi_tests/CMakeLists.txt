@@ -32,6 +32,7 @@ set(bdi_act_client_dep
   plansys2_executor
   ros2_bdi_interfaces
   ros2_bdi_core
+  ros2_bdi_utils
 )
 
 set(sensors_dep
@@ -62,11 +63,14 @@ ament_target_dependencies(doclean ${psys2_act_client_dep})
 add_executable(asksweeping src/actions/cleaner_cli/cleaner_cli_raw/asksweeping.cpp)
 ament_target_dependencies(asksweeping ros2_bdi_interfaces ${psys2_act_client_dep})
 
-add_executable(waitsweeping src/actions/cleaner_cli/cleaner_cli_raw/waitsweeping.cpp)
-ament_target_dependencies(waitsweeping ros2_bdi_interfaces ${psys2_act_client_dep})
+add_executable(asksweeping_bdi src/actions/cleaner_cli/cleaner_cli_bdi/asksweeping.cpp)
+ament_target_dependencies(asksweeping_bdi ${bdi_act_client_dep})
 
 add_executable(dosweep src/actions/sweeper_cli/sweeper_cli_raw/dosweep.cpp)
 ament_target_dependencies(dosweep ${psys2_act_client_dep})
+
+add_executable(dosweep_bdi src/actions/sweeper_cli/sweeper_cli_bdi/dosweep.cpp)
+ament_target_dependencies(dosweep_bdi ${bdi_act_client_dep})
 
 #add_executable(doclean_gazebo src/actions/cleaner_gazebo/doclean_gazebo.cpp)
 #ament_target_dependencies(doclean_gazebo geometry_msgs ${psys2_act_client_dep})
@@ -86,8 +90,9 @@ install(TARGETS
   doclean
   doclean_bdi
   asksweeping
-  waitsweeping
+  asksweeping_bdi
   dosweep
+  dosweep_bdi
   #doclean_gazebo
   #movetoward_gazebo
 

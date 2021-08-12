@@ -24,6 +24,11 @@
   params: 
     - "cleaner"
 -
+  name: "issweeper"
+  pddl_type: 2 
+  params: 
+    - "sweeper"
+-
   name: "in"
   pddl_type: 2 
   params: 
