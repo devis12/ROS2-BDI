@@ -184,7 +184,6 @@ def generate_launch_description():
                 output='screen',
                 parameters=[
                     {"agent_id": CLEANER_NAME},
-                    {"agent_id": CLEANER_NAME},
                     {"agent_group": CLEANER_GROUP_NAME}
                 ])
         )

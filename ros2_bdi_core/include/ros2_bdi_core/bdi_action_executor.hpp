@@ -216,10 +216,18 @@ protected:
     void sendDesireRequest(const string& agentRef, const Desire& desire, const Operation& op, const bool& monitorFulfill)
     {
       last_desire_req_resp_arrived_ = false;
+      std::cout << "Ready to launch desire request thread resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;
+      //mtx_desire_req_lock_.lock();
       shared_ptr<thread> sendDesireReqThread = std::make_shared<thread>(
           bind(&BDIActionExecutor::sendDesireRequestClientThread, this, agentRef, desire, op, monitorFulfill));
       sendDesireReqThread->detach();//wait for thread to terminate and get the response
-
+      /*std::cout << "Desire request thread launched resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;
+      mtx_desire_req_lock_.lock();
+      mtx_desire_req_lock_.unlock();
+      std::cout << "Desire request thread finished resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;*/
     }
 
     void sendDesireRequestClientThread(const string& agentRef, const Desire& desire, const Operation& op, const bool& monitorFulfill)
@@ -245,10 +253,13 @@ protected:
               request->agent_group = agent_group_;
 
               auto future = client_->async_send_request(request);
+              std::cout << "[THREAD] request made resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;
               auto response = future.get();
 
 
-              bool accepted = response->accepted;
+              accepted = response->accepted;
+              std::cout << "[THREAD] response arrived accepted=" << accepted << std::endl;
               if(accepted && monitorFulfill)//desire request accepted and monitor fulfillment has been requested
                 monitor(agentRef, desire);
             }
@@ -265,8 +276,17 @@ protected:
             accepted = false;
         }
 
+              std::cout << "[THREAD] request made [A] resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\t req_acc=" << last_desire_req_accepted_ << std::endl;
+
         last_desire_req_accepted_ = accepted;
+
+              std::cout << "[THREAD] request made [B] resp_arr=" << last_desire_req_resp_arrived_ << 
+      "\t req_acc=" << last_desire_req_accepted_ << std::endl;
+
         last_desire_req_resp_arrived_ = true;
+
+        //mtx_desire_req_lock_.unlock();
     }
 
     /*
@@ -354,6 +374,8 @@ private:
 
     // agent group id that defines the group of agents it is a part of (used to decide which belief/desire to accept or discard)
     string agent_group_;
+
+    mutex mtx_desire_req_lock_;
 
     // last belief request response arrived
     bool last_belief_req_resp_arrived_;

@@ -8,3 +8,8 @@
       pddl_type: 2
       params:
         - "bathroom"
+    -
+      name: "cleaned"
+      pddl_type: 2
+      params:
+        - "kitchen"
