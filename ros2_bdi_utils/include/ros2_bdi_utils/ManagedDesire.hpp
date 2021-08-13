@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <iostream>
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
@@ -49,6 +50,15 @@ class ManagedDesire
         string getDesireGroup() const {return desire_group_;}
         ManagedConditionsDNF getPrecondition() const {return precondition_;}
         ManagedConditionsDNF getContext() const {return context_;}
+        
+        bool hasParent() const { return parent_ != NULL;}
+        void setParent(const ManagedDesire& parent) {parent_ = std::make_shared<ManagedDesire>(parent);}
+        ManagedDesire getParent() {
+            if(hasParent())
+                return *parent_;
+            else
+                return ManagedDesire{};
+        };
 
         Desire toDesire() const;
         // return true if empty target or if target appears to be achieved in the passed bset
@@ -57,6 +67,7 @@ class ManagedDesire
         string name_;
         string desire_group_;
         vector<ManagedBelief> value_;
+        std::shared_ptr<ManagedDesire> parent_;
         float priority_;
         float deadline_;
         ManagedConditionsDNF precondition_;

@@ -43,6 +43,7 @@
 #define PARAM_MAX_TRIES_EXEC_PLAN "tries_exec_plan"
 #define PARAM_RESCHEDULE_POLICY "reschedule_policy"
 #define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_IF_EXEC"
+#define VAL_RESCHEDULE_POLICY_IF_EXEC "IF_EXEC"
 
 using std::string;
 using std::vector;
@@ -365,11 +366,19 @@ private:
         
         mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
 
+        set<ManagedDesire> skip_desires;
+
         for(ManagedDesire md : desire_set_)
         {
+            if(skip_desires.count(md) == 1)
+                continue;
+
             //plan in exec has higher priority than this one, skip this desire
             if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
                 continue;
+            
+            bool invalidDesire = false;//flag to mark desire as not valid
+            
             // select just desires with satisyfing precondition and 
             // with higher or equal priority with respect to the one currently selected
             bool explicitPreconditionSatisfied = md.getPrecondition().isSatisfied(belief_set_);
@@ -403,24 +412,15 @@ private:
                 }
                 else if(!validGoal(md)) //check if the problem is the goal not being valid          
                 {
-                    int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
-                    int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
-
-                    string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents not valid goal: " +  
-                            desireOperation + " (invalid counter = %d).", invCounter);
-                    
-                    if(invCounter >= maxTries)//desire now has to be discarded
-                        discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
-                }
+                    invalidDesire = true;
+                }   
                 else 
                 {
                     if(!this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents a valid goal, but planner cannot compute any plan for it at the moment");
                 }
             }
-            else if(!explicitPreconditionSatisfied && invalid_desire_map_.count(md.getName() + "_fulfill_precondition") == 0)
+            else if(!explicitPreconditionSatisfied)
             {
                 // explicit preconditions are not satisfied... see if it's feasible to compute a plan to reach them
                 // (just if not already done... that's why you look into the invalid map)
@@ -432,13 +432,48 @@ private:
                     fulfillPreconditionDesireName, 
                     std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
                 
-
+                int pushed = 0;
                 for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
                 {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
-                            +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
-                    addDesire(fulfillPreconditionD, md, "_preconditions");
+                    if(desire_set_.count(fulfillPreconditionD) == 0 && validGoal(fulfillPreconditionD))//fulfill precondition not inserted yet
+                    {   
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
+                                +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
+                        fulfillPreconditionD.setParent(md);//set md as its parent desire
+                        if(addDesire(fulfillPreconditionD, md, "_preconditions"))
+                            pushed++;
+                    }
+                }
+                if(pushed == 0)
+                    invalidDesire = true;
+            }
+
+            if(invalidDesire)
+            {
+                int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
+                int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
+
+                string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions) presents not valid goal: " +  
+                        desireOperation + " (invalid counter = %d).", invCounter);
+                
+                if(invCounter >= maxTries)//desire now has to be discarded
+                {    
+                    discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
+                    
+                    // check if this is trying to satisfy precondition and/or context condition of another desire
+                    // and there are no other desires within the same group -> delete that desire too
+                    int groupCounter = 0;
+                    for(ManagedDesire mdCheck : desire_set_)
+                        if(mdCheck.getDesireGroup() == md.getDesireGroup())
+                            groupCounter ++;
+                    if(md.hasParent() && groupCounter == 0)//invalid desire has remained the last one in the group
+                    {
+                        discarded_desires.push_back(md);//parent cannot be satisfied either
+                        skip_desires.insert(md);//avoid to evaluate it later
+                    }
                 }
             }
             
@@ -567,6 +602,8 @@ private:
     */
     void updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
     {
+        //TODO check if running and target satisfied -> abort
+
         auto planExecInfo = (*msg);
         if(!noPlanSelected() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
         {
@@ -587,7 +624,7 @@ private:
                     }
 
                     if(desireAchieved)
-                        delDesire(targetDesire);//desire achieved
+                        delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
                 }
 
                 else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
@@ -606,8 +643,7 @@ private:
                             RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
                         delDesire(targetDesire);
                     
-                    }else if(!targetDesire.getContext().isSatisfied(belief_set_)
-                        && invalid_desire_map_.count(targetDesire.getName() + "_fulfill_context") == 0){
+                    }else if(!targetDesire.getContext().isSatisfied(belief_set_)){
                         // check for context condition failed 
                         // (just if not already done... that's why you look into the invalid map)
                         // plan exec could have failed cause of them: evaluate if they can be reached and submit the desire to yourself
@@ -620,10 +656,14 @@ private:
                         
                         for(ManagedDesire fulfillContextD : fulfillContextDesires)
                         {
-                            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                                RCLCPP_INFO(this->get_logger(), "Context conditions are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
-                                    +  " auto-submission desire \"" + fulfillContextD.getName() + "\"");
-                            addDesire(fulfillContextD, targetDesire, "_context");
+                            if(desire_set_.count(fulfillContextD) == 0 && validGoal(fulfillContextD))
+                            {
+                                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                                    RCLCPP_INFO(this->get_logger(), "Context conditions are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
+                                        +  " auto-submission desire \"" + fulfillContextD.getName() + "\"");
+                                fulfillContextD.setParent(targetDesire);//set md as its parent desire
+                                addDesire(fulfillContextD, targetDesire, "_context");
+                            }
                         }
                         
                     }
@@ -693,7 +733,7 @@ private:
         mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
 
         for(ManagedDesire md : satisfiedDesires)//delete all satisfied desires from desire set
-            delDesire(md);
+            delDesire(md, true);//you're deleting satisfied desires -> delete all the ones in the same group
     }
 
     /*
@@ -818,13 +858,21 @@ private:
     }
     
     /*
-        Del desire from desire_set if present (Access through lock!)
+        Wrapper for delDesire with two args
     */
     bool delDesire(const ManagedDesire mdDel)
     {
+        return delDesire(mdDel, false);//do not delete desires within the same group of mdDel
+    }
+
+    /*
+        Del desire from desire_set if present (Access through lock!)
+    */
+    bool delDesire(const ManagedDesire mdDel, const bool& wipeSameGroup)
+    {
         bool deleted = false;
         mtx_add_del_.lock();
-            deleted = delDesireCS(mdDel);
+            deleted = delDesireCS(mdDel, wipeSameGroup);
         mtx_add_del_.unlock();
 
         return deleted;
@@ -833,8 +881,9 @@ private:
     /*
         Del desire from desire_set CRITICAL SECTION (to be called after having acquired mtx_add_del_ lock)
         In Addition Deleting atomically all the desires within the same desire group
+        if @wipeSameGroup equals to true
     */
-    bool delDesireCS(const ManagedDesire mdDel)
+    bool delDesireCS(const ManagedDesire mdDel, const bool& wipeSameGroup)
     {
         if(mtx_add_del_.try_lock())
         {   
@@ -859,7 +908,7 @@ private:
         }/*else
             RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed NOT found!");*/
         
-        if(mdDel.getDesireGroup() != mdDel.getName()) // desire being part of a group where you need to satisfy just one
+        if(wipeSameGroup && mdDel.hasParent()) // desire being part of a group where you need to satisfy just one
             delDesireInGroupCS(mdDel.getDesireGroup()); // delete others in the same group
 
         return deleted;
@@ -878,7 +927,7 @@ private:
                 toBeDiscarded.push_back(md);
         
         for(ManagedDesire md : toBeDiscarded)
-            delDesireCS(md);
+            delDesireCS(md, false);//you're already iterating over all the desires within the same group
     }
 
     // internal state of the node
