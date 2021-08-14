@@ -514,7 +514,8 @@ private:
                 
             //trigger plan execution
             shared_ptr<thread> thr = 
-                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
+                BDIPlanExecution::Request().ABORT, current_plan_));
             thr->detach();
 
             //mutex to handle better ABORT old plan -> EXECUTE new plan sequence
@@ -538,7 +539,8 @@ private:
                 
         //trigger plan execution
         shared_ptr<thread> thr = 
-            std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().EXECUTE));
+            std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
+            BDIPlanExecution::Request().EXECUTE, current_plan_));
         thr->detach();
 
     }
@@ -546,7 +548,7 @@ private:
     /*
         Contact plan executor to trigger the execution of the current_plan_
     */
-    void triggerPlanExecution(const int& PLAN_EXEC_REQUEST)
+    void triggerPlanExecution(const int& PLAN_EXEC_REQUEST, const ManagedPlan& mgPlan)
     {
         mtx_abort_trigger_.lock();
 
@@ -565,7 +567,7 @@ private:
 
         auto request = std::make_shared<BDIPlanExecution::Request>();
         request->request = PLAN_EXEC_REQUEST;
-        request->plan = current_plan_.toPlan();
+        request->plan = mgPlan.toPlan();
         auto future = client_->async_send_request(request);
 
         try{
@@ -574,8 +576,10 @@ private:
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                //next reschedule(); will select a new plan if computable for a desire in desire set
+                
+                if(mgPlan == current_plan_)//aborted current plan execution
+                    current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+                    //next reschedule(); will select a new plan if computable for a desire in desire set
             }
             else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
             {
@@ -587,8 +591,9 @@ private:
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
                 
-                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                //next reschedule(); will select a new plan if computable for a desire in desire set
+                if(mgPlan == current_plan_)//aborted current plan execution
+                    current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+                    //next reschedule(); will select a new plan if computable for a desire in desire set
             }
         }catch(const std::exception &e){
             RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
@@ -602,19 +607,21 @@ private:
     */
     void updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
     {
-        //TODO check if running and target satisfied -> abort
-
         auto planExecInfo = (*msg);
+        ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
+
         if(!noPlanSelected() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
         {
             current_plan_exec_info_ = planExecInfo;
-            ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
             string targetDesireName = targetDesire.getName();
             if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
             {
+                bool desireAchieved = isDesireSatisfied(targetDesire);
+                if(desireAchieved)
+                    delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
+                
                 if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
                 {
-                    bool desireAchieved = isDesireSatisfied(targetDesire);
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
                     {   
                         string addNote = desireAchieved? 
@@ -622,12 +629,9 @@ private:
                             "desire \"" + targetDesireName + "\" still not achieved! It'll not removed from the desire set yet";
                         RCLCPP_INFO(this->get_logger(), "Plan successfully executed: " + addNote);
                     }
-
-                    if(desireAchieved)
-                        delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
                 }
 
-                else if(planExecInfo.status == planExecInfo.ABORT)// plan exec aborted
+                else if(planExecInfo.status == planExecInfo.ABORT && !desireAchieved)// plan exec aborted and desire not achieved
                 {
 
                     int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
@@ -716,17 +720,21 @@ private:
                             "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
                             "(executing %d out of %d)", lastActionIndex, executingActionIndex);
 
-                    //abort plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
+                    //abort current_plan_ plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
                     shared_ptr<thread> thr = 
-                        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
+                        BDIPlanExecution::Request().ABORT, current_plan_));
                     thr->detach();
                 }
-
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                else
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
                         "target appears to be already fulfilled given the current belief set");
                 
-                satisfiedDesires.push_back(md);
+                    satisfiedDesires.push_back(md);//delete desire just if not executing one, otherwise will be deleted when aborted feedback comes and desire is satisfied
+                }
+
             }
         }
 
@@ -785,9 +793,10 @@ private:
 
         if(deleted && ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan
         {
-            //abort current execution
+            //abort current plan execution
             shared_ptr<thread> thr = 
-                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, BDIPlanExecution::Request().ABORT));
+                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
+                BDIPlanExecution::Request().ABORT, current_plan_));
             thr->detach();
         }
     }
