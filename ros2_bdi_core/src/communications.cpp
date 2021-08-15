@@ -396,7 +396,7 @@ private:
           desire_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
           desire_set_upd_locks_[ADD_I].unlock();//release it
 
-          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 1;
+          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 1 || ManagedDesire{request->desire}.isFulfilled(belief_set_);
         }
         else
           response->accepted = false;// max priority for given agent's requesting group is negative -> not accepted
