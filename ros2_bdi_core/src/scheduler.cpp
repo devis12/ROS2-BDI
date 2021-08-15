@@ -39,8 +39,8 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define PARAM_MAX_TRIES_COMP_PLAN "tries_comp_plan"
-#define PARAM_MAX_TRIES_EXEC_PLAN "tries_exec_plan"
+#define PARAM_MAX_TRIES_COMP_PLAN "compute_plan_tries"
+#define PARAM_MAX_TRIES_EXEC_PLAN "exec_plan_tries"
 #define PARAM_RESCHEDULE_POLICY "reschedule_policy"
 #define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_IF_EXEC"
 #define VAL_RESCHEDULE_POLICY_IF_EXEC "IF_EXEC"
@@ -377,7 +377,8 @@ private:
             if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
                 continue;
             
-            bool invalidDesire = false;//flag to mark desire as not valid
+            bool computedPlan = false;//flag to mark plan for desire as computable
+            bool invalidDesire = false;//flag to mark invalid desire
             
             // select just desires with satisyfing precondition and 
             // with higher or equal priority with respect to the one currently selected
@@ -386,6 +387,8 @@ private:
                 optional<Plan> opt_p = computePlan(md);
                 if(opt_p.has_value())
                 {
+                    computedPlan = true;
+
                     ManagedPlan mp = ManagedPlan{md, opt_p.value().items, md.getPrecondition(), md.getContext()};
                     // does computed deadline for this plan respect desire deadline?
                     if(mp.getPlanDeadline() <= md.getDeadline()) 
@@ -449,14 +452,14 @@ private:
                     invalidDesire = true;
             }
 
-            if(invalidDesire)
+            if(invalidDesire || (!computedPlan && explicitPreconditionSatisfied))
             {
-                int invCounter = ++invalid_desire_map_[md.getName()]; //increment invalid counter for this desire
+                int invCounter = ++computed_plan_desire_map_[md.getName()]; //increment invalid counter for this desire
                 int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
 
                 string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions) presents not valid goal: " +  
+                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions) presents not valid goal and/or a plan for it is not computable: " +  
                         desireOperation + " (invalid counter = %d).", invCounter);
                 
                 if(invCounter >= maxTries)//desire now has to be discarded
@@ -846,7 +849,7 @@ private:
         }
         
         bool added = false;
-        if(invalid_desire_map_.count(mdAdd.getName())==0 && aborted_plan_desire_map_.count(mdAdd.getName())==0 && 
+        if(computed_plan_desire_map_.count(mdAdd.getName())==0 && aborted_plan_desire_map_.count(mdAdd.getName())==0 && 
                 desire_set_.count(mdAdd)==0)//desire already there (or diff. desire but with same name identifier)
         {
             if(necessaryForMD.has_value() && desire_set_.count(necessaryForMD.value())==1)
@@ -857,7 +860,7 @@ private:
             }
 
             desire_set_.insert(mdAdd);
-            invalid_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
+            computed_plan_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
             aborted_plan_desire_map_.insert(std::pair<string, int>(mdAdd.getName(), 0));//to count invalid goal computations and discard after x
             
             added = true;
@@ -903,15 +906,15 @@ private:
 
         bool deleted = false;
         //erase values from desires map
-        if(invalid_desire_map_.count(mdDel.getName()) > 0)
-            invalid_desire_map_.erase(mdDel.getName());
+        if(computed_plan_desire_map_.count(mdDel.getName()) > 0)
+            computed_plan_desire_map_.erase(mdDel.getName());
         if(aborted_plan_desire_map_.count(mdDel.getName()) > 0)
             aborted_plan_desire_map_.erase(mdDel.getName());
 
         if(desire_set_.count(mdDel)!=0)
         {
             desire_set_.erase(desire_set_.find(mdDel));
-            invalid_desire_map_.erase(mdDel.getName());
+            computed_plan_desire_map_.erase(mdDel.getName());
             deleted = true;
             //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
         }/*else
@@ -971,8 +974,8 @@ private:
     // desire set of the agent <agent_id_>
     set<ManagedDesire> desire_set_;
 
-    // hashmap for invalid desire counters (after x tries desire will be discarded)
-    map<string, int> invalid_desire_map_;
+    // hashmap for invalid desire or plan not computed counters (after x tries desire will be discarded)
+    map<string, int> computed_plan_desire_map_;
     // hashmap for aborted plan desire map (plan aborted for that desire)
     map<string, int> aborted_plan_desire_map_;
 
