@@ -32,6 +32,7 @@
         )
         :effect (and
             (at start (not(workfree ?r)))
+            (at end (workfree ?r))
             (at start (not(in ?r ?wp_from)))
             (at end (in ?r ?wp_to))
             (at end (decrease (battery_charge) 20))
@@ -42,11 +43,13 @@
         :parameters (?r - robot ?wp - waypoint)
         :duration (= ?duration 4)
         :condition (and
+            (at start (workfree ?r))
             (at start (> (battery_charge) 50))
             (over all (> (battery_charge) 25))
             (over all (in ?r ?wp))
         )
         :effect (and
+            (at start (not(workfree ?r)))
             (at end (workfree ?r))
             (at end (swept ?wp))
         )
@@ -56,11 +59,13 @@
         :parameters (?r - robot ?wp - waypoint)
         :duration (= ?duration 4)
         :condition (and
+            (at start (workfree ?r))
             (over all (in ?r ?wp))
             (over all (recharging_station ?wp))
         )
         :effect (and
-            (at start (workfree ?r))
+            (at start (not(workfree ?r)))
+            (at end (workfree ?r))
             (at end (assign (battery_charge) 100))
         )
     )
