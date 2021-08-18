@@ -87,9 +87,11 @@ PDDL_FILE_PARAM = 'pddl_file'
 INIT_BSET_PARAM = 'init_bset'
 INIT_DSET_PARAM = 'init_dset'
 
-ACCEPT_BELIEFS_PARAM = 'accept_beliefs_from'
-ACCEPT_DESIRES_PARAM = 'accept_desires_from'
-ACCEPT_DESIRES_MAX_PR_PARAM = 'accept_desires_max_priorities'
+ACCEPT_BELIEFS_R_PARAM = 'belief_r'
+ACCEPT_BELIEFS_W_PARAM = 'belief_w'
+ACCEPT_DESIRES_R_PARAM = 'desire_r'
+ACCEPT_DESIRES_W_PARAM = 'desire_w'
+ACCEPT_DESIRES_MAX_PR_PARAM = 'desire_pr'
 
 ABORT_AFTER_DEADLINE_PARAM = 'abort_after_deadline'
 COMP_PLAN_TRIES_PARAM = 'compute_plan_tries'
@@ -266,7 +268,7 @@ def AgentLaunchDescription(
 
     # validation init param abort after deadline surpassed <n> times during plan execution
     if ABORT_AFTER_DEADLINE_PARAM in init_params and (isinstance(init_params[ABORT_AFTER_DEADLINE_PARAM], float) or isinstance(init_params[ABORT_AFTER_DEADLINE_PARAM], int)):
-        abort_after_deadline = float(init_params[ACCEPT_BELIEFS_PARAM])
+        abort_after_deadline = float(init_params[ACCEPT_BELIEFS_W_PARAM])
     else:
         log_automatic_set(ABORT_AFTER_DEADLINE_PARAM, abort_after_deadline)
 
@@ -290,13 +292,9 @@ def AgentLaunchDescription(
         {AGENT_GROUP_ID_PARAM: agent_group}
     ]
 
-    # validation init param for accept beliefs from [groups] param
-    if ACCEPT_BELIEFS_PARAM in init_params and is_list_of(init_params[ACCEPT_BELIEFS_PARAM], str) and len(init_params[ACCEPT_BELIEFS_PARAM]) > 0:
-       communication_node_params += [{ACCEPT_BELIEFS_PARAM: init_params[ACCEPT_BELIEFS_PARAM]}] 
-
-    # validation init param for accept desires from [groups] param
-    if ACCEPT_DESIRES_PARAM in init_params and is_list_of(init_params[ACCEPT_DESIRES_PARAM], str) and len(init_params[ACCEPT_DESIRES_PARAM]) > 0:
-        communication_node_params += [{ACCEPT_DESIRES_PARAM: init_params[ACCEPT_DESIRES_PARAM]}] 
+    for BDRW_PARAM in [ACCEPT_BELIEFS_R_PARAM, ACCEPT_BELIEFS_W_PARAM, ACCEPT_DESIRES_R_PARAM, ACCEPT_DESIRES_W_PARAM]:
+        if BDRW_PARAM in init_params and is_list_of(init_params[BDRW_PARAM], str) and len(init_params[BDRW_PARAM]) > 0:
+            communication_node_params += [{BDRW_PARAM: init_params[BDRW_PARAM]}] 
 
     # validation init param for accept desires max priorities from [groups] param
     if ACCEPT_DESIRES_MAX_PR_PARAM in init_params and is_list_of(init_params[ACCEPT_DESIRES_MAX_PR_PARAM], float) and len(init_params[ACCEPT_DESIRES_MAX_PR_PARAM]) > 0:

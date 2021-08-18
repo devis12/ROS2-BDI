@@ -1,0 +1,16 @@
+# This is CheckDesire service message used to request among agents to check presence of desire in their desire set
+# accepted = true if request can be accepted
+# returns found = true if desire is there and request can be accepted
+# returns found = false if desire is not there or request cannot be accepted
+
+# @desire           -> desire to be checked in agent's desire set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request can be fulfilled
+# @found            -> request found by agent
+
+Desire desire
+string agent_group
+---
+bool   accepted
+bool   found

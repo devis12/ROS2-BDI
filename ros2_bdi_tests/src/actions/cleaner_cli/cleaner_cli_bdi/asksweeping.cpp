@@ -29,9 +29,10 @@ class AskSweeping : public BDIActionExecutor
 
                 advancement = 0.0f;// no advancement
                 
-                if(sent_ && lastDesireReqResponseArrived())
+                auto reqStatus = updDesireRequestStatus();
+                if(sent_ && reqStatus.arrived)
                 {
-                    if(lastDesireReqAccepted())
+                    if(reqStatus.accepted && reqStatus.performed)
                         advancement += 0.015625f;//stop asking, wait for the fulfillment or long enough to know action is failed
 
                     else//desire request not accepted -> fail action    

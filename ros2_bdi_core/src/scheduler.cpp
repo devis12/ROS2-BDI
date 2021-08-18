@@ -630,6 +630,14 @@ private:
                         string addNote = desireAchieved? 
                             "desire \"" + targetDesireName + "\" achieved will be removed from desire set" : 
                             "desire \"" + targetDesireName + "\" still not achieved! It'll not removed from the desire set yet";
+                        if(!desireAchieved)
+                        {
+                            std::cout << "\n\n";
+                            std::cout << "\ndesire: " << targetDesire << std::endl;
+                            for(auto mb : belief_set_)
+                                std:: cout << "\n" << mb;
+                            std::cout << "\n\n";
+                        }
                         RCLCPP_INFO(this->get_logger(), "Plan successfully executed: " + addNote);
                     }
                 }
@@ -771,8 +779,32 @@ private:
     */
     void updatedBeliefSet(const BeliefSet::SharedPtr msg)
     {
-        belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-        checkForSatisfiedDesires();
+        set<ManagedBelief> newBeliefSet = BDIFilter::extractMGBeliefs(msg->value);
+        bool bsetModified = false;//is belief set altered from last update?
+        
+        for(ManagedBelief mb : newBeliefSet)
+            if(belief_set_.count(mb) == 0)//check if new belief set has new items
+            {
+                bsetModified = true;
+                break;
+            }
+        
+        if(!bsetModified)
+            for(ManagedBelief mb : belief_set_)
+                if(newBeliefSet.count(mb) == 0)//check if new belief set has lost a few items
+                {
+                    bsetModified = true;
+                    break;
+                }
+
+        if(bsetModified)//if belief set appears different from last update
+        {
+            belief_set_ = newBeliefSet;//update current mirroring of the belief set
+            
+            checkForSatisfiedDesires();//check for satisfied desires
+            reschedule();//do a rescheduling
+        }
+        
     }
 
     /*  

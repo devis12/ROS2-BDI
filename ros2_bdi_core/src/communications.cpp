@@ -10,7 +10,9 @@
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
 #include "ros2_bdi_interfaces/srv/is_accepted_group.hpp"
+#include "ros2_bdi_interfaces/srv/check_belief.hpp"
 #include "ros2_bdi_interfaces/srv/upd_belief_set.hpp"
+#include "ros2_bdi_interfaces/srv/check_desire.hpp"
 #include "ros2_bdi_interfaces/srv/upd_desire_set.hpp"
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
@@ -21,9 +23,11 @@
 
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_AGENT_GROUP_ID "agent_group"
-#define PARAM_BELIEF_ACCEPT "accept_beliefs_from"
-#define PARAM_DESIRE_ACCEPT "accept_desires_from"
-#define PARAM_DESIRE_MAX_PRIORITIES "accept_desires_max_priorities"
+#define PARAM_BELIEF_READ "belief_r"
+#define PARAM_BELIEF_WRITE "belief_w"
+#define PARAM_DESIRE_READ "desire_r"
+#define PARAM_DESIRE_WRITE "desire_w"
+#define PARAM_DESIRE_MAX_PRIORITIES "desire_pr"
 #define PARAM_DEBUG "debug"
 
 #define ADD_I 1
@@ -45,10 +49,13 @@ using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::DesireSet;
 using ros2_bdi_interfaces::srv::IsAcceptedGroup;
+using ros2_bdi_interfaces::srv::CheckBelief;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;
+using ros2_bdi_interfaces::srv::CheckDesire;
 using ros2_bdi_interfaces::srv::UpdDesireSet;
 
 typedef enum {BELIEF, DESIRE} RequestObjType;  
+typedef enum {READ, WRITE} RequestObjOp;  
 
 class CommunicationManager : public rclcpp::Node
 {
@@ -59,8 +66,10 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
     this->declare_parameter(PARAM_DEBUG, true);
-    this->declare_parameter(PARAM_BELIEF_ACCEPT, vector<string>());
-    this->declare_parameter(PARAM_DESIRE_ACCEPT, vector<string>());
+    this->declare_parameter(PARAM_BELIEF_READ, vector<string>());
+    this->declare_parameter(PARAM_BELIEF_WRITE, vector<string>());
+    this->declare_parameter(PARAM_DESIRE_READ, vector<string>());
+    this->declare_parameter(PARAM_DESIRE_WRITE, vector<string>());
     this->declare_parameter(PARAM_DESIRE_MAX_PRIORITIES, vector<double>());
   }
 
@@ -94,11 +103,15 @@ public:
                 "desire_set", qos_keep_all,
                 bind(&CommunicationManager::updatedDesireSet, this, _1), sub_opt);
 
+    // init server for handling check belief requests from other agents
+    chk_belief_server_ = this->create_service<CheckBelief>("check_belief_srv", 
+        bind(&CommunicationManager::handleReadBeliefRequest, this, _1, _2));
+    
     // init server for handling add belief requests from other agents
     add_belief_server_ = this->create_service<UpdBeliefSet>("add_belief_srv", 
         bind(&CommunicationManager::handleAddBeliefRequest, this, _1, _2));
       
-     // init server for handling del belief requests from other agents
+    // init server for handling del belief requests from other agents
     del_belief_server_ = this->create_service<UpdBeliefSet>("del_belief_srv", 
         bind(&CommunicationManager::handleDelBeliefRequest, this, _1, _2));
     
@@ -111,6 +124,10 @@ public:
     belief_set_upd_locks_ = vector<mutex>(2);
     // init two counter for waiting belief upd
     belief_waiting_for_counter_ = vector<int>(2);
+
+    // init server for handling check desire requests from other agents
+    chk_desire_server_ = this->create_service<CheckDesire>("check_desire_srv", 
+        bind(&CommunicationManager::handleReadDesireRequest, this, _1, _2));
 
     // init server for handling add belief requests from other agents
     add_desire_server_ = this->create_service<UpdDesireSet>("add_desire_srv", 
@@ -131,7 +148,7 @@ public:
     desire_waiting_for_counter_ = vector<int>(2);
 
     string acceptingBeliefsMsg = "accepting beliefs alteration from: ";
-    vector<string> acceptingBeliefsGroups = this->get_parameter(PARAM_BELIEF_ACCEPT).as_string_array();
+    vector<string> acceptingBeliefsGroups = this->get_parameter(PARAM_BELIEF_WRITE).as_string_array();
     if(acceptingBeliefsGroups.size() == 0)
       acceptingBeliefsMsg += "no group";
     else
@@ -139,7 +156,7 @@ public:
         acceptingBeliefsMsg += acceptingBeliefsGroups[i]  + (((i+1)==acceptingBeliefsGroups.size()) ? "" : ", ");
 
     string acceptingDesiresMsg = "accepting desires alteration from: ";
-    vector<string> acceptingDesiresGroups = this->get_parameter(PARAM_DESIRE_ACCEPT).as_string_array();
+    vector<string> acceptingDesiresGroups = this->get_parameter(PARAM_DESIRE_WRITE).as_string_array();
     vector<double> acceptingDesiresPrioritiesGroups = this->get_parameter(PARAM_DESIRE_MAX_PRIORITIES).as_double_array();
     if(acceptingDesiresGroups.size() == 0)
       acceptingDesiresMsg += "no group";
@@ -166,17 +183,35 @@ private:
       Return true if the request agent's group name is among the accepted ones wrt.
       either belief or desire modify acceptance 
     */
-    bool isAcceptableRequest(const string& requestingAgentGroup, const RequestObjType& requestObjType)
+    bool isAcceptableRequest(const string& requestingAgentGroup, 
+      const RequestObjType& requestObjType, const RequestObjOp& requestObjOp)
     {
       vector<string> acceptedGroups;
       switch(requestObjType)
       {
         case BELIEF:
-          acceptedGroups = this->get_parameter(PARAM_BELIEF_ACCEPT).as_string_array();
+          switch(requestObjOp)
+          {
+            case READ:
+              acceptedGroups = this->get_parameter(PARAM_BELIEF_READ).as_string_array();
+              break;
+            case WRITE:
+              acceptedGroups = this->get_parameter(PARAM_BELIEF_WRITE).as_string_array();
+              break;
+          }
+            
           break;
 
          case DESIRE:
-          acceptedGroups = this->get_parameter(PARAM_DESIRE_ACCEPT).as_string_array();
+           switch(requestObjOp)
+           {
+            case READ:
+              acceptedGroups = this->get_parameter(PARAM_DESIRE_READ).as_string_array();
+              break;
+            case WRITE:
+              acceptedGroups = this->get_parameter(PARAM_DESIRE_WRITE).as_string_array();
+              break;
+          }
           break;
       }
 
@@ -194,15 +229,17 @@ private:
         const IsAcceptedGroup::Response::SharedPtr response)
     {
       bool validType = request->type == request->BELIEF_TYPE || request->type == request->DESIRE_TYPE;
+      bool validOp = request->operation == request->READ || request->operation == request->WRITE;
 
       RequestObjType objType = (request->type==request->DESIRE_TYPE)? DESIRE : BELIEF;
-      if(!validType || !isAcceptableRequest(request->agent_group, objType))
+      RequestObjOp objOp = (request->operation==request->READ)? READ : WRITE;
+      if(!validType || !validOp || !isAcceptableRequest(request->agent_group, objType, objOp))
           response->accepted = false;
 
       else
       {
           response->accepted = true;
-          if(objType == DESIRE)
+          if(objType == DESIRE && objOp == WRITE)
             response->desire_max_priority = getMaxAcceptedPriority(request->agent_group);
           else
             response->desire_max_priority = -1.0f;
@@ -220,7 +257,7 @@ private:
       float maxAcceptedPriority = -1.0f;//init to negative value
 
       // find index of accepted group in accept_desires_from array string paramters
-      vector<string> acceptedGroups = this->get_parameter(PARAM_DESIRE_ACCEPT).as_string_array();
+      vector<string> acceptedGroups = this->get_parameter(PARAM_DESIRE_WRITE).as_string_array();
       for(int i = 0; indexAccepted == -1 && i <  acceptedGroups.size(); i++)
         if(acceptedGroups[i] == requestingAgentGroup)
           indexAccepted = i;
@@ -319,19 +356,38 @@ private:
         checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
     }
 
+    /*  
+        Read Belief Request service handler        
+    */
+    void handleReadBeliefRequest(const CheckBelief::Request::SharedPtr request,
+        const CheckBelief::Response::SharedPtr response)
+    {
+      //see if the requesting agent belongs to a group which is entitled to this kind of requests
+      if(!isAcceptableRequest(request->agent_group, BELIEF, READ))
+        response->accepted = false;
+
+      else
+      {
+        response->accepted = true;
+        response->found = belief_set_.count(ManagedBelief{request->belief}) == 1;
+      }
+    }
+
 
     /*  
         Add Belief Request service handler
+    
     */
     void handleAddBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
         const UpdBeliefSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, BELIEF))
+      if(!isAcceptableRequest(request->agent_group, BELIEF, WRITE))
         response->accepted = false;
 
       else
       {
+        response->accepted = true;
         add_belief_publisher_->publish(request->belief);
         
         belief_set_upd_locks_[ADD_I].lock();
@@ -340,7 +396,7 @@ private:
         belief_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
         belief_set_upd_locks_[ADD_I].unlock();//release it
 
-        response->accepted = belief_set_.count(ManagedBelief{request->belief}) == 1;
+        response->updated = belief_set_.count(ManagedBelief{request->belief}) == 1;
 
       }
     }
@@ -352,11 +408,12 @@ private:
         const UpdBeliefSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, BELIEF))
+      if(!isAcceptableRequest(request->agent_group, BELIEF, WRITE))
         response->accepted = false;
 
       else
       {
+        response->accepted = true;
         del_belief_publisher_->publish(request->belief);
         
         belief_set_upd_locks_[DEL_I].lock();
@@ -365,10 +422,26 @@ private:
         belief_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
         belief_set_upd_locks_[DEL_I].unlock();//release it
 
-        response->accepted = belief_set_.count(ManagedBelief{request->belief}) == 0;
+        response->updated = belief_set_.count(ManagedBelief{request->belief}) == 0;
       }
     }
 
+    /*  
+        Read Desire Request service handler        
+    */
+    void handleReadDesireRequest(const CheckDesire::Request::SharedPtr request,
+        const CheckDesire::Response::SharedPtr response)
+    {
+      //see if the requesting agent belongs to a group which is entitled to this kind of requests
+      if(!isAcceptableRequest(request->agent_group, DESIRE, READ))
+        response->accepted = false;
+
+      else
+      {
+        response->accepted = true;
+        response->found = desire_set_.count(ManagedDesire{request->desire}) == 1;
+      }
+    }
 
     /*  
         Add Desire Request service handler        
@@ -377,7 +450,7 @@ private:
         const UpdDesireSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, DESIRE))
+      if(!isAcceptableRequest(request->agent_group, DESIRE, WRITE))
         response->accepted = false;
 
       else
@@ -386,6 +459,7 @@ private:
         
         if(maxAcceptedPriority >= 0)
         {
+          response->accepted = true;
           // set at most the desire priority to the fixed upper threshold
           request->desire.priority = std::max(0.000f, std::min(request->desire.priority, maxAcceptedPriority)); 
           add_desire_publisher_->publish(request->desire);
@@ -396,7 +470,7 @@ private:
           desire_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
           desire_set_upd_locks_[ADD_I].unlock();//release it
 
-          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 1 || ManagedDesire{request->desire}.isFulfilled(belief_set_);
+          response->updated = desire_set_.count(ManagedDesire{request->desire}) == 1 || ManagedDesire{request->desire}.isFulfilled(belief_set_);
         }
         else
           response->accepted = false;// max priority for given agent's requesting group is negative -> not accepted
@@ -411,11 +485,12 @@ private:
         const UpdDesireSet::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, DESIRE))
+      if(!isAcceptableRequest(request->agent_group, DESIRE, WRITE))
         response->accepted = false;
 
       else
       {
+        response->accepted = true;
         del_desire_publisher_->publish(request->desire);
         desire_set_upd_locks_[DEL_I].lock();
             desire_waiting_for_ = ManagedDesire{request->desire};
@@ -423,7 +498,7 @@ private:
           desire_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
           desire_set_upd_locks_[DEL_I].unlock();//release it
 
-          response->accepted = desire_set_.count(ManagedDesire{request->desire}) == 0;
+          response->updated = desire_set_.count(ManagedDesire{request->desire}) == 0;
       }
     }
     
@@ -445,6 +520,8 @@ private:
     // desire set update subscription
     rclcpp::Subscription<DesireSet>::SharedPtr desire_set_subscriber_;
 
+    // handle check belief requests from other agents
+    rclcpp::Service<CheckBelief>::SharedPtr chk_belief_server_;
     // handle add belief requests from other agents
     rclcpp::Service<UpdBeliefSet>::SharedPtr add_belief_server_;
     // handle del belief requests from other agents
@@ -462,6 +539,8 @@ private:
     //del_belief publisher
     rclcpp::Publisher<Belief>::SharedPtr del_belief_publisher_;
 
+    // handle check desire requests from other agents
+    rclcpp::Service<CheckDesire>::SharedPtr chk_desire_server_;
     // handle add desire requests from other agents
     rclcpp::Service<UpdDesireSet>::SharedPtr add_desire_server_;
     // handle del desire requests from other agents

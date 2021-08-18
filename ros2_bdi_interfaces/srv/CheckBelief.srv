@@ -1,0 +1,16 @@
+# This is CheckBelief service message used to request among agents to check presence of belief in their belief set
+# accepted = true if request can be accepted
+# returns found = true if belief is there and request can be accepted
+# returns found = false if belief is not there or request cannot be accepted
+
+# @belief           -> belief to be checked in agent's belief set
+# @agent_group      -> requesting agent's group
+# ---
+# @accepted         -> request can be fulfilled
+# @found            -> request found by agent
+
+Belief belief
+string agent_group
+---
+bool   accepted
+bool   found

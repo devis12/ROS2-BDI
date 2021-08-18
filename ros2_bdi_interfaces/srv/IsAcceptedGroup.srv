@@ -1,8 +1,12 @@
-string BELIEF_TYPE="BELIEF"
-string DESIRE_TYPE="DESIRE"
+uint8 BELIEF_TYPE=1
+uint8 DESIRE_TYPE=2
+
+uint8 READ=1
+uint8 WRITE=2
 
 string      agent_group
-string      type
+uint8       type
+uint8       operation
 ---
 bool        accepted
 float32     desire_max_priority

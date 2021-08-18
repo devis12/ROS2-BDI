@@ -4,7 +4,7 @@
 #include <memory>
 #include <thread>
 #include <chrono>
- 
+
 #include <boost/algorithm/string.hpp>
 
 #include "plansys2_msgs/msg/action_execution_info.hpp"
@@ -36,7 +36,7 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define PARAM_CANCEL_AFTER_DEADLINE "cancel_after_deadline"
+#define PARAM_CANCEL_AFTER_DEADLINE "abort_after_deadline"
 #define NO_PLAN_INTERVAL 1000
 #define PLAN_INTERVAL 250
 
@@ -294,7 +294,7 @@ private:
             {
                 string plan_string = "";
                 for(PlanItem pi : plan_to_execute.items)
-                    plan_string += pi.action + "\t" + std::to_string(pi.duration) + "\n";
+                    plan_string +=  std::to_string(pi.time) + "\t" + pi.action + "\t\t" + std::to_string(pi.duration) + "\n";
                 RCLCPP_INFO(this->get_logger(), "Started new plan execution:\n" + plan_string + "\n");
             }
             

@@ -103,7 +103,7 @@ protected:
     void sense(const Belief& new_belief)
     {
         if(sensed_belief_.pddl_type != new_belief.pddl_type)//sensing not valid 
-        return;
+          return;
         
         bool updated = false;
 

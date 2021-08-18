@@ -23,7 +23,9 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/PlanSys2State.msg"
   
   "srv/IsAcceptedGroup.srv"
+  "srv/CheckBelief.srv"
   "srv/UpdBeliefSet.srv"
+  "srv/CheckDesire.srv"
   "srv/UpdDesireSet.srv"
   "srv/BDIPlanExecution.srv"
 
