@@ -40,6 +40,13 @@ class ManagedDesire
         ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
                         const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context);
         
+        ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
+                        const vector<ManagedBelief>& rollbackBeliefsAdd, const vector<ManagedBelief>& rollbackBeliefsDel);
+        
+        ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
+                        const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context,
+                        const vector<ManagedBelief>& rollbackBeliefsAdd, const vector<ManagedBelief>& rollbackBeliefsDel);
+        
         ManagedDesire(const Desire& desire);
 
         string getName() const {return name_;};
@@ -50,6 +57,8 @@ class ManagedDesire
         string getDesireGroup() const {return desire_group_;}
         ManagedConditionsDNF getPrecondition() const {return precondition_;}
         ManagedConditionsDNF getContext() const {return context_;}
+        vector<ManagedBelief> getRollbackBeliefAdd() const {return rollback_belief_add_;}
+        vector<ManagedBelief> getRollbackBeliefDel() const {return rollback_belief_del_;}
         
         bool hasParent() const { return parent_ != NULL;}
         void setParent(const ManagedDesire& parent) {parent_ = std::make_shared<ManagedDesire>(parent);}
@@ -72,6 +81,8 @@ class ManagedDesire
         float deadline_;
         ManagedConditionsDNF precondition_;
         ManagedConditionsDNF context_;
+        vector<ManagedBelief> rollback_belief_add_;
+        vector<ManagedBelief> rollback_belief_del_;
 
 };  // class ManagedDesire
 

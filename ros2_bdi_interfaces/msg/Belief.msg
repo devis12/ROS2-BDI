@@ -11,6 +11,9 @@ uint8 INSTANCE_TYPE=1
 uint8 PREDICATE_TYPE=2
 uint8 FUNCTION_TYPE=3
 
+# type could be any of the above
+uint8 ALL_TYPE=0
+
 string name
 uint8 pddl_type
 string[] params

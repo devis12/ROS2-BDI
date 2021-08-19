@@ -8,6 +8,18 @@
       pddl_type: 2
       params:
         - "kitchen1"
+  rollback_belief_add:
+    -
+      name: "workfree"
+      pddl_type: 2
+      params:
+        - "agent1"
+    -
+      name: "in"
+      pddl_type: 2
+      params:
+        - "agent1"
+        - "undefined_wp"
 #    -
 #      name: "cleaned"
 #      pddl_type: 2

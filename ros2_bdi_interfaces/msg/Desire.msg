@@ -8,6 +8,8 @@
 # @deadline     -> desirable deadline in seconds
 # @precondition -> precondition in order to start an intention satisfying the given desire (DNF expression)
 # @context      -> context conditions which has to remain true while satisfying the given desire (DNF expression)
+# @rollback_belief_add  -> belief to add in case of fulfilling plan abortion
+# @rollback_belief_del  -> belief to del in case of fulfilling plan abortion
 
 string          name
 Belief[]        value
@@ -15,3 +17,5 @@ float32         priority
 float32         deadline
 ConditionsDNF   precondition
 ConditionsDNF   context
+Belief[]        rollback_belief_add
+Belief[]        rollback_belief_del

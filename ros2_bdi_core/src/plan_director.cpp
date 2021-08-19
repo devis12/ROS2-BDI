@@ -127,6 +127,10 @@ public:
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
                 "belief_set", qos_keep_all,
                 bind(&PlanDirector::updatedBeliefSet, this, _1));
+    
+    // belief add + belief del publishers
+    belief_add_publisher_ = this->create_publisher<Belief>("add_belief", 10);
+    belief_del_publisher_ = this->create_publisher<Belief>("del_belief", 10);
 
     // init server for triggering new plan execution
     server_plan_exec_ = this->create_service<BDIPlanExecution>("plan_execution", 
@@ -457,6 +461,18 @@ private:
         }
 
     }
+
+    /* 
+        publish beliefs to be added and beliefs to be deleted as a consequence of plan abortion (rollback)
+    */
+    void publishRollbackBeliefs(const vector<Belief> rollback_belief_add, const vector<Belief> rollback_belief_del)
+    {
+        for(Belief b_add : rollback_belief_add)
+            belief_add_publisher_->publish(b_add);
+
+        for(Belief b_del : rollback_belief_del)
+            belief_del_publisher_->publish(b_del);
+    }
     
     /*
         Plan currently in execution, monitor and publish the feedback of its development
@@ -477,6 +493,9 @@ private:
             resetWorkTimer(NO_PLAN_INTERVAL);
             setNoPlanMsg();
             setState(READY);
+
+            if(planExecutionInfo.status == planExecutionInfo.ABORT)//plan execution aborted -> beliefs rollback
+                publishRollbackBeliefs(planExecutionInfo.target.rollback_belief_add, planExecutionInfo.target.rollback_belief_del);
             
             // ended run log 
             if(this->get_parameter(PARAM_DEBUG).as_bool()){
@@ -673,6 +692,10 @@ private:
     set<ManagedBelief> belief_set_;
     // belief set subscriber
     rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;//belief set sub.
+    // belief add publisher
+    rclcpp::Publisher<Belief>::SharedPtr belief_add_publisher_;
+    // belief del publisher
+    rclcpp::Publisher<Belief>::SharedPtr belief_del_publisher_;
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
     int first_ts_plan_sec;
@@ -680,8 +703,8 @@ private:
     // last recorded timestamp during plan execution
     float last_ts_plan_exec;
 
-    // notification about the current plan execution
-    rclcpp::Publisher<BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;//belief set publisher
+    // notification about the current plan execution -> plan execution info publisher
+    rclcpp::Publisher<BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;
 
     // trigger plan execution/abortion service
     rclcpp::Service<BDIPlanExecution>::SharedPtr server_plan_exec_;

@@ -47,15 +47,28 @@ namespace BDIYAMLParser
     std::optional<ManagedBelief> parseMGBelief(YAML::Node& yaml_belief);
 
     /*
+        Given a YAML Node which should represent an array of beliefs, parse it and build a vector<ManagedBelief>
+        return empty if there isn't any belief available within the node
+    */
+    vector<ManagedBelief> parseMGBeliefs(YAML::Node& yaml_beliefs);
+
+     /*
+        Given a YAML Node which should represent an array of beliefs, parse it and build a vector<ManagedBelief>
+        containing just the beliefs of the given type (if ALL_TYPE, do not filter, returns all beliefs of any given/valid type)
+        return empty if there isn't any belief available within the node
+    */
+    vector<ManagedBelief> parseMGBeliefs(YAML::Node& yaml_beliefs, const int& belief_type);
+
+    /*
         Given a YAML node which should represent a YAML belief, retrieve its parameters (if any)
     */
-    vector<string> retrieveBeliefParams(YAML::Node& yaml_belief);
+    vector<string> parseBeliefParams(YAML::Node& yaml_belief);
 
     /*
         Given a YAML node representing a desire and the name of the condition vector (e.g. "precondition", "context"),
         extract a DNF clause of managed condition
     */
-    ManagedConditionsDNF retrieveMGConditionsDNF(YAML::Node& yaml_desire, const string& condition_vect_name);
+    ManagedConditionsDNF parseMGConditionsDNF(YAML::Node& yaml_desire, const string& condition_vect_name);
 
 }  // namespace BDIYAMLParser
 
