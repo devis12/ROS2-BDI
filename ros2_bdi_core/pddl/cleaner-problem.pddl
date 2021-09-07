@@ -1,26 +1,22 @@
-;; problem file: cleaner-problem.pddl
-
-(define (problem cleaner-problem)
-
-    (:domain cleaner-domain)
+``` 
+(define (problem moving-agent-problem)
+    
+    (:domain moving-agent-domain)
 
     (:objects 
-        agent0 - robot
+        mov_ag1 - robot
 		bathroom - waypoint
         dock - waypoint
     )
 
 	(:init 
-        (workfree agent0)
-        (in agent0 dock)
+        (in mov_ag1 dock)
         (recharging_station dock)
-		(= (battery_charge) 100)
+		(= (battery_charge mov_ag1) 30)
     )
 
     (:goal 
-        (and 
-            (cleaned bathroom)
-        )
+        (and (in mov_ag1 bathroom))
     )
-
 )
+``` 
