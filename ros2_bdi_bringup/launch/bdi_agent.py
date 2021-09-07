@@ -97,6 +97,9 @@ ABORT_AFTER_DEADLINE_PARAM = 'abort_after_deadline'
 COMP_PLAN_TRIES_PARAM = 'compute_plan_tries'
 EXEC_PLAN_TRIES_PARAM = 'exec_plan_tries'
 
+AUTOSUBMIT_PREC_PARAM = "autosubmit_precond"
+AUTOSUBMIT_CONTEXT_PARAM = "autosubmit_context"
+
 RESCHEDULE_POLICY_PARAM = 'reschedule_policy'
 RESCHEDULE_POLICY_VAL_NO_IF_EXEC = 'IF_EXEC'
 RESCHEDULE_POLICY_VAL_IF_EXEC = 'NO_IF_EXEC'
@@ -126,6 +129,14 @@ RESCHEDULE_POLICY_VAL_IF_EXEC = 'NO_IF_EXEC'
             ** "compute_plan_tries": integer value specifying number of times plan can be computed for a desire before discarding it
             ** "exec_plan_tries": integer value specifying number of times plan can be executed for a desire before giving up and discarding it
             
+            ** "autosubmit_precond": boolean value specifying if the agent autosubmit to itself the precondition(s) as desire(s)
+                                    if they are not verified and the plan for the given desire cannot be computed due to them
+                                    (default value = false)
+
+            ** "autosubmit_context": boolean value specifying if the agent autosubmit to itself the context condition(s) as desire(s)
+                                    if they are not verified and the plan for the given desire cannot be carried on due to them
+                                    (default value = false)
+
             ** "reschedule_policy": string in {"NO_IF_EXEC", "IF_EXEC"}, otherwise "NO_IF_EXEC"
                                     to specify the reschedule policy
 '''
@@ -230,6 +241,8 @@ def AgentLaunchDescription(
     reschedule_policy = 'NO_IF_EXEC'
     comp_plan_tries = 16
     exec_plan_tries = 16
+    autosubmit_prec = False
+    autosubmit_context = False
 
     if RESCHEDULE_POLICY_PARAM in init_params:
         if (init_params[RESCHEDULE_POLICY_PARAM] == RESCHEDULE_POLICY_VAL_IF_EXEC or init_params[RESCHEDULE_POLICY_PARAM] == RESCHEDULE_POLICY_VAL_NO_IF_EXEC ):
@@ -247,6 +260,16 @@ def AgentLaunchDescription(
     else:
         log_automatic_set(COMP_PLAN_TRIES_PARAM, exec_plan_tries)
 
+    if AUTOSUBMIT_PREC_PARAM in init_params and isinstance(init_params[AUTOSUBMIT_PREC_PARAM], bool):
+        autosubmit_prec = init_params[AUTOSUBMIT_PREC_PARAM]
+    else:
+        log_automatic_set(AUTOSUBMIT_PREC_PARAM, autosubmit_prec)
+
+    if AUTOSUBMIT_CONTEXT_PARAM in init_params and isinstance(init_params[AUTOSUBMIT_CONTEXT_PARAM], bool):
+        autosubmit_context = init_params[AUTOSUBMIT_CONTEXT_PARAM]
+    else:
+        log_automatic_set(AUTOSUBMIT_CONTEXT_PARAM, autosubmit_context)
+
     scheduler = Node(
         package='ros2_bdi_core',
         executable='scheduler',
@@ -257,7 +280,9 @@ def AgentLaunchDescription(
             {AGENT_ID_PARAM: agent_id},
             {RESCHEDULE_POLICY_PARAM: reschedule_policy},
             {COMP_PLAN_TRIES_PARAM: comp_plan_tries},
-            {EXEC_PLAN_TRIES_PARAM: exec_plan_tries}
+            {EXEC_PLAN_TRIES_PARAM: exec_plan_tries},
+            {AUTOSUBMIT_PREC_PARAM: autosubmit_prec},
+            {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}
         ])
 
     '''

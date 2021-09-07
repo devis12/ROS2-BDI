@@ -9,6 +9,7 @@
 #include "lifecycle_msgs/srv/get_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
 #define TIMER_MIN 250
@@ -54,6 +55,8 @@ public:
             milliseconds(work_timer_interval_),
             bind(&PlanSys2Monitor::checkPlanSys2State, this));
 
+    psys2_comm_errors_ = 0;
+
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
     psys2_planner_active_ = false;
@@ -67,15 +70,21 @@ public:
   */
   void checkPlanSys2State()
   {
+    //if psys2 appears crashed, crash too
+    if(psys2_comm_errors_ > MAX_COMM_ERRORS)
+        rclcpp::shutdown();
+
     bool psys2NodesActive = allActive();
 
     if(psys2NodesActive && work_timer_interval_ < TIMER_MAX)
     {
         //all psys2 nodes are active & the work timer interval can still be enlarge
+        psys2_comm_errors_ = 0;
         work_timer_interval_ += TIMER_MIN;
         resetWorkTimer();
     
     }else if(!psys2NodesActive && work_timer_interval_ > TIMER_MIN){
+        psys2_comm_errors_++;
         //some psys2 nodes are not active & the work timer interval has to be put down to the minimum
         work_timer_interval_ = TIMER_MIN;
         resetWorkTimer();
@@ -163,7 +172,7 @@ private:
     void checkPsys2NodeActiveThread(const string& psys2NodeName)
     {
         RCLCPP_DEBUG(this->get_logger(), "Checking active state of " + psys2NodeName);
-        
+        bool active = false;
         try{
             //check for service to be up
             rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr client_ = 
@@ -171,31 +180,39 @@ private:
             if(!client_->wait_for_service(std::chrono::seconds(1))){
                 //service seems not even present, just return false
                 RCLCPP_WARN(this->get_logger(), psys2NodeName + "/get_state server does not appear to be up");
-                return;
+                active = false;
+            }
+            else
+            {
+                // service up -> query it to know PlanSys2 node active state
+                auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
+                auto future = client_->async_send_request(request);
+                auto response = future.get();
+                active = response->current_state.id == 3 && response->current_state.label == "active";
             }
             
-            auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
-            auto future = client_->async_send_request(request);
-            auto response = future.get();
-            if(psys2NodeName == "domain_expert")
-                psys2_domain_expert_active_ = response->current_state.id == 3 && response->current_state.label == "active";
-            else if(psys2NodeName == "problem_expert")
-                psys2_problem_expert_active_ = response->current_state.id == 3 && response->current_state.label == "active";
-            else if(psys2NodeName == "planner")
-                psys2_planner_active_ = response->current_state.id == 3 && response->current_state.label == "active";
-            else if(psys2NodeName == "executor")
-                psys2_executor_active_ = response->current_state.id == 3 && response->current_state.label == "active";
 
         }
         catch(const rclcpp::exceptions::RCLError& rclerr)
         {
-            //TODO fix this by avoiding to create a new client if a
+            active = false;
             RCLCPP_ERROR(this->get_logger(), rclerr.what());
         }
         catch(const std::exception &e)
         {
+            active = false;
             RCLCPP_ERROR(this->get_logger(), "Response error in " + psys2NodeName + "/get_state");
         }
+
+        //assign active flag to respective boolean value representing the active state of the PlanSys2 node
+        if(psys2NodeName == "domain_expert")
+            psys2_domain_expert_active_ = active;
+        else if(psys2NodeName == "problem_expert")
+            psys2_problem_expert_active_ = active;
+        else if(psys2NodeName == "planner")
+            psys2_planner_active_ = active;
+        else if(psys2NodeName == "executor")
+            psys2_executor_active_ = active;
     }
 
         
@@ -215,6 +232,9 @@ private:
     bool psys2_planner_active_;
     // flag to denote if the executor node seems to be up and active
     bool psys2_executor_active_;
+
+    // comm errors psys2
+    int psys2_comm_errors_;
 
     shared_ptr<thread> chk_problem_expert_thread_;
     shared_ptr<thread> chk_domain_expert_thread_;

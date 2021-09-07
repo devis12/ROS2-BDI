@@ -557,7 +557,7 @@ private:
                 actionExecutionInfo.duration = fromTimeMsgToSeconds(psys2_action_feed.duration.sec,  
                     psys2_action_feed.duration.nanosec);
 
-                actionExecutionInfo.status = psys2_action_feed.completion;
+                actionExecutionInfo.progress = psys2_action_feed.completion;
 
                 planExecutionInfo.executing.push_back(actionExecutionInfo);//add action execution info to plan execution info 
             }    

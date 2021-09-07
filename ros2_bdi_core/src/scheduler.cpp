@@ -44,6 +44,8 @@
 #define PARAM_RESCHEDULE_POLICY "reschedule_policy"
 #define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_IF_EXEC"
 #define VAL_RESCHEDULE_POLICY_IF_EXEC "IF_EXEC"
+#define PARAM_AUTOSUBMIT_PREC "autosubmit_precond"
+#define PARAM_AUTOSUBMIT_CONTEXT "autosubmit_context"
 
 using std::string;
 using std::vector;
@@ -90,6 +92,8 @@ public:
     this->declare_parameter(PARAM_MAX_TRIES_COMP_PLAN, 8);
     this->declare_parameter(PARAM_MAX_TRIES_EXEC_PLAN, 8);
     this->declare_parameter(PARAM_RESCHEDULE_POLICY, VAL_RESCHEDULE_POLICY_NO_IF_EXEC);
+    this->declare_parameter(PARAM_AUTOSUBMIT_PREC, false);
+    this->declare_parameter(PARAM_AUTOSUBMIT_CONTEXT, false);
 
   }
 
@@ -423,33 +427,38 @@ private:
                         RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents a valid goal, but planner cannot compute any plan for it at the moment");
                 }
             }
-            else if(!explicitPreconditionSatisfied)
+            else if(!explicitPreconditionSatisfied && this->get_parameter(PARAM_AUTOSUBMIT_PREC).as_bool())
             {
-                // explicit preconditions are not satisfied... see if it's feasible to compute a plan to reach them
-                // (just if not already done... that's why you look into the invalid map)
-                // if it is the case submit desire to itself with higher priority than the one just considered 
-                string fulfillPreconditionDesireName = md.getName() + "_fulfill_precondition";
-
-                //put slightly lower priority because these would be desires for satisfy the pre precondition
-                vector<ManagedDesire> fulfillPreconditionDesires = BDIFilter::conditionsToMGDesire(md.getPrecondition(), 
-                    fulfillPreconditionDesireName, 
-                    std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
-                
                 int pushed = 0;
-                for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
+                if(validGoal(md))
                 {
-                    if(desire_set_.count(fulfillPreconditionD) == 0 && validGoal(fulfillPreconditionD))//fulfill precondition not inserted yet
-                    {   
-                        if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
-                                +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
-                        fulfillPreconditionD.setParent(md);//set md as its parent desire
-                        if(addDesire(fulfillPreconditionD, md, "_preconditions"))
-                            pushed++;
+                    // explicit preconditions are not satisfied... see if it's feasible to compute a plan to reach them
+                    // (just if not already done... that's why you look into the invalid map)
+                    // if it is the case submit desire to itself with higher priority than the one just considered 
+                    string fulfillPreconditionDesireName = md.getName() + "_fulfill_precondition";
+
+                    //put slightly lower priority because these would be desires for satisfy the pre precondition
+                    vector<ManagedDesire> fulfillPreconditionDesires = BDIFilter::conditionsToMGDesire(md.getPrecondition(), 
+                        fulfillPreconditionDesireName, 
+                        std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
+                    
+                    for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
+                    {
+                        if(desire_set_.count(fulfillPreconditionD) == 0 && validGoal(fulfillPreconditionD))//fulfill precondition not inserted yet
+                        {   
+                            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                                RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
+                                    +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
+                            fulfillPreconditionD.setParent(md);//set md as its parent desire
+                            if(addDesire(fulfillPreconditionD, md, "_preconditions"))
+                                pushed++;
+                        }
                     }
                 }
+
                 if(pushed == 0)
                     invalidDesire = true;
+                
             }
 
             if(invalidDesire || (!computedPlan && explicitPreconditionSatisfied))
@@ -658,7 +667,7 @@ private:
                             RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
                         delDesire(targetDesire);
                     
-                    }else if(!targetDesire.getContext().isSatisfied(belief_set_)){
+                    }else if(!targetDesire.getContext().isSatisfied(belief_set_) && this->get_parameter(PARAM_AUTOSUBMIT_CONTEXT).as_bool()){
                         // check for context condition failed 
                         // (just if not already done... that's why you look into the invalid map)
                         // plan exec could have failed cause of them: evaluate if they can be reached and submit the desire to yourself

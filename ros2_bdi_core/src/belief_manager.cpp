@@ -132,7 +132,9 @@ public:
   {
     // all psys2 up -> no psys2 comm. errors
     if(psys2_domain_expert_active_ && psys2_problem_expert_active_ )
-            psys2_comm_errors_ = 0;
+        psys2_comm_errors_ = 0;
+    else
+        psys2_comm_errors_++;
 
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
@@ -144,7 +146,8 @@ public:
         {
             if(psys2_domain_expert_active_ && psys2_problem_expert_active_ ){
                 psys2_comm_errors_ = 0;
-                tryInitBeliefSet();
+                if(belief_set_.size() == 0)//belief set empty
+                    tryInitBeliefSet();
                 setState(SYNC);
             
             }else{

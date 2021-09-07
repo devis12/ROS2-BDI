@@ -44,7 +44,7 @@
 
     (:durative-action asksweeping
         :parameters (?r_me ?r_sweeper - robot ?wp - waypoint)
-        :duration (= ?duration 16)
+        :duration (= ?duration 20)
         :condition (and
             (over all (issweeper ?r_sweeper))
         )

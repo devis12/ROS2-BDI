@@ -22,7 +22,7 @@
   name: "workfree"
   pddl_type: 2 
   params: 
-    - "cleaner"
+    - "cleaner" 
 -
   name: "issweeper"
   pddl_type: 2 

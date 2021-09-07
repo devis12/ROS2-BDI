@@ -49,7 +49,9 @@ def generate_launch_description():
         init_params={
             'pddl_file': bdi_tests_share_dir + '/pddl/cleaner_simple/cleaner-domain.pddl',
             'init_bset': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_bset.yaml',
-            'init_dset': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_dset.yaml'
+            'init_dset': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_dset.yaml',
+            'autosubmit_precond': False,
+            'autosubmit_context': True
         },
         actions=[action_movetoward, action_doclean, action_recharge],
         sensors=[wp_sensor]

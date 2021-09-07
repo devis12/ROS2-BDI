@@ -8,7 +8,7 @@
 # @actual_start  -> actual time of start for this action
 # @exec_time     -> exec_time in sec (prec. up to ms) of the action wrt. start of its execution
 # @duration      -> estimated time in sec for its completion (based on domain info)
-# @status        -> status percentage in [0.0-1.0] of the current action execution 
+# @progress      -> progress status percentage in [0.0-1.0] of the current action execution 
 
 uint16      index
 string      name
@@ -17,4 +17,4 @@ float32     planned_start
 float32     actual_start
 float32     exec_time
 float32     duration
-float32     status
+float32     progress
