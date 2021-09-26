@@ -21,23 +21,13 @@ class AskSweeping : public BDIActionExecutor
             if(currProgress == 0.0f)
             {
                 sweep_desire_ = buildSweepRequest(waypoint);
-                
-                if(!sent_){
-                    sendDesireRequest(sweeper_id, sweep_desire_, ADD, true);
-                    sent_ = true;
-                }
+                auto reqStatus = sendUpdDesireRequest(sweeper_id, sweep_desire_, ADD, true);
+                if(reqStatus.accepted && reqStatus.performed)
+                    advancement += 0.015625f;//stop asking, wait for the fulfillment or long enough to know action is failed
 
-                advancement = 0.0f;// no advancement
+                else//desire request not accepted -> fail action    
+                    execFailed("Desire to sweep " + waypoint + " has been denied by " + sweeper_id);
                 
-                auto reqStatus = updDesireRequestStatus();
-                if(sent_ && reqStatus.arrived)
-                {
-                    if(reqStatus.accepted && reqStatus.performed)
-                        advancement += 0.015625f;//stop asking, wait for the fulfillment or long enough to know action is failed
-
-                    else//desire request not accepted -> fail action    
-                        execFailed("Desire to sweep " + waypoint + " has been denied by " + sweeper_id);
-                }
             
             }else if(isMonitoredDesireSatisfied()){
                 advancement = 1.0f - currProgress;//missing part complete

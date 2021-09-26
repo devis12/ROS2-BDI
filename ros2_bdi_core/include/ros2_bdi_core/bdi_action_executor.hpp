@@ -21,6 +21,8 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include "ros2_bdi_core/communications_client.hpp"
+
 #include "plansys2_executor/ActionExecutorClient.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -49,39 +51,6 @@ using ros2_bdi_interfaces::srv::UpdBeliefSet;
 using ros2_bdi_interfaces::srv::CheckDesire;  
 using ros2_bdi_interfaces::srv::UpdDesireSet;  
 
-typedef struct{
-  Belief belief;
-  bool arrived;
-  bool accepted;
-  bool found;
-} CheckBeliefResult;
-
-typedef struct{
-  Desire desire;
-  bool arrived;
-  bool accepted;
-  bool found;
-} CheckDesireResult;
-
-//Operation that can be performed when sending Belief/Desire requests
-typedef enum {ADD, DEL} UpdOperation;
-
-typedef struct{
-  Belief belief;
-  UpdOperation op;
-  bool arrived;
-  bool accepted;
-  bool performed;
-} UpdBeliefResult;
-
-typedef struct{
-  Desire desire;
-  UpdOperation op;
-  bool arrived;
-  bool accepted;
-  bool performed;
-} UpdDesireResult;
-
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {
 public:
@@ -100,6 +69,8 @@ public:
 
         // agent's group name
         agent_group_ = this->get_parameter(PARAM_AGENT_GROUP_ID).as_string();
+
+        comm_client_ = std::make_shared<CommunicationsClient>();
 
         // set agent id as specialized arguments
         vector<string> specialized_arguments = vector<string>();
@@ -128,11 +99,6 @@ protected:
     /*return current progress state of the action*/
     float getProgress() {return progress_;} 
 
-    CheckBeliefResult  checkBeliefRequestStatus()  {return last_belief_ck_;}
-    CheckDesireResult  checkDesireRequestStatus()  {return last_desire_ck_;}
-    UpdBeliefResult updBeliefRequestStatus()    {return last_belief_upd_;}
-    UpdDesireResult updDesireRequestStatus()    {return last_desire_upd_;}
-
     /*
         Call to perform at each action activation
     */
@@ -140,29 +106,6 @@ protected:
     { 
         // status set to initial status 0.0%
         progress_ = 0.0f;
-
-        // flag to get info of last belief check request
-        last_belief_ck_.belief = Belief(); 
-        last_belief_ck_.arrived = false; 
-        last_belief_ck_.accepted = false; 
-        last_belief_ck_.found = false; 
-        // flag to get info of last belief request
-        last_belief_upd_.belief = Belief(); 
-        last_belief_upd_.arrived = false;
-        last_belief_upd_.accepted = false;
-        last_belief_upd_.performed = false;
-
-        // flag to get info of last desire read request
-        last_desire_ck_.desire = Desire(); 
-        last_desire_ck_.arrived = false; 
-        last_desire_ck_.accepted = false; 
-        last_desire_ck_.found = false; 
-        // flag to get info about last desire request
-        last_desire_upd_.desire = Desire(); 
-        last_desire_upd_.arrived = false;
-        last_desire_upd_.accepted = false;
-        last_desire_upd_.performed = false;
-      
 
         RCLCPP_INFO(this->get_logger(), "Action executor controller for \"" + action_name_ + "\" ready for execution");
 
@@ -198,232 +141,30 @@ protected:
 
     virtual float advanceWork() = 0;
 
-    void sendCheckBeliefRequest(const string& agentRef, const Belief& belief)
+    CheckBeliefResult sendCheckBeliefRequest(const string& agentRef, const Belief& belief)
     {
-      shared_ptr<thread> sendBeliefReqThread = std::make_shared<thread>(
-          bind(&BDIActionExecutor::checkBeliefRequestClientThread, this, agentRef, belief));
-      sendBeliefReqThread->detach();
-    }
-
-    void checkBeliefRequestClientThread(const string& agentRef, const Belief& belief)
-    {
-      string serviceName = "/" + agentRef + "/check_belief_srv";
-      
-      last_belief_ck_.belief = belief;
-      last_belief_ck_.arrived = false;
-      last_belief_ck_.accepted = false;
-      last_belief_ck_.found = false;
-      
-      try{
-            //check for service to be up
-            rclcpp::Client<CheckBelief>::SharedPtr client_ = this->create_client<CheckBelief>(serviceName);
-            if(!client_->wait_for_service(std::chrono::seconds(1)))
-            {
-                //service seems not even present, just return false
-                RCLCPP_WARN(this->get_logger(), serviceName + " server does not appear to be up");
-            }
-            else
-            {
-              auto request = std::make_shared<CheckBelief::Request>();
-              request->belief = belief;
-              request->agent_group = agent_group_;
-
-              auto future = client_->async_send_request(request);
-              auto response = future.get();
-
-              last_belief_ck_.found = response->found;
-              last_belief_ck_.accepted = response->accepted;
-              last_belief_ck_.arrived = true;
-            }
-        }
-        catch(const rclcpp::exceptions::RCLError& rclerr)
-        {
-            //TODO fix this by avoiding to create a new client if a
-            RCLCPP_ERROR(this->get_logger(), rclerr.what());
-        }
-        catch(const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Response error in " + serviceName);
-        }
-
-        //mtx_desire_req_lock_.unlock();
+      return comm_client_->checkBeliefRequest(agentRef, agent_group_, belief);
     }
 
     /*
       Utility methods to send belief request (ADD/DEL) to other agents within the action doWork method implementation
     */
-    void sendBeliefRequest(const string& agentRef, const Belief& belief, const UpdOperation& op)
+    UpdBeliefResult sendUpdBeliefRequest(const string& agentRef, const Belief& belief, const UpdOperation& op)
     {
-
-      shared_ptr<thread> sendBeliefReqThread = std::make_shared<thread>(
-          bind(&BDIActionExecutor::updBeliefRequestClientThread, this, agentRef, belief, op));
-      sendBeliefReqThread->detach();
+      return comm_client_->updBeliefRequest(agentRef, agent_group_, belief, op);
     }
 
-
-    void updBeliefRequestClientThread(const string& agentRef, const Belief& belief, const UpdOperation& op)
+    CheckDesireResult sendCheckDesireRequest(const string& agentRef, const Desire& desire)
     {
-        string serviceName = "/" + agentRef + "/" + 
-          ((op==ADD)? "add" : "del") + 
-          "_belief_srv";
-
-        last_belief_upd_.belief = belief;
-        last_belief_upd_.op = op;
-
-        last_belief_upd_.arrived = false;
-        last_belief_upd_.accepted = false;
-        last_belief_upd_.performed = false;
-
-       try{
-            //check for service to be up
-            rclcpp::Client<UpdBeliefSet>::SharedPtr client_ = this->create_client<UpdBeliefSet>(serviceName);
-            if(!client_->wait_for_service(std::chrono::seconds(1)))
-            {
-                //service seems not even present, just return false
-                RCLCPP_WARN(this->get_logger(), serviceName + " server does not appear to be up");
-            }
-            else
-            {
-              auto request = std::make_shared<UpdBeliefSet::Request>();
-              request->belief = belief;
-              request->agent_group = agent_group_;
-              auto future = client_->async_send_request(request);
-              auto response = future.get();
-
-              last_belief_upd_.performed = response->updated;
-              last_belief_upd_.accepted = response->accepted;
-              last_belief_upd_.arrived = true;
-            }
-        }
-        catch(const rclcpp::exceptions::RCLError& rclerr)
-        {
-            //TODO fix this by avoiding to create a new client if a
-            RCLCPP_ERROR(this->get_logger(), rclerr.what());
-        }
-        catch(const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Response error in " + serviceName);
-        }
+      return comm_client_->checkDesireRequest(agentRef, agent_group_, desire);
     }
 
-    void sendCheckDesireRequest(const string& agentRef, const Desire& desire)
+    UpdDesireResult sendUpdDesireRequest(const string& agentRef, const Desire& desire, const UpdOperation& op, const bool& monitorFulfill)
     {
-      shared_ptr<thread> sendDesireReqThread = std::make_shared<thread>(
-          bind(&BDIActionExecutor::checkDesireRequestClientThread, this, agentRef, desire));
-      sendDesireReqThread->detach();
-    }
-
-    void checkDesireRequestClientThread(const string& agentRef, const Desire& desire)
-    {
-      string serviceName = "/" + agentRef + "/check_desire_srv";
-      
-      last_desire_ck_.desire = desire;
-      last_desire_ck_.arrived = false;
-      last_desire_ck_.accepted = false;
-      last_desire_ck_.found = false;
-      
-      try{
-            //check for service to be up
-            rclcpp::Client<CheckDesire>::SharedPtr client_ = this->create_client<CheckDesire>(serviceName);
-            if(!client_->wait_for_service(std::chrono::seconds(1)))
-            {
-                //service seems not even present, just return false
-                RCLCPP_WARN(this->get_logger(), serviceName + " server does not appear to be up");
-            }
-            else
-            {
-              auto request = std::make_shared<CheckDesire::Request>();
-              request->desire = desire;
-              request->agent_group = agent_group_;
-
-              auto future = client_->async_send_request(request);
-              auto response = future.get();
-
-              last_desire_ck_.found = response->found;
-              last_desire_ck_.accepted = response->accepted;
-              last_desire_ck_.arrived = true;
-            }
-        }
-        catch(const rclcpp::exceptions::RCLError& rclerr)
-        {
-            //TODO fix this by avoiding to create a new client if a
-            RCLCPP_ERROR(this->get_logger(), rclerr.what());
-        }
-        catch(const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Response error in " + serviceName);
-        }
-
-        //mtx_desire_req_lock_.unlock();
-    }
-
-
-    /*
-      Utility methods to send desire request (ADD/DEL) to other agents within the action doWork method implementation
-    */
-    void sendDesireRequest(const string& agentRef, const Desire& desire, const UpdOperation& op, const bool& monitorFulfill)
-    {
-      //mtx_desire_req_lock_.lock();
-      shared_ptr<thread> sendDesireReqThread = std::make_shared<thread>(
-          bind(&BDIActionExecutor::updDesireRequestClientThread, this, agentRef, desire, op, monitorFulfill));
-      sendDesireReqThread->detach();//wait for thread to terminate and get the response
-      /*std::cout << "Desire request thread launched resp_arr=" << last_desire_req_resp_arrived_ << 
-      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;
-      mtx_desire_req_lock_.lock();
-      mtx_desire_req_lock_.unlock();
-      std::cout << "Desire request thread finished resp_arr=" << last_desire_req_resp_arrived_ << 
-      "\\t req_acc=" << last_desire_req_accepted_ << std::endl;*/
-    }
-
-    void updDesireRequestClientThread(const string& agentRef, const Desire& desire, const UpdOperation& op, const bool& monitorFulfill)
-    {
-      string serviceName = "/" + agentRef + "/" + 
-          ((op==ADD)? "add" : "del") + 
-          "_desire_srv";
-      
-      last_desire_upd_.desire = desire;
-      last_desire_upd_.op = op;
-
-      last_desire_upd_.arrived = false;
-      last_desire_upd_.accepted = false;
-      last_desire_upd_.performed = false;
-      
-      try{
-            //check for service to be up
-            rclcpp::Client<UpdDesireSet>::SharedPtr client_ = this->create_client<UpdDesireSet>(serviceName);
-            if(!client_->wait_for_service(std::chrono::seconds(1)))
-            {
-                //service seems not even present, just return false
-                RCLCPP_WARN(this->get_logger(), serviceName + " server does not appear to be up");
-            }
-            else
-            {
-              auto request = std::make_shared<UpdDesireSet::Request>();
-              request->desire = desire;
-              request->agent_group = agent_group_;
-
-              auto future = client_->async_send_request(request);
-              auto response = future.get();
-
-              last_desire_upd_.performed = response->updated;
-              last_desire_upd_.accepted = response->accepted;
-              last_desire_upd_.arrived = true;
-              
-              if(response->accepted && response->updated && monitorFulfill)//desire request accepted and monitor fulfillment has been requested
-                monitor(agentRef, desire);
-            }
-        }
-        catch(const rclcpp::exceptions::RCLError& rclerr)
-        {
-            //TODO fix this by avoiding to create a new client if a
-            RCLCPP_ERROR(this->get_logger(), rclerr.what());
-        }
-        catch(const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Response error in " + serviceName);
-        }
-
-        //mtx_desire_req_lock_.unlock();
+      auto res = comm_client_->updDesireRequest(agentRef, agent_group_, desire, op);
+      if(res.accepted && res.performed && monitorFulfill)
+        monitor(agentRef, desire);
+      return res;
     }
 
     /*
@@ -514,15 +255,7 @@ private:
 
     mutex mtx_desire_req_lock_;
 
-    // last belief read request result
-    CheckBeliefResult last_belief_ck_;
-    // last belief upd request arrived/accepted/performed flag
-    UpdBeliefResult last_belief_upd_;
-
-    // last desire read request result
-    CheckDesireResult last_desire_ck_;
-    // last desire upd request arrived/accepted/performed flag
-    UpdDesireResult last_desire_upd_;
+    shared_ptr<CommunicationsClient> comm_client_;
 
     // progress of the current action execution
     float progress_;
