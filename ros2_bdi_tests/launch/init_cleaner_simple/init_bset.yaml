@@ -2,19 +2,21 @@
   name: "recharging_station"
   pddl_type: 2 
   params: 
-    - "dock1"
+    - "dock"
 -
   name: "workfree"
   pddl_type: 2 
   params: 
-    - "agent1"
+    - "cleaner"
 -
   name: "in"
   pddl_type: 2 
   params: 
-    - "agent1"
-    - "dock1"
+    - "cleaner"
+    - "dock"
 -
   name: "battery_charge"
   pddl_type: 3
-  value:  90
+  params: 
+    - "cleaner"
+  value:  60

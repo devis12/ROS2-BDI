@@ -18,7 +18,7 @@
     )
 
     (:functions
-        (battery_charge)
+        (battery_charge ?r - robot)
     )
 
     (:durative-action movetoward
@@ -27,15 +27,15 @@
         :condition (and
             (at start (in ?r ?wp_from))
             (at start (workfree ?r))
-            (at start (> (battery_charge) 40))
-            (over all (> (battery_charge) 20))
+            (at start (> (battery_charge ?r) 20))
+            (over all (> (battery_charge ?r) 10))
         )
         :effect (and
             (at start (not(workfree ?r)))
             (at start (not(in ?r ?wp_from)))
             (at end (in ?r ?wp_to))
             (at end (workfree ?r))
-            (at end (decrease (battery_charge) 20))
+            (at end (decrease (battery_charge ?r) 10))
         )
     )
 
@@ -44,14 +44,15 @@
         :duration (= ?duration 4)
         :condition (and
             (at start (workfree ?r))
-            (at start (> (battery_charge) 50))
-            (over all (> (battery_charge) 25))
+            (at start (> (battery_charge ?r) 30))
+            (over all (> (battery_charge ?r) 10))
             (over all (in ?r ?wp))
         )
         :effect (and
             (at start (not(workfree ?r)))
             (at end (workfree ?r))
             (at end (cleaned ?wp))
+            (at end (decrease (battery_charge ?r) 20))
         )
     )
 
@@ -66,7 +67,7 @@
         :effect (and
             (at start (not(workfree ?r)))
             (at end (workfree ?r))
-            (at end (assign (battery_charge) 100))
+            (at end (assign (battery_charge ?r) 100))
         )
     )
 

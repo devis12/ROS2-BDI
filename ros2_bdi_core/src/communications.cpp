@@ -9,7 +9,7 @@
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
-#include "ros2_bdi_interfaces/srv/is_accepted_group.hpp"
+#include "ros2_bdi_interfaces/srv/is_accepted_operation.hpp"
 #include "ros2_bdi_interfaces/srv/check_belief.hpp"
 #include "ros2_bdi_interfaces/srv/upd_belief_set.hpp"
 #include "ros2_bdi_interfaces/srv/check_desire.hpp"
@@ -23,9 +23,9 @@
 
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_AGENT_GROUP_ID "agent_group"
-#define PARAM_BELIEF_READ "belief_r"
+#define PARAM_BELIEF_CHECK "belief_ck"
 #define PARAM_BELIEF_WRITE "belief_w"
-#define PARAM_DESIRE_READ "desire_r"
+#define PARAM_DESIRE_CHECK "desire_ck"
 #define PARAM_DESIRE_WRITE "desire_w"
 #define PARAM_DESIRE_MAX_PRIORITIES "desire_pr"
 #define PARAM_DEBUG "debug"
@@ -48,14 +48,14 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::DesireSet;
-using ros2_bdi_interfaces::srv::IsAcceptedGroup;
+using ros2_bdi_interfaces::srv::IsAcceptedOperation;
 using ros2_bdi_interfaces::srv::CheckBelief;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;
 using ros2_bdi_interfaces::srv::CheckDesire;
 using ros2_bdi_interfaces::srv::UpdDesireSet;
 
 typedef enum {BELIEF, DESIRE} RequestObjType;  
-typedef enum {READ, WRITE} RequestObjOp;  
+typedef enum {CHECK, WRITE} RequestObjOp;  
 
 class CommunicationManager : public rclcpp::Node
 {
@@ -66,9 +66,9 @@ public:
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
     this->declare_parameter(PARAM_DEBUG, true);
-    this->declare_parameter(PARAM_BELIEF_READ, vector<string>());
+    this->declare_parameter(PARAM_BELIEF_CHECK, vector<string>());
     this->declare_parameter(PARAM_BELIEF_WRITE, vector<string>());
-    this->declare_parameter(PARAM_DESIRE_READ, vector<string>());
+    this->declare_parameter(PARAM_DESIRE_CHECK, vector<string>());
     this->declare_parameter(PARAM_DESIRE_WRITE, vector<string>());
     this->declare_parameter(PARAM_DESIRE_MAX_PRIORITIES, vector<double>());
   }
@@ -82,7 +82,7 @@ public:
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     // init server for handling is accepted group queries
-    accepted_server_ = this->create_service<IsAcceptedGroup>("is_accepted_group", 
+    accepted_server_ = this->create_service<IsAcceptedOperation>("is_accepted_operation", 
         bind(&CommunicationManager::handleIsAcceptedGroup, this, _1, _2));
 
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
@@ -105,7 +105,7 @@ public:
 
     // init server for handling check belief requests from other agents
     chk_belief_server_ = this->create_service<CheckBelief>("check_belief_srv", 
-        bind(&CommunicationManager::handleReadBeliefRequest, this, _1, _2));
+        bind(&CommunicationManager::handleCheckBeliefRequest, this, _1, _2));
     
     // init server for handling add belief requests from other agents
     add_belief_server_ = this->create_service<UpdBeliefSet>("add_belief_srv", 
@@ -127,7 +127,7 @@ public:
 
     // init server for handling check desire requests from other agents
     chk_desire_server_ = this->create_service<CheckDesire>("check_desire_srv", 
-        bind(&CommunicationManager::handleReadDesireRequest, this, _1, _2));
+        bind(&CommunicationManager::handleCheckDesireRequest, this, _1, _2));
 
     // init server for handling add belief requests from other agents
     add_desire_server_ = this->create_service<UpdDesireSet>("add_desire_srv", 
@@ -192,8 +192,8 @@ private:
         case BELIEF:
           switch(requestObjOp)
           {
-            case READ:
-              acceptedGroups = this->get_parameter(PARAM_BELIEF_READ).as_string_array();
+            case CHECK:
+              acceptedGroups = this->get_parameter(PARAM_BELIEF_CHECK).as_string_array();
               break;
             case WRITE:
               acceptedGroups = this->get_parameter(PARAM_BELIEF_WRITE).as_string_array();
@@ -205,8 +205,8 @@ private:
          case DESIRE:
            switch(requestObjOp)
            {
-            case READ:
-              acceptedGroups = this->get_parameter(PARAM_DESIRE_READ).as_string_array();
+            case CHECK:
+              acceptedGroups = this->get_parameter(PARAM_DESIRE_CHECK).as_string_array();
               break;
             case WRITE:
               acceptedGroups = this->get_parameter(PARAM_DESIRE_WRITE).as_string_array();
@@ -225,14 +225,14 @@ private:
     /*  
         Accepted group service handler
     */
-    void handleIsAcceptedGroup(const IsAcceptedGroup::Request::SharedPtr request,
-        const IsAcceptedGroup::Response::SharedPtr response)
+    void handleIsAcceptedGroup(const IsAcceptedOperation::Request::SharedPtr request,
+        const IsAcceptedOperation::Response::SharedPtr response)
     {
       bool validType = request->type == request->BELIEF_TYPE || request->type == request->DESIRE_TYPE;
-      bool validOp = request->operation == request->READ || request->operation == request->WRITE;
+      bool validOp = request->operation == request->CHECK || request->operation == request->WRITE;
 
       RequestObjType objType = (request->type==request->DESIRE_TYPE)? DESIRE : BELIEF;
-      RequestObjOp objOp = (request->operation==request->READ)? READ : WRITE;
+      RequestObjOp objOp = (request->operation==request->CHECK)? CHECK : WRITE;
       if(!validType || !validOp || !isAcceptableRequest(request->agent_group, objType, objOp))
           response->accepted = false;
 
@@ -271,7 +271,7 @@ private:
           maxAcceptedPriority = std::max(0.000f, std::min(1.0f, (float)acceptedPriorities[indexAccepted]));//priority has to be between 0.001 and 1
         
         else
-          maxAcceptedPriority = 0.000f; //bad formatted accept_desires_max_priorities array, but do not refuse just put 0.001 as priority of the desire
+          maxAcceptedPriority = 0.000f; //bad formatted accept_desires_max_priorities array, but do not refuse just put 0.000 as priority of the desire
       }
 
       return maxAcceptedPriority;
@@ -359,11 +359,11 @@ private:
     /*  
         Read Belief Request service handler        
     */
-    void handleReadBeliefRequest(const CheckBelief::Request::SharedPtr request,
+    void handleCheckBeliefRequest(const CheckBelief::Request::SharedPtr request,
         const CheckBelief::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, BELIEF, READ))
+      if(!isAcceptableRequest(request->agent_group, BELIEF, CHECK))
         response->accepted = false;
 
       else
@@ -429,11 +429,11 @@ private:
     /*  
         Read Desire Request service handler        
     */
-    void handleReadDesireRequest(const CheckDesire::Request::SharedPtr request,
+    void handleCheckDesireRequest(const CheckDesire::Request::SharedPtr request,
         const CheckDesire::Response::SharedPtr response)
     {
       //see if the requesting agent belongs to a group which is entitled to this kind of requests
-      if(!isAcceptableRequest(request->agent_group, DESIRE, READ))
+      if(!isAcceptableRequest(request->agent_group, DESIRE, CHECK))
         response->accepted = false;
 
       else
@@ -495,10 +495,10 @@ private:
         desire_set_upd_locks_[DEL_I].lock();
             desire_waiting_for_ = ManagedDesire{request->desire};
             desire_waiting_for_counter_[DEL_I] = 0;
-          desire_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
-          desire_set_upd_locks_[DEL_I].unlock();//release it
+        desire_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
+        desire_set_upd_locks_[DEL_I].unlock();//release it
 
-          response->updated = desire_set_.count(ManagedDesire{request->desire}) == 0;
+        response->updated = desire_set_.count(ManagedDesire{request->desire}) == 0;
       }
     }
     
@@ -506,7 +506,7 @@ private:
     string agent_id_;
 
     // handle accepted group queries by other agents
-    rclcpp::Service<IsAcceptedGroup>::SharedPtr accepted_server_;
+    rclcpp::Service<IsAcceptedOperation>::SharedPtr accepted_server_;
 
     // mirroring of the current state of the belief set
     set<ManagedBelief> belief_set_;

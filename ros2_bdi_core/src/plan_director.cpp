@@ -36,7 +36,7 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define PARAM_CANCEL_AFTER_DEADLINE "abort_after_deadline"
+#define PARAM_CANCEL_AFTER_DEADLINE "rtc_deadline"
 #define NO_PLAN_INTERVAL 1000
 #define PLAN_INTERVAL 250
 
@@ -416,7 +416,7 @@ private:
         ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
         ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
         bool done = false;
-        if(request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
+        if(request->request == request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
         {
             //when aborting do not check preconditions and/or context... plan executed considered equivalent regardless of that
             ManagedPlan mp_abort = ManagedPlan{mdPlan, request->plan.actions};
@@ -427,7 +427,7 @@ private:
                 done = executingNoPlan();
             }
         }
-        else if(request->EXECUTE && state_ == READY)//no plan currently in exec
+        else if(request->request == request->EXECUTE && state_ == READY)//no plan currently in exec
         {
             ManagedPlan requestedPlan = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
             // verify precondition before actually trying triggering executor
@@ -489,12 +489,13 @@ private:
 
         if(planExecutionInfo.status != planExecutionInfo.RUNNING)
         {
+            ManagedDesire targetDes = current_plan_.getDesire();
             //in any case plan execution has stopped, so go back to printing out you're not executing any plan
             resetWorkTimer(NO_PLAN_INTERVAL);
             setNoPlanMsg();
             setState(READY);
 
-            if(planExecutionInfo.status == planExecutionInfo.ABORT)//plan execution aborted -> beliefs rollback
+            if(planExecutionInfo.status == planExecutionInfo.ABORT /*&& !targetDes.isFulfilled(belief_set_)*/)//plan execution aborted -> beliefs rollback
                 publishRollbackBeliefs(planExecutionInfo.target.rollback_belief_add, planExecutionInfo.target.rollback_belief_del);
             
             // ended run log 

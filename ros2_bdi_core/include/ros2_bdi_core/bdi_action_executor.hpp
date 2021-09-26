@@ -67,10 +67,20 @@ typedef struct{
 typedef enum {ADD, DEL} UpdOperation;
 
 typedef struct{
+  Belief belief;
+  UpdOperation op;
   bool arrived;
   bool accepted;
   bool performed;
-} UpdOperationResult;
+} UpdBeliefResult;
+
+typedef struct{
+  Desire desire;
+  UpdOperation op;
+  bool arrived;
+  bool accepted;
+  bool performed;
+} UpdDesireResult;
 
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {
@@ -91,26 +101,6 @@ public:
         // agent's group name
         agent_group_ = this->get_parameter(PARAM_AGENT_GROUP_ID).as_string();
 
-        // flag to get info of last belief read request
-        last_belief_read_.belief = Belief(); 
-        last_belief_read_.arrived = false; 
-        last_belief_read_.accepted = false; 
-        last_belief_read_.found = false; 
-        // flag to get info of last belief request
-        last_belief_upd_.arrived = false;
-        last_belief_upd_.accepted = false;
-        last_belief_upd_.performed = false;
-
-        // flag to get info of last desire read request
-        last_desire_read_.desire = Desire(); 
-        last_desire_read_.arrived = false; 
-        last_desire_read_.accepted = false; 
-        last_desire_read_.found = false; 
-        // flag to get info about last desire request
-        last_desire_upd_.arrived = false;
-        last_desire_upd_.accepted = false;
-        last_desire_upd_.performed = false;
-      
         // set agent id as specialized arguments
         vector<string> specialized_arguments = vector<string>();
         specialized_arguments.push_back(agent_id_);
@@ -126,7 +116,7 @@ public:
        rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_activate(const rclcpp_lifecycle::State & previous_state)
   {
-    init();
+    activation();
     std::cout << "\n\n!!! (" << this->get_parameter("action_name").as_string() << ") activated!\n\n" << std::endl;
     return ActionExecutorClient::on_activate(previous_state);
   }
@@ -138,20 +128,41 @@ protected:
     /*return current progress state of the action*/
     float getProgress() {return progress_;} 
 
-    CheckBeliefResult  checkBeliefRequestStatus()  {return last_belief_read_;}
-    CheckDesireResult  checkDesireRequestStatus()  {return last_desire_read_;}
-    UpdOperationResult updBeliefRequestStatus()    {return last_belief_upd_;}
-    UpdOperationResult updDesireRequestStatus()    {return last_desire_upd_;}
+    CheckBeliefResult  checkBeliefRequestStatus()  {return last_belief_ck_;}
+    CheckDesireResult  checkDesireRequestStatus()  {return last_desire_ck_;}
+    UpdBeliefResult updBeliefRequestStatus()    {return last_belief_upd_;}
+    UpdDesireResult updDesireRequestStatus()    {return last_desire_upd_;}
 
     /*
-        Init to call at the start, after construction method, to get the node actually started
-        Main thing to be added: frequency at which to perform doWork method which publish the
-        progress feedback
+        Call to perform at each action activation
     */
-    void init()
+    void activation()
     { 
         // status set to initial status 0.0%
         progress_ = 0.0f;
+
+        // flag to get info of last belief check request
+        last_belief_ck_.belief = Belief(); 
+        last_belief_ck_.arrived = false; 
+        last_belief_ck_.accepted = false; 
+        last_belief_ck_.found = false; 
+        // flag to get info of last belief request
+        last_belief_upd_.belief = Belief(); 
+        last_belief_upd_.arrived = false;
+        last_belief_upd_.accepted = false;
+        last_belief_upd_.performed = false;
+
+        // flag to get info of last desire read request
+        last_desire_ck_.desire = Desire(); 
+        last_desire_ck_.arrived = false; 
+        last_desire_ck_.accepted = false; 
+        last_desire_ck_.found = false; 
+        // flag to get info about last desire request
+        last_desire_upd_.desire = Desire(); 
+        last_desire_upd_.arrived = false;
+        last_desire_upd_.accepted = false;
+        last_desire_upd_.performed = false;
+      
 
         RCLCPP_INFO(this->get_logger(), "Action executor controller for \"" + action_name_ + "\" ready for execution");
 
@@ -198,10 +209,10 @@ protected:
     {
       string serviceName = "/" + agentRef + "/check_belief_srv";
       
-      last_belief_read_.belief = belief;
-      last_belief_read_.arrived = false;
-      last_belief_read_.accepted = false;
-      last_belief_read_.found = false;
+      last_belief_ck_.belief = belief;
+      last_belief_ck_.arrived = false;
+      last_belief_ck_.accepted = false;
+      last_belief_ck_.found = false;
       
       try{
             //check for service to be up
@@ -220,9 +231,9 @@ protected:
               auto future = client_->async_send_request(request);
               auto response = future.get();
 
-              last_belief_read_.found = response->found;
-              last_belief_read_.accepted = response->accepted;
-              last_belief_read_.arrived = true;
+              last_belief_ck_.found = response->found;
+              last_belief_ck_.accepted = response->accepted;
+              last_belief_ck_.arrived = true;
             }
         }
         catch(const rclcpp::exceptions::RCLError& rclerr)
@@ -255,7 +266,10 @@ protected:
         string serviceName = "/" + agentRef + "/" + 
           ((op==ADD)? "add" : "del") + 
           "_belief_srv";
-       
+
+        last_belief_upd_.belief = belief;
+        last_belief_upd_.op = op;
+
         last_belief_upd_.arrived = false;
         last_belief_upd_.accepted = false;
         last_belief_upd_.performed = false;
@@ -303,10 +317,10 @@ protected:
     {
       string serviceName = "/" + agentRef + "/check_desire_srv";
       
-      last_desire_read_.desire = desire;
-      last_desire_read_.arrived = false;
-      last_desire_read_.accepted = false;
-      last_desire_read_.found = false;
+      last_desire_ck_.desire = desire;
+      last_desire_ck_.arrived = false;
+      last_desire_ck_.accepted = false;
+      last_desire_ck_.found = false;
       
       try{
             //check for service to be up
@@ -325,9 +339,9 @@ protected:
               auto future = client_->async_send_request(request);
               auto response = future.get();
 
-              last_desire_read_.found = response->found;
-              last_desire_read_.accepted = response->accepted;
-              last_desire_read_.arrived = true;
+              last_desire_ck_.found = response->found;
+              last_desire_ck_.accepted = response->accepted;
+              last_desire_ck_.arrived = true;
             }
         }
         catch(const rclcpp::exceptions::RCLError& rclerr)
@@ -367,6 +381,9 @@ protected:
           ((op==ADD)? "add" : "del") + 
           "_desire_srv";
       
+      last_desire_upd_.desire = desire;
+      last_desire_upd_.op = op;
+
       last_desire_upd_.arrived = false;
       last_desire_upd_.accepted = false;
       last_desire_upd_.performed = false;
@@ -498,14 +515,14 @@ private:
     mutex mtx_desire_req_lock_;
 
     // last belief read request result
-    CheckBeliefResult last_belief_read_;
+    CheckBeliefResult last_belief_ck_;
     // last belief upd request arrived/accepted/performed flag
-    UpdOperationResult last_belief_upd_;
+    UpdBeliefResult last_belief_upd_;
 
     // last desire read request result
-    CheckDesireResult last_desire_read_;
+    CheckDesireResult last_desire_ck_;
     // last desire upd request arrived/accepted/performed flag
-    UpdOperationResult last_desire_upd_;
+    UpdDesireResult last_desire_upd_;
 
     // progress of the current action execution
     float progress_;

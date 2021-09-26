@@ -133,8 +133,6 @@ public:
     // all psys2 up -> no psys2 comm. errors
     if(psys2_domain_expert_active_ && psys2_problem_expert_active_ )
         psys2_comm_errors_ = 0;
-    else
-        psys2_comm_errors_++;
 
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
@@ -246,16 +244,11 @@ private:
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
 
-        mtx_sync.lock();
-            if(psys2_problem_expert_active_)
-            {
-                vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
-                vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
-                vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
-                notify = updateBeliefSet(instances, predicates, functions);
-                
-            }
-        mtx_sync.unlock();
+        vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
+        vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
+        vector<Belief> functions = PDDLBDIConverter::convertPDDLFunctions(problem_expert_->getFunctions());
+        notify = updateBeliefSet(instances, predicates, functions);
+        
         if(notify)
             publishBeliefSet();//there has been some modifications, publish new belief set
     }
@@ -268,15 +261,17 @@ private:
             RCLCPP_INFO(this->get_logger(), "update problem: verify if needed to sync (b_set %d, prob_ins %d, prob_pred %d, prob_fun %d)", 
                 belief_set_.size(), ins_beliefs.size(), pred_beliefs.size(), fun_beliefs.size());
 
-        //try to add new beliefs or modify current beliefs 
-        notify = (ins_beliefs.size() > 0 && addOrModifyBeliefs(ins_beliefs, false));
-        notify = (pred_beliefs.size() > 0 && addOrModifyBeliefs(pred_beliefs, false)) || notify;
-        notify = (fun_beliefs.size() > 0 && addOrModifyBeliefs(fun_beliefs, true)) || notify;
+        mtx_sync.lock();
+            //try to add new beliefs or modify current beliefs 
+            notify = (ins_beliefs.size() > 0 && addOrModifyBeliefs(ins_beliefs, false));
+            notify = (pred_beliefs.size() > 0 && addOrModifyBeliefs(pred_beliefs, false)) || notify;
+            notify = (fun_beliefs.size() > 0 && addOrModifyBeliefs(fun_beliefs, true)) || notify;
 
-        //check for the removal of some beliefs
-        notify = (belief_set_.size() > 0 && removedInstanceBeliefs(ins_beliefs)) || notify;
-        notify = (belief_set_.size() > 0 && removedPredicateBeliefs(pred_beliefs)) || notify;
-        notify = (belief_set_.size() > 0 && removedFunctionBeliefs(fun_beliefs)) || notify;
+            //check for the removal of some beliefs
+            notify = (belief_set_.size() > 0 && removedInstanceBeliefs(ins_beliefs)) || notify;
+            notify = (belief_set_.size() > 0 && removedPredicateBeliefs(pred_beliefs)) || notify;
+            notify = (belief_set_.size() > 0 && removedFunctionBeliefs(fun_beliefs)) || notify;
+        mtx_sync.unlock();
 
         return notify;//there has been some modifications
     }
@@ -426,7 +421,7 @@ private:
     */
     Function buildFunction(const ManagedBelief& mb)
     {
-        return Function{"(" + mb.getName()+ " " + getParamList(mb) + std::to_string(mb.getValue()) + ")"};;
+        return Function{"(" + mb.getName()+ " " + getParamList(mb) + " " + std::to_string(mb.getValue()) + ")"};;
     }
 
     /*  

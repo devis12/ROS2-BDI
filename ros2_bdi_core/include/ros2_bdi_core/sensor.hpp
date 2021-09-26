@@ -26,12 +26,15 @@ using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;            
 
+typedef enum {ADD, UPD, DEL, NOP} UpdOperation;
+
 class Sensor : public rclcpp::Node
 {
 public:
   Sensor(const string& sensor_name, const Belief& belief_proto) : rclcpp::Node(sensor_name)
     {
         sensed_belief_ = Belief{};
+        sensed_op_ = NOP;
 
         //Erroneous type will generate sensors that do not publish any sensing info
         if(belief_proto.pddl_type == Belief().INSTANCE_TYPE)
@@ -45,7 +48,6 @@ public:
         sensed_belief_.params = belief_proto.params;
 
         belief_proto_ = belief_proto;
-        
         this->declare_parameter(PARAM_AGENT_ID, "agent0");
         this->declare_parameter(PARAM_DEBUG, true);
         this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
@@ -66,6 +68,9 @@ protected:
 
         // Add new belief publisher
         add_belief_publisher_ = this->create_publisher<Belief>("add_belief", 10);
+
+        // Del belief publisher
+        del_belief_publisher_ = this->create_publisher<Belief>("del_belief", 10);
         
         // retrieve from parameter frequency at which to perform sensing
         float sensing_freq = this->get_parameter(PARAM_SENSING_FREQ).as_double();
@@ -100,7 +105,7 @@ protected:
 
     virtual void performSensing() = 0;
     
-    void sense(const Belief& new_belief)
+    void sense(const Belief& new_belief, const UpdOperation& op)
     {
         if(sensed_belief_.pddl_type != new_belief.pddl_type)//sensing not valid 
           return;
@@ -108,14 +113,14 @@ protected:
         bool updated = false;
 
         if(sensed_belief_.pddl_type == Belief().INSTANCE_TYPE)
-        updated = sensedInstance(new_belief);
+          updated = sensedInstance(new_belief);
         else if(sensed_belief_.pddl_type == Belief().PREDICATE_TYPE)
-        updated = sensedPredicate(new_belief);
+          updated = sensedPredicate(new_belief);
         else if(sensed_belief_.pddl_type == Belief().FUNCTION_TYPE)
-        updated = sensedFunction(new_belief);
+          updated = sensedFunction(new_belief);
 
         if(updated)
-            publishSensing();
+            publishSensing(op);
   }
 
     // name of the sensor
@@ -129,9 +134,14 @@ private:
       Main loop of publishing called regularly through a wall timer
       publish just if publish set to true
     */
-    void publishSensing()
+    void publishSensing(const UpdOperation& op)
     {
-      add_belief_publisher_->publish(sensed_belief_);
+      sensed_op_ = op;
+      
+      if(op == ADD || op == UPD)
+        add_belief_publisher_->publish(sensed_belief_);
+      else if(op == DEL)
+        del_belief_publisher_->publish(sensed_belief_);
     }
 
     /*
@@ -184,6 +194,7 @@ private:
     //  - predicate type + name of the predicate (so the args are the properties "added" by the sensor)
     //  - function type + args already defined (so the value is the property "added" by the sensor)
     Belief sensed_belief_;
+    UpdOperation sensed_op_;
 
     // callback to perform main loop of work regularly
     rclcpp::TimerBase::SharedPtr sensor_timer_;
@@ -191,6 +202,8 @@ private:
     rclcpp::TimerBase::SharedPtr start_timer_;
 
     rclcpp::Publisher<Belief>::SharedPtr add_belief_publisher_;//add_belief publisher
+
+    rclcpp::Publisher<Belief>::SharedPtr del_belief_publisher_;//del_belief publisher
 };
 
 #endif  // SENSOR_H_

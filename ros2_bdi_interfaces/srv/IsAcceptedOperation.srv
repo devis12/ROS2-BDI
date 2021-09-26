@@ -1,7 +1,7 @@
 uint8 BELIEF_TYPE=1
 uint8 DESIRE_TYPE=2
 
-uint8 READ=1
+uint8 CHECK=1
 uint8 WRITE=2
 
 string      agent_group

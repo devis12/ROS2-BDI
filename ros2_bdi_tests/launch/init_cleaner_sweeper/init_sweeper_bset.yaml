@@ -32,4 +32,4 @@
 -
   name: "battery_charge"
   pddl_type: 3
-  value:  70
+  value:  60

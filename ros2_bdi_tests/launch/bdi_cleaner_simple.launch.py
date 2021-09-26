@@ -8,8 +8,8 @@ from bdi_agent import AgentAction
 from bdi_agent import AgentSensor
 
 def generate_launch_description():
-    AGENT_ID = 'agent1'
-    AGENT_GROUP_ID = 'group1'
+    AGENT_ID = 'cleaner'
+    AGENT_GROUP_ID = 'cleaner'
 
     bdi_tests_share_dir = get_package_share_directory('ros2_bdi_tests')
 
@@ -50,8 +50,9 @@ def generate_launch_description():
             'pddl_file': bdi_tests_share_dir + '/pddl/cleaner_simple/cleaner-domain.pddl',
             'init_bset': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_bset.yaml',
             'init_dset': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_dset.yaml',
-            'autosubmit_precond': False,
-            'autosubmit_context': True
+            'autosub_prec': True,
+            'autosub_cont': True,
+            'reschedule_policy': 'NO_PREEMPT'
         },
         actions=[action_movetoward, action_doclean, action_recharge],
         sensors=[wp_sensor]

@@ -39,13 +39,13 @@
 #define MAX_COMM_ERRORS 16
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
-#define PARAM_MAX_TRIES_COMP_PLAN "compute_plan_tries"
+#define PARAM_MAX_TRIES_COMP_PLAN "comp_plan_tries"
 #define PARAM_MAX_TRIES_EXEC_PLAN "exec_plan_tries"
 #define PARAM_RESCHEDULE_POLICY "reschedule_policy"
-#define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_IF_EXEC"
-#define VAL_RESCHEDULE_POLICY_IF_EXEC "IF_EXEC"
-#define PARAM_AUTOSUBMIT_PREC "autosubmit_precond"
-#define PARAM_AUTOSUBMIT_CONTEXT "autosubmit_context"
+#define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_PREEMPT"
+#define VAL_RESCHEDULE_POLICY_IF_EXEC "PREEMPT"
+#define PARAM_AUTOSUBMIT_PREC "autosub_prec"
+#define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
 using std::string;
 using std::vector;
@@ -79,6 +79,7 @@ using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
+typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} TargetBeliefAcceptance;
 
 class Scheduler : public rclcpp::Node
 {
@@ -184,7 +185,8 @@ public:
         {
             if(psys2_planner_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_){
                 psys2_comm_errors_ = 0;
-                tryInitDesireSet();
+                if(desire_set_.size() == 0)//desire set empty    
+                    tryInitDesireSet();
                 setState(SCHEDULING);
             }else{
                 
@@ -291,34 +293,53 @@ private:
     }
 
     /*
-        Check with the problem_expert to understand if this is a valid goal
+        returns ACCEPTED iff managed belief can be put as part of a desire's value
+        wrt. to its syntax
+    */
+    TargetBeliefAcceptance targetBeliefAcceptanceCheck(const ManagedBelief& mb)
+    {
+        if(mb.pddlType() != Belief().PREDICATE_TYPE)//not predicate -> not accepted
+                return UNKNOWN_PREDICATE;
+
+        optional<Predicate> optPredDef = domain_expert_->getPredicate(mb.getName());
+        if(!optPredDef.has_value())//incorrect predicate name
+            return UNKNOWN_PREDICATE;
+
+        Predicate predDef = optPredDef.value();
+        if(predDef.parameters.size() != mb.getParams().size())
+            return SYNTAX_ERROR;
+        
+        vector<string> params = mb.getParams();
+        for(int i=0; i<params.size(); i++)
+        {
+            string instanceName = params[i];
+            optional<Instance> opt_ins = problem_expert_->getInstance(instanceName);
+            if(!opt_ins.has_value())//found a not valid instance in one of the goal predicates
+                return UNKNOWN_INSTANCES;
+            else if(opt_ins.value().type != predDef.parameters[i].type)//instance types not matching definition
+                return UNKNOWN_INSTANCES;
+        }
+
+        return ACCEPTED;
+    }
+
+    /*
+         Check with the domain_expert and problem_expert to understand if this is a valid goal
         (i.e. valid predicates and valid instances defined within them)
 
-        TODO change name valida sintatticamente
+        returns true iff managed desire can be considered syntactically correct
+        (no syntactically incorrect beliefs)
     */
-    bool validGoal(const ManagedDesire& md)
+    TargetBeliefAcceptance desireAcceptanceCheck(const ManagedDesire& md)
     {
         for(ManagedBelief mb : md.getValue())
         {
-            optional<Predicate> opt_pred = domain_expert_->getPredicate(mb.getName());
-            if(!opt_pred.has_value())//incorrect predicate name
-                return false;
-
-            Predicate pred = opt_pred.value();
-            if(pred.parameters.size() != mb.getParams().size())
-            {
-                RCLCPP_ERROR(this->get_logger(), "pred.parameters.size = %d, mb.getParams().size() = %d", 
-                    pred.parameters.size(), mb.getParams().size());
-                return false;
-            }
-            
-            for(string ins_name : mb.getParams())
-                if(!problem_expert_->getInstance(ins_name).has_value())//found a not valid instance in one of the goal predicates
-                    return false;
-            
+            auto acceptance = targetBeliefAcceptanceCheck(mb);
+            if(acceptance != ACCEPTED)
+                return acceptance;
         }
-        
-        return true;
+
+        return ACCEPTED;
     }
 
     /*
@@ -377,6 +398,10 @@ private:
             if(skip_desires.count(md) == 1)
                 continue;
 
+            //desire currently fulfilling
+            if(current_plan_.getDesire() == md)
+                continue;
+            
             //plan in exec has higher priority than this one, skip this desire
             if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
                 continue;
@@ -417,7 +442,7 @@ private:
                     }else if(this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but it does not respect the deadline constraint");
                 }
-                else if(!validGoal(md)) //check if the problem is the goal not being valid          
+                else if(desireAcceptanceCheck(md) != ACCEPTED) //check if the problem is the goal not being valid          
                 {
                     invalidDesire = true;
                 }   
@@ -430,7 +455,7 @@ private:
             else if(!explicitPreconditionSatisfied && this->get_parameter(PARAM_AUTOSUBMIT_PREC).as_bool())
             {
                 int pushed = 0;
-                if(validGoal(md))
+                if(desireAcceptanceCheck(md) == ACCEPTED)
                 {
                     // explicit preconditions are not satisfied... see if it's feasible to compute a plan to reach them
                     // (just if not already done... that's why you look into the invalid map)
@@ -443,8 +468,9 @@ private:
                         std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
                     
                     for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
-                    {
-                        if(desire_set_.count(fulfillPreconditionD) == 0 && validGoal(fulfillPreconditionD))//fulfill precondition not inserted yet
+                    {   
+                        auto precAcceptanceCheck = desireAcceptanceCheck(fulfillPreconditionD);
+                        if(desire_set_.count(fulfillPreconditionD) == 0 &&  precAcceptanceCheck == ACCEPTED)//fulfill precondition not inserted yet
                         {   
                             if(this->get_parameter(PARAM_DEBUG).as_bool())
                                 RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
@@ -466,12 +492,15 @@ private:
                 int invCounter = ++computed_plan_desire_map_[md.getName()]; //increment invalid counter for this desire
                 int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
 
-                string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
+                TargetBeliefAcceptance desAcceptance = desireAcceptanceCheck(md);
+                string desireProblem = (desAcceptance != ACCEPTED)? "invalid goal" : "plan not computable";
+                string desireOperation = (invCounter < maxTries && (desAcceptance == ACCEPTED || desAcceptance == UNKNOWN_INSTANCES))? 
+                    "desire will be rescheduled later" : "desire will be deleted from desire set";
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions) presents not valid goal and/or a plan for it is not computable: " +  
-                        desireOperation + " (invalid counter = %d).", invCounter);
+                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions):" +  desireProblem + " ; " +
+                        desireOperation + " (invalid counter = %d/%d). " + std::to_string(desAcceptance), invCounter, maxTries);
                 
-                if(invCounter >= maxTries)//desire now has to be discarded
+                if(invCounter >= maxTries || (desAcceptance != ACCEPTED &&  desAcceptance != UNKNOWN_INSTANCES))//desire now has to be discarded
                 {    
                     discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
                     
@@ -483,8 +512,8 @@ private:
                             groupCounter ++;
                     if(md.hasParent() && groupCounter == 0)//invalid desire has remained the last one in the group
                     {
-                        discarded_desires.push_back(md);//parent cannot be satisfied either
-                        skip_desires.insert(md);//avoid to evaluate it later
+                        discarded_desires.push_back(md.getParent());//parent cannot be satisfied either
+                        skip_desires.insert(md.getParent());//avoid to evaluate it later
                     }
                 }
             }
@@ -516,13 +545,12 @@ private:
 
         //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
         bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
-
         if(planinExec)
         {
             //before triggering new plan, abort the one currently in exec
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
-                                " in order to trigger plan execution for desire \"" + current_plan_.getDesire().getName() + "\"");
+                                " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
                 
             //trigger plan execution
             shared_ptr<thread> thr = 
@@ -531,10 +559,10 @@ private:
             thr->detach();
 
             //mutex to handle better ABORT old plan -> EXECUTE new plan sequence
-            while(mtx_abort_trigger_.try_lock())//when you fail it means that aborting thread has started
-                mtx_abort_trigger_.unlock();
-            mtx_abort_trigger_.lock();//wait aborting thread to be finished
-            mtx_abort_trigger_.unlock();
+            //while(mtx_abort_trigger_.try_lock())//when you fail it means that aborting thread has started
+            //    mtx_abort_trigger_.unlock();
+            //mtx_abort_trigger_.lock();//wait aborting thread to be finished
+            //mtx_abort_trigger_.unlock();
         }
         
         //desire still in desire set
@@ -562,7 +590,7 @@ private:
     */
     void triggerPlanExecution(const int& PLAN_EXEC_REQUEST, const ManagedPlan& mgPlan)
     {
-        mtx_abort_trigger_.lock();
+        //mtx_abort_trigger_.lock();
 
         //check for service to be up
         rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
@@ -611,7 +639,7 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
         }
 
-        mtx_abort_trigger_.unlock();
+        //mtx_abort_trigger_.unlock();
     }
 
     /*
@@ -628,6 +656,8 @@ private:
             string targetDesireName = targetDesire.getName();
             if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
             {
+                mtx_iter_dset_.lock();
+
                 bool desireAchieved = isDesireSatisfied(targetDesire);
                 if(desireAchieved)
                     delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
@@ -680,7 +710,7 @@ private:
                         
                         for(ManagedDesire fulfillContextD : fulfillContextDesires)
                         {
-                            if(desire_set_.count(fulfillContextD) == 0 && validGoal(fulfillContextD))
+                            if(desire_set_.count(fulfillContextD) == 0 && desireAcceptanceCheck(fulfillContextD) == ACCEPTED)
                             {
                                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                                     RCLCPP_INFO(this->get_logger(), "Context conditions are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
@@ -699,7 +729,9 @@ private:
                         
                 }
 
+                mtx_iter_dset_.unlock();
                 current_plan_ = ManagedPlan{};//no current plan in execution
+                reschedule();
                 //next reschedule(); will select a new plan if computable for a desire in desire set
             }
         }
@@ -758,10 +790,10 @@ private:
             }
         }
 
-        mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
-
         for(ManagedDesire md : satisfiedDesires)//delete all satisfied desires from desire set
             delDesire(md, true);//you're deleting satisfied desires -> delete all the ones in the same group
+
+        mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
     }
 
     /*
@@ -863,7 +895,11 @@ private:
         @necessaryForMd value (if exists) has to be already in the desire_set_
     */
     bool addDesire(ManagedDesire mdAdd, optional<ManagedDesire> necessaryForMD, const string& suffixDesireGroup)
-    {
+    {   
+        auto acceptance = desireAcceptanceCheck(mdAdd);
+        if(acceptance != ACCEPTED && acceptance != UNKNOWN_INSTANCES)//unknown predicates values / syntax_errors within target beliefs
+            return false;
+
         bool added = false;
         mtx_add_del_.lock();
             added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
@@ -1028,7 +1064,7 @@ private:
     //mutex for sync when modifying desire_set
     mutex mtx_add_del_;
     //mutex to regulate abort -> trigger new one flow
-    mutex mtx_abort_trigger_;
+    //mutex mtx_abort_trigger_;
     //to sync between iteration in checkForSatisfiedDesires() && reschedule()
     mutex mtx_iter_dset_;
 

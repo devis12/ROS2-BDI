@@ -87,22 +87,22 @@ PDDL_FILE_PARAM = 'pddl_file'
 INIT_BSET_PARAM = 'init_bset'
 INIT_DSET_PARAM = 'init_dset'
 
-ACCEPT_BELIEFS_R_PARAM = 'belief_r'
+ACCEPT_BELIEFS_R_PARAM = 'belief_ck'
 ACCEPT_BELIEFS_W_PARAM = 'belief_w'
-ACCEPT_DESIRES_R_PARAM = 'desire_r'
+ACCEPT_DESIRES_R_PARAM = 'desire_ck'
 ACCEPT_DESIRES_W_PARAM = 'desire_w'
 ACCEPT_DESIRES_MAX_PR_PARAM = 'desire_pr'
 
-ABORT_AFTER_DEADLINE_PARAM = 'abort_after_deadline'
-COMP_PLAN_TRIES_PARAM = 'compute_plan_tries'
+ABORT_SURPASS_DEADLINE_DEADLINE_PARAM = 'rtc_deadline'
+COMP_PLAN_TRIES_PARAM = 'comp_plan_tries'
 EXEC_PLAN_TRIES_PARAM = 'exec_plan_tries'
 
-AUTOSUBMIT_PREC_PARAM = "autosubmit_precond"
-AUTOSUBMIT_CONTEXT_PARAM = "autosubmit_context"
+AUTOSUBMIT_PREC_PARAM = 'autosub_prec'
+AUTOSUBMIT_CONTEXT_PARAM = 'autosub_context'
 
 RESCHEDULE_POLICY_PARAM = 'reschedule_policy'
-RESCHEDULE_POLICY_VAL_NO_IF_EXEC = 'IF_EXEC'
-RESCHEDULE_POLICY_VAL_IF_EXEC = 'NO_IF_EXEC'
+RESCHEDULE_POLICY_VAL_NO_IF_EXEC = 'NO_PREEMPT'
+RESCHEDULE_POLICY_VAL_IF_EXEC = 'PREEMPT'
 
 
 
@@ -116,28 +116,28 @@ RESCHEDULE_POLICY_VAL_IF_EXEC = 'NO_IF_EXEC'
             ** "init_bset": string file path to YAML file to init the belief set of the agent
             ** "init_dset": string file path to YAML file to init the desire set of the agent
             
-            ** "accept_beliefs_from": string array of agent groups accepts beliefs request from
-            ** "accept_desires_from": string array of agent groups accepts desires request from
-            ** "accept_desires_max_priorities": float array of max priority values [0.0-1.0] accepted by respective agent group
+            ** "belief_ck": string array of agent groups accepts beliefs CHECK request from
+            ** "belief_w": string array of agent groups accepts beliefs WRITE request from
+            ** "desire_ck": string array of agent groups accepts desires CHECK request from
+            ** "desire_w": string array of agent groups accepts desires WRITE request from
+            ** "desire_pr": float array of max priority values [0.0-1.0] accepted by respective agent group
             
-            NOTE: "accept_desires_from" and "accept_desires_max_priorities" should have the same length, otherwise
+            NOTE: "desire_w" and "desire_pr" should have the same length, otherwise
                     communication node put a very low priority to group with no priority related.
-            NOTE: If not overwritten, by default it's automatically put the name of the current agent group in
-                    both "accept_beliefs_from" and "accept_desires_from" (with priority value 0.5)
            
-            ** "abort_after_deadline": float value >= 1.0 specifying number of times deadline can be surpassed before aborting plan
-            ** "compute_plan_tries": integer value specifying number of times plan can be computed for a desire before discarding it
+            ** "rtc_deadline": float value >= 1.0 specifying number of times deadline can be surpassed before aborting plan
+            ** "comp_plan_tries": integer value specifying number of times plan can be computed for a desire before discarding it
             ** "exec_plan_tries": integer value specifying number of times plan can be executed for a desire before giving up and discarding it
             
-            ** "autosubmit_precond": boolean value specifying if the agent autosubmit to itself the precondition(s) as desire(s)
+            ** "autosub_prec": boolean value specifying if the agent autosubmit to itself the precondition(s) as desire(s)
                                     if they are not verified and the plan for the given desire cannot be computed due to them
                                     (default value = false)
 
-            ** "autosubmit_context": boolean value specifying if the agent autosubmit to itself the context condition(s) as desire(s)
+            ** "autosub_context": boolean value specifying if the agent autosubmit to itself the context condition(s) as desire(s)
                                     if they are not verified and the plan for the given desire cannot be carried on due to them
                                     (default value = false)
 
-            ** "reschedule_policy": string in {"NO_IF_EXEC", "IF_EXEC"}, otherwise "NO_IF_EXEC"
+            ** "reschedule_policy": string in {"NO_PREEMPT", "PREEMPT"}, otherwise "NO_PREEMPT"
                                     to specify the reschedule policy
 '''
 def AgentLaunchDescription(
@@ -238,7 +238,7 @@ def AgentLaunchDescription(
         [*] SCHEDULER NODE init.
     '''
     #  Default init params for Scheduler Node
-    reschedule_policy = 'NO_IF_EXEC'
+    reschedule_policy = RESCHEDULE_POLICY_VAL_NO_IF_EXEC
     comp_plan_tries = 16
     exec_plan_tries = 16
     autosubmit_prec = False
@@ -289,13 +289,13 @@ def AgentLaunchDescription(
         [*] PLAN DIRECTOR NODE init.
     '''
     #  Default init params for Plan Director Node
-    abort_after_deadline = 2.0
+    abort_surpass_deadline = 2.0
 
     # validation init param abort after deadline surpassed <n> times during plan execution
-    if ABORT_AFTER_DEADLINE_PARAM in init_params and (isinstance(init_params[ABORT_AFTER_DEADLINE_PARAM], float) or isinstance(init_params[ABORT_AFTER_DEADLINE_PARAM], int)):
-        abort_after_deadline = float(init_params[ACCEPT_BELIEFS_W_PARAM])
+    if ABORT_SURPASS_DEADLINE_DEADLINE_PARAM in init_params and (isinstance(init_params[ABORT_SURPASS_DEADLINE_DEADLINE_PARAM], float) or isinstance(init_params[ABORT_SURPASS_DEADLINE_DEADLINE_PARAM], int) and init_params[ABORT_SURPASS_DEADLINE_DEADLINE_PARAM] >= 1):
+        abort_surpass_deadline = float(init_params[ABORT_SURPASS_DEADLINE_DEADLINE_PARAM])
     else:
-        log_automatic_set(ABORT_AFTER_DEADLINE_PARAM, abort_after_deadline)
+        log_automatic_set(ABORT_SURPASS_DEADLINE_DEADLINE_PARAM, abort_surpass_deadline)
 
     plan_director = Node(
         package='ros2_bdi_core',
@@ -305,7 +305,7 @@ def AgentLaunchDescription(
         output='screen',
         parameters=[
             {AGENT_ID_PARAM: agent_id},
-            {ABORT_AFTER_DEADLINE_PARAM: abort_after_deadline}
+            {ABORT_SURPASS_DEADLINE_DEADLINE_PARAM: abort_surpass_deadline}
         ])
     
     '''

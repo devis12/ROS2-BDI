@@ -27,14 +27,13 @@ class WPSensor : public Sensor
         : Sensor(sensor_name, belief_proto)
         {
             // Init fake waypoint that are going to be sensed
-            string agent_id = this->get_parameter(PARAM_AGENT_ID).as_string();
-            int agent_num = std::stoi(agent_id.substr(5)); //extract num from name agentX, where X is an int
-            Belief bedroom_wp =  (ManagedBelief::buildMBInstance("bedroom"+std::to_string(agent_num), "waypoint")).toBelief();
-            Belief bathroom_wp =  (ManagedBelief::buildMBInstance("bathroom"+std::to_string(agent_num), "waypoint")).toBelief();
-            Belief kitchen_wp =  (ManagedBelief::buildMBInstance("kitchen"+std::to_string(agent_num), "waypoint")).toBelief();
+            Belief bedroom_wp =  (ManagedBelief::buildMBInstance("bedroom", "waypoint")).toBelief();
+            Belief bathroom_wp =  (ManagedBelief::buildMBInstance("bathroom", "waypoint")).toBelief();
+            Belief kitchen_wp =  (ManagedBelief::buildMBInstance("kitchen", "waypoint")).toBelief();
+
+            waypoints.push_back(kitchen_wp);
             waypoints.push_back(bedroom_wp);
             waypoints.push_back(bathroom_wp);
-            waypoints.push_back(kitchen_wp);
 
             counter_ = 0;
 
@@ -45,7 +44,7 @@ class WPSensor : public Sensor
         {
             if(counter_ < waypoints.size())
             {
-                this->sense(waypoints[counter_]);
+                this->sense(waypoints[counter_], ADD);
                 RCLCPP_INFO(this->get_logger(), "WaypointSensor sensing for instance of type " + this->belief_proto_.params[0] + 
                     " has sensed: " + waypoints[counter_].name);
                 counter_++;

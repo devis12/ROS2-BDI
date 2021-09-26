@@ -30,15 +30,15 @@
         :condition (and
             (at start (in ?r ?wp_from))
             (at start (workfree ?r))
-            (at start (> (battery_charge) 40))
-            (over all (> (battery_charge) 20))
+            (at start (> (battery_charge) 20))
+            (over all (> (battery_charge) 10))
         )
         :effect (and
             (at start (not(workfree ?r)))
             (at start (not(in ?r ?wp_from)))
             (at end (in ?r ?wp_to))
             (at end (workfree ?r))
-            (at end (decrease (battery_charge) 20))
+            (at end (decrease (battery_charge) 10))
         )
     )
 
@@ -61,8 +61,8 @@
         :condition (and
             (at start (workfree ?r))
             (at start (swept ?wp))
-            (at start (> (battery_charge) 50))
-            (over all (> (battery_charge) 25))
+            (at start (> (battery_charge) 30))
+            (over all (> (battery_charge) 10))
             (over all (in ?r ?wp))
             (over all (swept ?wp))
         )
@@ -70,6 +70,7 @@
             (at start (not(workfree ?r)))
             (at end (workfree ?r))
             (at end (cleaned ?wp))
+            (at end (decrease (battery_charge) 20))
         )
     )
 

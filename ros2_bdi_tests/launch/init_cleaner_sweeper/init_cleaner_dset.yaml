@@ -20,9 +20,3 @@
       pddl_type: 2
       params:
         - "cleaner"
-    -
-      name: "in"
-      pddl_type: 2
-      params:
-        - "cleaner"
-        - "undefined_wp"

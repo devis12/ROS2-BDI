@@ -1,79 +1,27 @@
 -
-  name: "clean_rooms"
-  priority: 0.6
+  name: "clean_rooms1"
+  priority: 0.2
   deadline: 36.0
   value:
     -
       name: "cleaned"
       pddl_type: 2
       params:
-        - "kitchen1"
+        - "kitchen"
     -
       name: "cleaned"
       pddl_type: 2
       params:
-        - "bathroom1"
-    -
-      name: "cleaned"
-      pddl_type: 2
-      params:
-        - "bedroom1"
-  precondition:
-    clauses:
-      -
-        literals:
-            -
-              check: "T"
-              condition_to_check: 
-                  name: "in"
-                  pddl_type: 2
-                  params: 
-                    - "agent1"
-                    - "bedroom1"
-      -
-        literals:
-            -
-              check: "T"
-              condition_to_check: 
-                  name: "in"
-                  pddl_type: 2
-                  params: 
-                    - "agent1"
-                    - "bathroom1"
-  context:
-    clauses:
-      -
-        literals:
-            -
-              check: "EX"
-              condition_to_check: 
-                  name: "bedroom1"
-                  pddl_type: 1
-                  params:
-                      - "waypoint"
-            -
-              check: "EX"
-              condition_to_check: 
-                  name: "bathroom1"
-                  pddl_type: 1
-                  params:
-                      - "waypoint"
-            -
-              check: "EX"
-              condition_to_check: 
-                  name: "kitchen1"
-                  pddl_type: 1
-                  params:
-                      - "waypoint"
+        - "bathroom"
   rollback_belief_add:
     -
       name: "workfree"
       pddl_type: 2
       params:
-        - "agent1"
+        - "cleaner"
     -
       name: "in"
       pddl_type: 2
       params:
-        - "agent1"
+        - "cleaner"
         - "undefined_wp"

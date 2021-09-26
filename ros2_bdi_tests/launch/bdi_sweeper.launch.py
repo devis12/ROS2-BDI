@@ -42,12 +42,12 @@ def generate_launch_description():
             'pddl_file': bdi_tests_share_dir + '/pddl/cleaner_sweeper/sweeper-domain.pddl',
             'init_bset': bdi_tests_share_dir + '/launch/init_cleaner_sweeper/init_sweeper_bset.yaml',
             'init_dset': bdi_tests_share_dir + '/launch/init_cleaner_sweeper/init_sweeper_dset.yaml',
-            'belief_r': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
-            'belief_w': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
-            'desire_r': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
-            'desire_w': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
+            'belief_ck': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
+            'belief_w':  [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
+            'desire_ck': [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
+            'desire_w':  [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
             'desire_pr': [0.6, 0.8],
-            'compute_plan_tries': 16,
+            'comp_plan_tries': 16,
             'exec_plan_tries': 4
         },
         actions=[action_movetoward, action_dosweep, action_recharge]
