@@ -2,9 +2,9 @@
 A MAS (Multi Agent System) framework aiming to run on top of ROS2 Foxy, emulating the BDI architecture for implementing the agents' behaviour. The framework makes usage of an automated PDDL planner for computing plans in the means-end reasoning phase. Specifically it uses [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/design/index.html).
 
 ## Requirements 
-In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/foxy/index.html#) and [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/) have been already installed and setup**. Use this [guide](https://docs.google.com/document/d/1vuOYsJIQ1J7aEH1UpamHjjB-0t2JeE9OccRkzy4Tm4o/edit?usp=sharing) to walk you through this process in latest LTS Ubuntu distributions (e.g. 20.04 LTS). 
+In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/foxy/index.html#) and [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/) have been already installed and setup**. Use this [guide](https://github.com/devis12/ROS2-BDI/blob/main/ros2_psys2_setup.pdf) to walk you through this process in latest LTS Ubuntu distributions (e.g. 20.04 LTS). With other recent Ubuntu-based distributions (e.g. Mint 20+) you may encounter some issues in the installation of dependencies which can be easily overcome by specifying the option `--os="ubuntu:"` if using rosdep or installing them manually (e.g. `sudo apt install ros-foxy-popf`). 
 
-Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.6.0](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.6.0). It's suggested to compile both from source, even though Boost should offer a more accessible [script for the installation](https://www.boost.org/doc/libs/1_55_0/doc/html/bbv2/installation.html). The documentation with the installation guide for yaml-cpp can be found [here](https://yaml-cpp.docsforge.com/#problems).
+Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.6.0](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.6.0). It's suggested to compile both from source, even though Boost should offer a more accessible [script for the installation](https://www.boost.org/doc/libs/1_77_0/tools/build/doc/html/index.html#bbv2.installation). The documentation with the installation guide for building yaml-cpp can be found [here](https://yaml-cpp.docsforge.com/#how-to-build): it's really important to build it as a **shared library** (check the presence of the `-fPIC` option added in compilation in the CMakeLists.txt if the `BUILD_SHARED_LIBS` is set to `ON`).
 
 ## Building
 
@@ -29,9 +29,9 @@ ros2 launch ros2_bdi_tests bdi_cleaner_simple.launch.py
 ```
 Inspect belief set, desire set and plan execution info topics through the following commands given in other terminal(s):
 ```
-ros2 topic echo /agent1/belief_set              # belief set echo
-ros2 topic echo /agent1/desire_set              # desire set echo
-ros2 topic echo /agent1/plan_execution_info     # plan execution progress echo
+ros2 topic echo /cleaner/belief_set              # belief set echo
+ros2 topic echo /cleaner/desire_set              # desire set echo
+ros2 topic echo /cleaner/plan_execution_info     # plan execution progress echo
 ```
 
 The initial belief and desire sets are specified as YAML files in `ros2_bdi_tests/init_cleaner_simple/` folder and selected through the launch file. Consult the interface description to understand how to specify Belief and Desire msgs:
@@ -47,11 +47,11 @@ To further alter the agent's belief set (or desire set), while it's running is a
 
 ```
 # for beliefs
-ros2 topic pub /agent1/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'kitchen1'}, pddl_type: 2}"
-ros2 topic pub /agent1/del_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'kitchen1'}, pddl_type: 2}"
+ros2 topic pub /cleaner/add_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'kitchen'}, pddl_type: 2}"
+ros2 topic pub /cleaner/del_belief ros2_bdi_interfaces/msg/Belief "{name: 'cleaned', params: {'kitchen'}, pddl_type: 2}"
 ```
 
-_Additional note_: The respective launch file can be edit in  `ros2_bdi_tests/launch/bdi_cleaner_simple.launch.py`. E.g. it's easy to notice that the `AGENT_NAME` declared as the first instruction in `generate_launch_description()` function it's the parameter that will affect its ID, thus the agent's namespace definition which makes for the prefix for its topics and services (by default it is set to `agent1` as you can see from the example topic echo cmds put above).
+_Additional note_: The respective launch file can be edit in  `ros2_bdi_tests/launch/bdi_cleaner_simple.launch.py`. E.g. it's easy to notice that the `AGENT_NAME` declared as the first instruction in `generate_launch_description()` function it's the parameter that will affect its ID, thus the agent's namespace definition which makes for the prefix for its topics and services (by default it is set to `cleaner` as you can see from the example topic echo cmds put above).
 
 ### Launch BDI CLEANER+SWEEPER demo
 Use the respective py. launch file to launch the _sweeper_:
