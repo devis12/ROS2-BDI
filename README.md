@@ -6,6 +6,8 @@ In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/
 
 Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.6.0](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.6.0). It's suggested to compile both from source, even though Boost should offer a more accessible [script for the installation](https://www.boost.org/doc/libs/1_77_0/tools/build/doc/html/index.html#bbv2.installation). The documentation with the installation guide for building yaml-cpp can be found [here](https://yaml-cpp.docsforge.com/#how-to-build): it's really important to build it as a **shared library** (check the presence of the `-fPIC` option added in compilation in the CMakeLists.txt if the `BUILD_SHARED_LIBS` is set to `ON`).
 
+To avoid any further unpleasant interaction, it's highly recommended to disable Groot monitoring in PlanSys2. To do that, just go under the `plansys2_executor` package and within the script of the only launch file present ("*executor_launch.py*") add the configuration `'enable_groot_monitoring': False`  to the parameters of the `executor_cmd` **Node** (approximately line 55).
+
 ## Building
 
 Once you download the current repository in your `<ros2 workspace>/src/` folder and installed the required libraries, move back to the root of your ROS2 workspace and give the standard `colcon build` command in order to compile all the packages, loading all the launch and additional files in the packages' shared folders. It's suggested to be more specific though (especially if you already have other packages in your workspace and you want to avoid to compile them all every time) building exclusively the packages of ROS2-BDI:
