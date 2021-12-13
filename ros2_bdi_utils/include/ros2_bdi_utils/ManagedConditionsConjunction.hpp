@@ -1,54 +1,48 @@
 #ifndef MANAGED_CONDITIONS_CONJUNCTION_H_
 #define MANAGED_CONDITIONS_CONJUNCTION_H_
 
-#include <string>
 #include <vector>
 #include <set>
 #include <iostream>
 
 #include "ros2_bdi_interfaces/msg/condition.hpp"
 #include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
-#include "ros2_bdi_interfaces/msg/belief.hpp"
-#include "ros2_bdi_interfaces/msg/belief_set.hpp"
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedCondition.hpp"
 
-using std::string;
-using std::vector;
-using std::set;
-using ros2_bdi_interfaces::msg::Condition;
-using ros2_bdi_interfaces::msg::ConditionsConjunction;
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::BeliefSet;
-
-class ManagedConditionsConjunction
+namespace BDIManaged
 {
 
-    public:
-        ManagedConditionsConjunction();
-        ManagedConditionsConjunction(const ConditionsConjunction& conditionsConjunction);
-        ManagedConditionsConjunction(const vector<ManagedCondition>& literals);
-        
-        vector<ManagedCondition> getLiterals() const {return literals_;}
-        // returns true if all literals are satisfied against the passed belief set
-        // n.b. result is true if literals_ array is empty
-        bool isSatisfied(const set<ManagedBelief>& mbSet);
-        
-        // convert to ConditionsConjunction msg generated from current ManagedConditionsConjunction object
-        ConditionsConjunction toConditionsConjunction() const;
+    class ManagedConditionsConjunction
+    {
 
-    private:
-        vector<ManagedCondition> literals_;
+        public:
+            ManagedConditionsConjunction();
+            ManagedConditionsConjunction(const ros2_bdi_interfaces::msg::ConditionsConjunction& conditionsConjunction);
+            ManagedConditionsConjunction(const std::vector<ManagedCondition>& literals);
+            
+            std::vector<ManagedCondition> getLiterals() const {return literals_;}
+            // returns true if all literals are satisfied against the passed belief set
+            // n.b. result is true if literals_ array is empty
+            bool isSatisfied(const std::set<ManagedBelief>& mbSet);
+            
+            // convert to ConditionsConjunction msg generated from current ManagedConditionsConjunction object
+            ros2_bdi_interfaces::msg::ConditionsConjunction toConditionsConjunction() const;
 
-};  // class ManagedConditionsConjunction
+        private:
+            std::vector<ManagedCondition> literals_;
 
-std::ostream& operator<<(std::ostream& os, const ManagedConditionsConjunction& mcc);
+    };  // class ManagedConditionsConjunction
 
-// overload `<` operator 
-bool operator<(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2);
+    std::ostream& operator<<(std::ostream& os, const ManagedConditionsConjunction& mcc);
 
-// overload `==` operator 
-bool operator==(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2);
+    // overload `<` operator 
+    bool operator<(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2);
+
+    // overload `==` operator 
+    bool operator==(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2);
+
+}
 
 #endif  // MANAGED_CONDITIONS_CONJUNCTION_H_

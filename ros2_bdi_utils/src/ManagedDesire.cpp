@@ -1,6 +1,18 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
+
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include "ros2_bdi_interfaces/msg/belief.hpp"
+
+using std::string;
+using std::vector;
+using std::set;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Desire;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
 
 ManagedDesire::ManagedDesire():
     name_(""),
@@ -185,7 +197,7 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
     return true;//all target conditions already met    
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedDesire& md)
 {
     os << "\n" << md.getName();
 
@@ -202,7 +214,7 @@ std::ostream& operator<<(std::ostream& os, const ManagedDesire& md)
 }
 
 // overload `<` operator 
-bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
+bool BDIManaged::operator<(ManagedDesire const &md1, ManagedDesire const &md2)
 {   
     // first check based on "simple" values (name, priority, deadline)
     if(md1.getName() != md2.getName())
@@ -241,7 +253,7 @@ bool operator<(ManagedDesire const &md1, ManagedDesire const &md2)
 }
 
 // overload `==` operator 
-bool operator==(ManagedDesire const &md1, ManagedDesire const &md2){
+bool BDIManaged::operator==(ManagedDesire const &md1, ManagedDesire const &md2){
      // first check based on "simple" values (name, priority, deadline)
     if(md1.getName() != md2.getName())
         return false;

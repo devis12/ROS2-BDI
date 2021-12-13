@@ -5,6 +5,13 @@
 #define PREDICATE_S PDDLBDIConstants::PREDICATE_TYPE
 #define FUNCTION_S PDDLBDIConstants::FUNCTION_TYPE
 
+using std::string;
+using std::vector;
+
+using ros2_bdi_interfaces::msg::Belief;
+
+using BDIManaged::ManagedBelief;
+
 ManagedBelief::ManagedBelief():
     name_(""),
     pddl_type_(-1)
@@ -66,7 +73,7 @@ string ManagedBelief::pddlTypeString() const
     return pddl_type_string;
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedBelief& mb)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedBelief& mb)
 {
     string param_string = "";
     for(string p : mb.getParams())
@@ -77,7 +84,7 @@ std::ostream& operator<<(std::ostream& os, const ManagedBelief& mb)
 }
 
 // overload `<` operator 
-bool operator<(ManagedBelief const &mb1, ManagedBelief const &mb2)
+bool BDIManaged::operator<(ManagedBelief const &mb1, ManagedBelief const &mb2)
 {
     if(mb1.pddlType() != mb2.pddlType())
     {
@@ -107,7 +114,7 @@ bool operator<(ManagedBelief const &mb1, ManagedBelief const &mb2)
 }
 
 // overload `==` operator 
-bool operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
+bool BDIManaged::operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
     //check for different types
     //do not check value_ (functions are considered the same if they just have diff. value_)
     if(mb1.pddlType() != mb2.pddlType() /* || (mb1.type_ == FUNCTION_TYPE && mb1.value_ != mb2.value_)*/)

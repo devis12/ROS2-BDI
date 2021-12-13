@@ -1,5 +1,15 @@
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
+using std::vector;
+using std::set;
+
+using ros2_bdi_interfaces::msg::ConditionsConjunction;
+using ros2_bdi_interfaces::msg::ConditionsDNF;
+
+using BDIManaged::ManagedCondition;
+using BDIManaged::ManagedConditionsConjunction;
+using BDIManaged::ManagedConditionsDNF;
+
 ManagedConditionsDNF::ManagedConditionsDNF():
     clauses_(vector<ManagedConditionsConjunction>()){}
 
@@ -32,7 +42,7 @@ bool ManagedConditionsDNF::isSatisfied(const set<ManagedBelief>& mbSet){
     return clauses_.size() == 0;// empty clause or no single clause is satisfied
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)
 {
     auto clauses = mcdnf.getClauses();
     
@@ -48,7 +58,7 @@ std::ostream& operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)
 }
 
 // overload `<` operator 
-bool operator<(const ManagedConditionsDNF& mcdnf1, const ManagedConditionsDNF& mcdnf2)
+bool BDIManaged::operator<(const ManagedConditionsDNF& mcdnf1, const ManagedConditionsDNF& mcdnf2)
 {
     vector<ManagedConditionsConjunction> mcdnf1_clauses = mcdnf1.getClauses();
     vector<ManagedConditionsConjunction> mcdnf2_clauses = mcdnf2.getClauses();
@@ -69,7 +79,7 @@ bool operator<(const ManagedConditionsDNF& mcdnf1, const ManagedConditionsDNF& m
 }
 
 // overload `==` operator 
-bool operator==(const ManagedConditionsDNF& mcdnf1, const ManagedConditionsDNF& mcdnf2)
+bool BDIManaged::operator==(const ManagedConditionsDNF& mcdnf1, const ManagedConditionsDNF& mcdnf2)
 {
     vector<ManagedConditionsConjunction> mcdnf1_clauses = mcdnf1.getClauses();
     vector<ManagedConditionsConjunction> mcdnf2_clauses = mcdnf1.getClauses();

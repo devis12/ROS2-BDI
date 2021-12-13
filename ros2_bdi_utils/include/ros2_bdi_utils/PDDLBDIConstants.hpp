@@ -3,13 +3,11 @@
 
 #include <string>
 
-using std::string;
-
 namespace PDDLBDIConstants
 {   
-    inline string INSTANCE_TYPE  {"INSTANCE"};
-    inline string FUNCTION_TYPE  {"FUNCTION"};
-    inline string PREDICATE_TYPE { "PREDICATE" };
+    inline std::string INSTANCE_TYPE  {"INSTANCE"};
+    inline std::string FUNCTION_TYPE  {"FUNCTION"};
+    inline std::string PREDICATE_TYPE { "PREDICATE" };
     
 }  // namespace Constants
 

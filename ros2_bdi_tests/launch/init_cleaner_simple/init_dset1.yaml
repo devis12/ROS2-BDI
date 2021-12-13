@@ -7,7 +7,7 @@
       name: "cleaned"
       pddl_type: 2
       params:
-        - "kitchen1"
+        - "kitchen"
   rollback_belief_add:
     -
       name: "workfree"

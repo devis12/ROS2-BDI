@@ -3,25 +3,12 @@
 
 #include <string>
 #include <vector>
-#include <set>
+
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
+
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
-#include "ros2_bdi_interfaces/msg/belief_set.hpp"
-#include "ros2_bdi_interfaces/msg/desire_set.hpp"
-#include "ros2_bdi_utils/ManagedBelief.hpp"
-#include "ros2_bdi_utils/ManagedDesire.hpp"
 
-using std::string;
-using std::vector;
-using std::set;
-using plansys2::Instance;
-using plansys2::Predicate;
-using plansys2::Function;
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::Desire;
-using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::DesireSet;
 
 namespace PDDLBDIConverter
 {
@@ -29,37 +16,37 @@ namespace PDDLBDIConverter
   /*
     Convert PlanSys2 PDDL Instance to ROS2-BDI Belief
   */
-  Belief convertPDDLInstance(const Instance instance);
+  ros2_bdi_interfaces::msg::Belief convertPDDLInstance(const plansys2::Instance instance);
 
   /*
     Convert PlanSys2 PDDL Instances to ROS2-BDI Beliefs
   */
-  vector<Belief> convertPDDLInstances(const vector<Instance> instances);
+  std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLInstances(const std::vector<plansys2::Instance> instances);
   
   /*
     Convert PlanSys2 PDDL Predicate to ROS2-BDI Belief
   */
-  Belief convertPDDLPredicate(const Predicate predicate);
+  ros2_bdi_interfaces::msg::Belief convertPDDLPredicate(const plansys2::Predicate predicate);
 
   /*
     Convert PlanSys2 PDDL Predicates to ROS2-BDI Beliefs
   */
-  vector<Belief> convertPDDLPredicates(const vector<Predicate> predicates);
+  std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLPredicates(const std::vector<plansys2::Predicate> predicates);
 
   /*
     Convert PlanSys2 PDDL Function to ROS2-BDI Belief
   */
-  Belief convertPDDLFunction(const Function function);
+  ros2_bdi_interfaces::msg::Belief convertPDDLFunction(const plansys2::Function function);
 
   /*
     Convert PlanSys2 PDDL Functions to ROS2-BDI Beliefs
   */
-  vector<Belief> convertPDDLFunctions(const vector<Function> functions);
+  std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLFunctions(const std::vector<plansys2::Function> functions);
 
   /*
     Convert Desire into PDDL Goal
   */
-  string desireToGoal(const Desire& desire);
+  std::string desireToGoal(const ros2_bdi_interfaces::msg::Desire& desire);
   
 }  // namespace PDDLBDIConverter
 

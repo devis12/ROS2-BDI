@@ -6,48 +6,47 @@
 #include <iostream>
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
-#include "ros2_bdi_interfaces/msg/belief_set.hpp"
 
-using std::string;
-using std::vector;
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::BeliefSet;
-
-class ManagedBelief
+namespace BDIManaged
 {
 
-    public:
-        ManagedBelief();
-        ManagedBelief(const Belief& belief);
-        
-        static ManagedBelief buildMBInstance(const string& name, const string& instance_type);
-        static ManagedBelief buildMBPredicate(const string& name, const vector<string>& params);
-        static ManagedBelief buildMBFunction(const string& name, const vector<string>& params, const float& value);
+    class ManagedBelief
+    {
 
-        string getName() const {return name_;};
-        int pddlType() const {return pddl_type_;};
-        vector<string> getParams() const {return params_;};
-        float getValue() const {return value_;};
-        string pddlTypeString() const;
+        public:
+            ManagedBelief();
+            ManagedBelief(const ros2_bdi_interfaces::msg::Belief& belief);
+            
+            static ManagedBelief buildMBInstance(const std::string& name, const std::string& instance_type);
+            static ManagedBelief buildMBPredicate(const std::string& name, const std::vector<std::string>& params);
+            static ManagedBelief buildMBFunction(const std::string& name, const std::vector<std::string>& params, const float& value);
 
-        Belief toBelief() const;
-        
-    private:
-        ManagedBelief(const string& name,const int& type,const vector<string>& params,const float& value);
-        
-        string name_;
-        int pddl_type_;
-        vector<string> params_;
-        float value_;
+            std::string getName() const {return name_;};
+            int pddlType() const {return pddl_type_;};
+            std::vector<std::string> getParams() const {return params_;};
+            float getValue() const {return value_;};
+            std::string pddlTypeString() const;
 
-};  // class ManagedBelief
+            ros2_bdi_interfaces::msg::Belief toBelief() const;
+            
+        private:
+            ManagedBelief(const std::string& name,const int& type,const std::vector<std::string>& params,const float& value);
+            
+            std::string name_;
+            int pddl_type_;
+            std::vector<std::string> params_;
+            float value_;
 
-std::ostream& operator<<(std::ostream& os, const ManagedBelief& mb);
+    };  // class ManagedBelief
 
-// overload `<` operator 
-bool operator<(const ManagedBelief& mb1, const ManagedBelief& mb2);
+    std::ostream& operator<<(std::ostream& os, const ManagedBelief& mb);
 
-// overload `==` operator 
-bool operator==(const ManagedBelief& mb1, const ManagedBelief& mb2);
+    // overload `<` operator 
+    bool operator<(const ManagedBelief& mb1, const ManagedBelief& mb2);
+
+    // overload `==` operator 
+    bool operator==(const ManagedBelief& mb1, const ManagedBelief& mb2);
+}
+
 
 #endif  // MANAGED_BELIEF_H_

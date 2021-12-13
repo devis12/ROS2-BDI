@@ -77,17 +77,6 @@ ament_target_dependencies(communications
 )
 
 
-#add_executable(test_node src/test_node.cpp)
-#target_link_libraries(test_node
-#  yaml-cpp  
-#)
-#ament_target_dependencies(test_node
-#  rclcpp
-#  ros2_bdi_interfaces
-#  ros2_bdi_utils
-#)
-
-
 install(DIRECTORY include/
   DESTINATION include/
 )
@@ -98,18 +87,9 @@ install(TARGETS
   plan_director
   plansys2_monitor
   communications
-#  test_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-
-#install(DIRECTORY
-#  pddl
-#  DESTINATION share/${PROJECT_NAME}
-#)
-
 ament_export_include_directories(include)
-#ament_export_libraries(${PROJECT_NAME})
-#ament_export_dependencies(${dependencies})
 
 ament_package()

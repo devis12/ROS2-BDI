@@ -1,5 +1,17 @@
 #include "ros2_bdi_utils/ManagedCondition.hpp"
 
+#include "ros2_bdi_interfaces/msg/belief.hpp"
+
+
+using std::string;
+using std::vector;
+using std::set;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Condition;
+
+using BDIManaged::ManagedCondition;
+
 ManagedCondition::ManagedCondition(const ManagedBelief& managedBelief, const string& check):
     condition_to_check_(managedBelief),
     check_(check)
@@ -120,7 +132,7 @@ for(Condition c : conditions)
 return result;
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedCondition& mc)
 {
     string check_string = mc.getCheck();
     Condition c = Condition();
@@ -146,13 +158,13 @@ std::ostream& operator<<(std::ostream& os, const ManagedCondition& mc)
 }
 
 // overload `<` operator 
-bool operator<(const ManagedCondition& mc1, const ManagedCondition& mc2)
+bool BDIManaged::operator<(const ManagedCondition& mc1, const ManagedCondition& mc2)
 {
     return mc1.getCheck() < mc2.getCheck() && mc1.getMGBelief() < mc2.getMGBelief();
 }
 
 // overload `==` operator 
-bool operator==(const ManagedCondition& mc1, const ManagedCondition& mc2)
+bool BDIManaged::operator==(const ManagedCondition& mc1, const ManagedCondition& mc2)
 {
     return mc1.getCheck() == mc2.getCheck() && mc1.getMGBelief() == mc2.getMGBelief();
 }   

@@ -54,6 +54,9 @@ using ros2_bdi_interfaces::srv::UpdBeliefSet;
 using ros2_bdi_interfaces::srv::CheckDesire;
 using ros2_bdi_interfaces::srv::UpdDesireSet;
 
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
+
 typedef enum {BELIEF, DESIRE} RequestObjType;  
 typedef enum {CHECK, WRITE} RequestObjOp;  
 

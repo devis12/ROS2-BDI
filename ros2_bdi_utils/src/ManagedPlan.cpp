@@ -1,10 +1,16 @@
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
-//#include "plansys2_domain_expert/DomainExpertClient.hpp"
-//#include "plansys2_msgs/msg/Action"
+#include "ros2_bdi_interfaces/msg/desire.hpp"
 
-//using plansys2::DomainExpertClient;
-//using plansys2_msgs::msg::Action;
+using plansys2_msgs::msg::Plan;
+using plansys2_msgs::msg::PlanItem;
+
+using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::BDIPlan;
+
+using BDIManaged::ManagedPlan;
+
+using std::vector;
 
 #define NO_PLAN "NO_PLAN"
 
@@ -68,7 +74,7 @@ float ManagedPlan::computeDeadline(const vector<PlanItem>& planitems)
 }
 
 // overload `==` operator 
-bool operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
+bool BDIManaged::operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
      // first check based on target desire
     if(!(mp1.getDesire() == mp2.getDesire()))
         return false;
@@ -89,7 +95,7 @@ bool operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
     return mp1.getPrecondition() == mp2.getPrecondition() && mp1.getContext() == mp2.getContext();
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedPlan& mp)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedPlan& mp)
 {   
     os << "PLAN\nDesire: " << mp.getDesire();
     

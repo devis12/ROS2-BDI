@@ -15,10 +15,10 @@
 #include "ros2_bdi_interfaces/srv/check_desire.hpp"
 #include "ros2_bdi_interfaces/srv/upd_desire_set.hpp"
 
-#include "ros2_bdi_utils/ManagedBelief.hpp"
-#include "ros2_bdi_utils/ManagedDesire.hpp"
-
 #include "rclcpp/rclcpp.hpp"
+
+using std::string;
+using std::vector;
 
 using ros2_bdi_interfaces::msg::Belief;            
 using ros2_bdi_interfaces::msg::BeliefSet;            
@@ -27,6 +27,7 @@ using ros2_bdi_interfaces::srv::CheckBelief;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;  
 using ros2_bdi_interfaces::srv::CheckDesire;  
 using ros2_bdi_interfaces::srv::UpdDesireSet; 
+
 
 typedef struct{
   Belief belief;

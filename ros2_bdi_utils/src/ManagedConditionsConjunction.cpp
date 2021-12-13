@@ -1,6 +1,15 @@
+#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+
 #include <algorithm>
 
-#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+using std::vector;
+using std::set;
+
+using ros2_bdi_interfaces::msg::Condition;
+using ros2_bdi_interfaces::msg::ConditionsConjunction;
+
+using BDIManaged::ManagedCondition;
+using BDIManaged::ManagedConditionsConjunction;
 
 ManagedConditionsConjunction::ManagedConditionsConjunction():
     literals_(vector<ManagedCondition>()){}
@@ -29,7 +38,7 @@ bool ManagedConditionsConjunction::isSatisfied(const set<ManagedBelief>& mbSet){
     return ManagedCondition::verifyAllManagedConditions(literals_, mbSet);//note: returns true if empty
 }
 
-std::ostream& operator<<(std::ostream& os, const ManagedConditionsConjunction& mcc)
+std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedConditionsConjunction& mcc)
 {
     auto literals = mcc.getLiterals();
     
@@ -45,7 +54,7 @@ std::ostream& operator<<(std::ostream& os, const ManagedConditionsConjunction& m
 }
 
 // overload `<` operator 
-bool operator<(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2)
+bool BDIManaged::operator<(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2)
 {
     vector<ManagedCondition> mcc1_literals = mcc1.getLiterals();
     vector<ManagedCondition> mcc2_literals = mcc2.getLiterals();
@@ -66,7 +75,7 @@ bool operator<(const ManagedConditionsConjunction& mcc1, const ManagedConditions
 }
 
 // overload `==` operator 
-bool operator==(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2){
+bool BDIManaged::operator==(const ManagedConditionsConjunction& mcc1, const ManagedConditionsConjunction& mcc2){
     vector<ManagedCondition> mcc1_literals = mcc1.getLiterals();
     vector<ManagedCondition> mcc2_literals = mcc2.getLiterals();
 

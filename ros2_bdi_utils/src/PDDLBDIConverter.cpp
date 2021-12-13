@@ -1,8 +1,14 @@
-#include <string>
-
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 
 using std::string;
+using std::vector;
+
+using plansys2::Instance;
+using plansys2::Predicate;
+using plansys2::Function;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Desire;
 
 namespace PDDLBDIConverter
 {

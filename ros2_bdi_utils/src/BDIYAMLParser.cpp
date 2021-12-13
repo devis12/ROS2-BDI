@@ -1,5 +1,16 @@
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
+using std::string;
+using std::vector;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Desire;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
+using BDIManaged::ManagedCondition;
+using BDIManaged::ManagedConditionsConjunction;
+using BDIManaged::ManagedConditionsDNF;
 
 namespace BDIYAMLParser
 {

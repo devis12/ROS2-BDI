@@ -3,6 +3,9 @@
 #include <ctime>
 #include <memory>
 #include <thread>
+#include <set>
+#include <vector>
+#include <string>
 #include <chrono>
 
 #include <boost/algorithm/string.hpp>
@@ -41,6 +44,8 @@
 #define PLAN_INTERVAL 250
 
 using std::string;
+using std::set;
+using std::vector;
 using std::thread;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -69,6 +74,11 @@ using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedConditionsDNF;
+using BDIManaged::ManagedDesire;
+using BDIManaged::ManagedPlan;
 
 typedef enum {STARTING, READY, EXECUTING, PAUSE} StateType;                
 

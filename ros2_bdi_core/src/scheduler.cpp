@@ -62,6 +62,8 @@ using std::optional;
 using plansys2::DomainExpertClient;
 using plansys2::ProblemExpertClient;
 using plansys2::PlannerClient;
+using plansys2::Instance;
+using plansys2::Predicate;
 using plansys2::Goal;
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
@@ -77,6 +79,10 @@ using ros2_bdi_interfaces::msg::PlanSys2State;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
+using BDIManaged::ManagedPlan;
 
 typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
 typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} TargetBeliefAcceptance;

@@ -20,6 +20,8 @@ using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;            
 
+using BDIManaged::ManagedBelief;
+
 class WPSensor : public Sensor
 {
     public:

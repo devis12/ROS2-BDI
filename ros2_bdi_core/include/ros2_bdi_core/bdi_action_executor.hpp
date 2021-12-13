@@ -34,6 +34,7 @@
 
 using std::string;
 using std::vector;
+using std::set;
 using std::shared_ptr;
 using std::thread;
 using std::chrono::seconds;
@@ -50,6 +51,9 @@ using ros2_bdi_interfaces::srv::CheckBelief;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;  
 using ros2_bdi_interfaces::srv::CheckDesire;  
 using ros2_bdi_interfaces::srv::UpdDesireSet;  
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
 
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {

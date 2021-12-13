@@ -18,7 +18,6 @@
 #include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
-#include "ros2_bdi_utils/BDIComparisons.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 #include "std_msgs/msg/empty.hpp"
@@ -49,6 +48,8 @@ using std_msgs::msg::Empty;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::PlanSys2State;
+
+using BDIManaged::ManagedBelief;
 
 typedef enum {STARTING, SYNC, PAUSE} StateType;                
 

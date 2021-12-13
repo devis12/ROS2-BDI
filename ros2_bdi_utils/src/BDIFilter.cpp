@@ -1,8 +1,24 @@
-#include <string>
-
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include <string>
+
+#include "ros2_bdi_interfaces/msg/condition.hpp"
+
 using std::string;
+using std::vector;
+using std::set;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::BeliefSet;
+using ros2_bdi_interfaces::msg::DesireSet;
+using ros2_bdi_interfaces::msg::Condition;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedDesire;
+using BDIManaged::ManagedCondition;
+using BDIManaged::ManagedConditionsConjunction;
+using BDIManaged::ManagedConditionsDNF;
 
 namespace BDIFilter
 {
@@ -14,8 +30,12 @@ namespace BDIFilter
   {
     BeliefSet bset_msg = BeliefSet();
     vector<Belief> beliefs_vector = vector<Belief>();
+    
+    // iterate over the ManagedBelief set and convert every item to a Belief msg to be pushed 
+    // into the array value for the BeliefSet obj
     for(ManagedBelief mb : managed_beliefs)
       beliefs_vector.push_back(mb.toBelief());
+
     bset_msg.value = beliefs_vector;
     return bset_msg; 
   }
@@ -27,8 +47,12 @@ namespace BDIFilter
   {
     DesireSet dset_msg = DesireSet();
     vector<Desire> desires_vector = vector<Desire>();
+        
+    // iterate over the ManagedDesire set and convert every item to a Desire msg to be pushed 
+    // into the array value for the DesireSet obj
     for(ManagedDesire md : managed_desires)
       desires_vector.push_back(md.toDesire());
+
     dset_msg.value = desires_vector;
     return dset_msg; 
   }
@@ -164,33 +188,43 @@ namespace BDIFilter
     return extracted;
   }
 
-vector<ManagedDesire> conditionsToMGDesire(const ManagedConditionsDNF& conditionsDNF, 
-                           const string& desireBaseName, 
-                           const float& desirePriority, const float& desireDeadline)
-{
-    vector<ManagedDesire> extractedDesires;
-    int counter = 0;
-    for(ManagedConditionsConjunction mcc : conditionsDNF.getClauses())
-    {
-      counter++;
+  /*
+    Given array of ManagedCondition, desire base name (added a counter as suffix to distinguish them among each other),
+    desire priority, desire deadline use it to build a ManagedDesire putting as value the conditions
+    NOTE: for now just work around with condition(s) containing PREDICATE type as values,
+    if @conditions do not contain any Belief with PREDICATE type, returns empty array
+  */    
+  vector<ManagedDesire> conditionsToMGDesire(const ManagedConditionsDNF& conditionsDNF, 
+                            const string& desireBaseName, 
+                            const float& desirePriority, const float& desireDeadline)
+  {
+      vector<ManagedDesire> extractedDesires;
+      int counter = 0;
 
-      string desireName = desireBaseName + std::to_string(counter);
-      vector<ManagedBelief> desireValue;
-      for(ManagedCondition mc : mcc.getLiterals())
+      // Iterate over all clauses: each one of them represents a desire's value
+      for(ManagedConditionsConjunction mcc : conditionsDNF.getClauses())
       {
-        ManagedBelief mb = mc.getMGBelief();
-        //for now desire can support just value with PREDICATE type Beliefs on TRUE checks
-        if(mc.getCheck() == Condition().TRUE_CHECK && mb.pddlType() == Belief().PREDICATE_TYPE)
-          desireValue.push_back(mb);
+        counter++;
+
+        string desireName = desireBaseName + std::to_string(counter);
+        vector<ManagedBelief> desireValue;
+        for(ManagedCondition mc : mcc.getLiterals())
+        {
+          ManagedBelief mb = mc.getMGBelief();
+
+          // for now desire can support just value with PREDICATE type Beliefs on TRUE checks
+          // [TODO] update when upgrading to new PDDL planners
+          if(mc.getCheck() == Condition().TRUE_CHECK && mb.pddlType() == Belief().PREDICATE_TYPE)
+            desireValue.push_back(mb);
+        }
+
+        if(desireValue.size() > 0)
+          extractedDesires.push_back(ManagedDesire{desireName, desireValue, desirePriority, desireDeadline});
       }
 
-      if(desireValue.size() > 0)
-        extractedDesires.push_back(ManagedDesire{desireName, desireValue, desirePriority, desireDeadline});
-    }
-
-    return extractedDesires;
-    
-}
+      return extractedDesires;
+      
+  }
 
 
 }

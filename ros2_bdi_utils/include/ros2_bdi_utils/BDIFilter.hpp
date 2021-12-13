@@ -4,25 +4,16 @@
 #include <vector>
 #include <set>
 
-#include "ros2_bdi_utils/ManagedBelief.hpp"
-#include "ros2_bdi_utils/ManagedDesire.hpp"
-#include "ros2_bdi_utils/ManagedCondition.hpp"
-#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
-#include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
-
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire_set.hpp"
 
-using std::vector;
-using std::set;
-using std::optional;
-
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::Desire;
-using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::DesireSet;
+#include "ros2_bdi_utils/ManagedBelief.hpp"
+#include "ros2_bdi_utils/ManagedDesire.hpp"
+#include "ros2_bdi_utils/ManagedCondition.hpp"
+#include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
+#include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
 namespace BDIFilter
 {
@@ -30,76 +21,76 @@ namespace BDIFilter
     /*
     Extract from passed set of ManagedBelief objects a BeliefSet msg
   */
-  BeliefSet extractBeliefSetMsg(const set<ManagedBelief> managed_beliefs);
+  ros2_bdi_interfaces::msg::BeliefSet extractBeliefSetMsg(const std::set<BDIManaged::ManagedBelief> managed_beliefs);
 
   /*
     Extract from passed set of ManagedDesire objects a DesireSet msg
   */
-  DesireSet extractDesireSetMsg(const set<ManagedDesire> managed_desires);
+  ros2_bdi_interfaces::msg::DesireSet extractDesireSetMsg(const std::set<BDIManaged::ManagedDesire> managed_desires);
 
   /*
     Extract from passed vector just beliefs of type instance
   */
-  vector<Belief> extractInstances(const vector<Belief> beliefs);
+  std::vector<ros2_bdi_interfaces::msg::Belief> extractInstances(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector just beliefs of type predicate
   */
-  vector<Belief> extractPredicates(const vector<Belief> beliefs);
+  std::vector<ros2_bdi_interfaces::msg::Belief> extractPredicates(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector just beliefs of type function
   */
-  vector<Belief> extractFunctions(const vector<Belief> beliefs);
+  std::vector<ros2_bdi_interfaces::msg::Belief> extractFunctions(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector beliefs and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGBeliefs(const vector<Belief> beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGBeliefs(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector desires and put them into a set of ManagedDesire objects
   */
-  set<ManagedDesire> extractMGDesires(const vector<Desire> desires);
+  std::set<BDIManaged::ManagedDesire> extractMGDesires(const std::vector<ros2_bdi_interfaces::msg::Desire> desires);
 
   /*
     Extract from passed vector beliefs and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGInstances(const vector<Belief> beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGInstances(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGPredicates(const vector<Belief> beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGPredicates(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed vector just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFunctions(const vector<Belief> beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGFunctions(const std::vector<ros2_bdi_interfaces::msg::Belief> beliefs);
 
   /*
     Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGInstances(const set<ManagedBelief> managed_beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGInstances(const std::set<BDIManaged::ManagedBelief> managed_beliefs);
   
   /*
     Extract from passed set just beliefs of type predicate and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGPredicates(const set<ManagedBelief> managed_beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGPredicates(const std::set<BDIManaged::ManagedBelief> managed_beliefs);
 
   /*
     Extract from passed set just beliefs of type function and put them into a set of ManagedBelief objects
   */
-  set<ManagedBelief> extractMGFunctions(const set<ManagedBelief> managed_beliefs);
+  std::set<BDIManaged::ManagedBelief> extractMGFunctions(const std::set<BDIManaged::ManagedBelief> managed_beliefs);
 
   /*
-    given array of ManagedCondition, desire base name (added a counter as suffix to distinguish them among each other),
+    Given array of ManagedCondition, desire base name (added a counter as suffix to distinguish them among each other),
     desire priority, desire deadline use it to build a ManagedDesire putting as value the conditions
     NOTE: for now just work around with condition(s) containing PREDICATE type as values,
-    if @conditions do not contain any Belief with PREDICATE type, returns std::nullopt
+    if @conditions do not contain any Belief with PREDICATE type, returns empty array
   */      
-  vector<ManagedDesire> conditionsToMGDesire(const ManagedConditionsDNF& conditionsDNF, 
-                  const string& desireBaseName, const float& desirePriority, const float& desireDeadline);
+  std::vector<BDIManaged::ManagedDesire> conditionsToMGDesire(const BDIManaged::ManagedConditionsDNF& conditionsDNF, 
+                  const std::string& desireBaseName, const float& desirePriority, const float& desireDeadline);
   
 }  // namespace BDIFilter
 
