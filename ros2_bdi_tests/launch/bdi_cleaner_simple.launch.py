@@ -4,8 +4,8 @@ from ament_index_python.packages import get_package_share_directory
 ros2_bdi_bringup_dir = get_package_share_directory('ros2_bdi_bringup')
 sys.path.append(ros2_bdi_bringup_dir + '/launch/')
 from bdi_agent import AgentLaunchDescription
-from bdi_agent import AgentAction
-from bdi_agent import AgentSensor
+from bdi_agent_skills import AgentAction
+from bdi_agent_skills import AgentSensor
 
 def generate_launch_description():
     AGENT_ID = 'cleaner'
