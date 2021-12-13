@@ -146,27 +146,7 @@ def AgentLaunchDescription(
     '''
         [*] COMMUNICATION NODE init.
     '''
-    # Default init params for Communication Node
-    communication_node_params = [
-        {AGENT_ID_PARAM: agent_id},
-        {AGENT_GROUP_ID_PARAM: agent_group}
-    ]
-
-    for BDRW_PARAM in [ACCEPT_BELIEFS_R_PARAM, ACCEPT_BELIEFS_W_PARAM, ACCEPT_DESIRES_R_PARAM, ACCEPT_DESIRES_W_PARAM]:
-        if BDRW_PARAM in init_params and is_list_of(init_params[BDRW_PARAM], str) and len(init_params[BDRW_PARAM]) > 0:
-            communication_node_params += [{BDRW_PARAM: init_params[BDRW_PARAM]}] 
-
-    # validation init param for accept desires max priorities from [groups] param
-    if ACCEPT_DESIRES_MAX_PR_PARAM in init_params and is_list_of(init_params[ACCEPT_DESIRES_MAX_PR_PARAM], float) and len(init_params[ACCEPT_DESIRES_MAX_PR_PARAM]) > 0:
-        communication_node_params += [{ACCEPT_DESIRES_MAX_PR_PARAM: init_params[ACCEPT_DESIRES_MAX_PR_PARAM]}] 
-
-    communications_manager = Node(
-        package='ros2_bdi_core',
-        executable='communications',
-        namespace=namespace,
-        output='screen',
-        parameters=communication_node_params 
-    )
+    communications_manager = build_CommunicationsNode(namespace, agent_id, agent_group, init_params)
     
     '''
         [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
