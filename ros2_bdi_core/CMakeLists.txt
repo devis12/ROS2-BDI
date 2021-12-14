@@ -20,8 +20,6 @@ find_package(ros2_bdi_interfaces REQUIRED)
 
 find_library(yaml-cpp REQUIRED)
 
-include_directories(include)
-
 set(common_dependencies
   rclcpp
   plansys2_msgs
@@ -75,7 +73,6 @@ ament_target_dependencies(communications
   ros2_bdi_interfaces
   ros2_bdi_utils
 )
-
 
 install(DIRECTORY include/
   DESTINATION include/

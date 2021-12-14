@@ -1,4 +1,4 @@
-#include "ros2_bdi_core/bdi_action_executor.hpp"
+#include "ros2_bdi_skills/bdi_action_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class Recharge : public BDIActionExecutor
