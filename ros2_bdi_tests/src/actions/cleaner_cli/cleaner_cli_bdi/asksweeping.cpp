@@ -1,5 +1,21 @@
+#include <string>
+#include <vector>
+
+#include "ros2_bdi_interfaces/msg/belief.hpp"
+#include "ros2_bdi_interfaces/msg/desire.hpp"
+#include "ros2_bdi_skills/communications_structs.hpp"
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
+
+using std::string;
+using std::vector;
+
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::Desire;
+
+using BDICommunications::UpdOperation;
+using BDICommunications::ADD;
+using BDICommunications::UpdDesireResult;
 
 class AskSweeping : public BDIActionExecutor
 {

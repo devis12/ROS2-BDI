@@ -23,6 +23,13 @@ using ros2_bdi_interfaces::srv::UpdDesireSet;
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
 
+using BDICommunications::UpdOperation;
+using BDICommunications::CheckBeliefResult;
+using BDICommunications::CheckDesireResult;
+using BDICommunications::UpdBeliefResult;
+using BDICommunications::UpdDesireResult;
+using BDICommunications::CommunicationsClient;
+
 
 BDIActionExecutor::BDIActionExecutor(const string& action_name, const int& working_freq) : 
   plansys2::ActionExecutorClient(action_name, milliseconds((int) (1000/working_freq)))

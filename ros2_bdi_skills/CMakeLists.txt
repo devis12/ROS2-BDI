@@ -15,6 +15,7 @@ include_directories(include)
 
 set(SKILLS-SOURCES
   src/sensor.cpp
+  src/communications_client.cpp
   src/bdi_action_executor.cpp
 )
 

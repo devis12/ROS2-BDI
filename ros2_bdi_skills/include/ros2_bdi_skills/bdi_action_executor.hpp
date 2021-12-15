@@ -19,6 +19,7 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include "ros2_bdi_skills/communications_structs.hpp"
 #include "ros2_bdi_skills/communications_client.hpp"
 
 #include "plansys2_executor/ActionExecutorClient.hpp"
@@ -59,16 +60,20 @@ protected:
       Utility methods to check other agents' desire sets or 
       to send belief request (ADD/DEL) to other agents within the action doWork method implementation
     */
-    CheckBeliefResult sendCheckBeliefRequest(const std::string& agentRef, const ros2_bdi_interfaces::msg::Belief& belief);
-    UpdBeliefResult sendUpdBeliefRequest(const std::string& agentRef, const ros2_bdi_interfaces::msg::Belief& belief, const UpdOperation& op);
+    BDICommunications::CheckBeliefResult sendCheckBeliefRequest(const std::string& agentRef, 
+        const ros2_bdi_interfaces::msg::Belief& belief);
+    BDICommunications::UpdBeliefResult sendUpdBeliefRequest(const std::string& agentRef, 
+        const ros2_bdi_interfaces::msg::Belief& belief, const BDICommunications::UpdOperation& op);
     
     /*
       Utility methods to check other agents' desire sets or 
       send desire request (ADD/DEL) to other agents within the action doWork method implementation
       (flag for monitoring fulfillment is provided for the ADD scenario)
     */
-    CheckDesireResult sendCheckDesireRequest(const std::string& agentRef, const ros2_bdi_interfaces::msg::Desire& desire);
-    UpdDesireResult sendUpdDesireRequest(const std::string& agentRef, const ros2_bdi_interfaces::msg::Desire& desire, const UpdOperation& op, const bool& monitorFulfill);
+    BDICommunications::CheckDesireResult sendCheckDesireRequest(const std::string& agentRef, 
+        const ros2_bdi_interfaces::msg::Desire& desire);
+    BDICommunications::UpdDesireResult sendUpdDesireRequest(const std::string& agentRef, 
+        const ros2_bdi_interfaces::msg::Desire& desire, const BDICommunications::UpdOperation& op, const bool& monitorFulfill);
 
     /*
       if no monitored desire, just return false
@@ -134,7 +139,7 @@ private:
     // agent group id that defines the group of agents it is a part of (used to decide which belief/desire to accept or discard)
     std::string agent_group_;
 
-    std::shared_ptr<CommunicationsClient> comm_client_;
+    std::shared_ptr<BDICommunications::CommunicationsClient> comm_client_;
 
     // progress of the current action execution
     float progress_;

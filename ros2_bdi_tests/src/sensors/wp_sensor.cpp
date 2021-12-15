@@ -25,8 +25,8 @@ using BDIManaged::ManagedBelief;
 class WPSensor : public Sensor
 {
     public:
-        WPSensor(const string& sensor_name, const Belief& belief_proto)
-        : Sensor(sensor_name, belief_proto)
+        WPSensor(const string& sensor_name, const Belief& proto_belief)
+        : Sensor(sensor_name, proto_belief)
         {
             // Init fake waypoint that are going to be sensed
             Belief bedroom_wp =  (ManagedBelief::buildMBInstance("bedroom", "waypoint")).toBelief();
@@ -38,8 +38,6 @@ class WPSensor : public Sensor
             waypoints.push_back(bathroom_wp);
 
             counter_ = 0;
-
-            this->init();
         }
 
         void performSensing()
@@ -47,7 +45,7 @@ class WPSensor : public Sensor
             if(counter_ < waypoints.size())
             {
                 this->sense(waypoints[counter_], ADD);
-                RCLCPP_INFO(this->get_logger(), "WaypointSensor sensing for instance of type " + this->belief_proto_.params[0] + 
+                RCLCPP_INFO(this->get_logger(), "WaypointSensor sensing for instance of type " + this->getBeliefPrototype().params[0] + 
                     " has sensed: " + waypoints[counter_].name);
                 counter_++;
             }
