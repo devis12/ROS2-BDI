@@ -861,8 +861,14 @@ private:
     {   
         bool added = addDesire(ManagedDesire{(*msg)});
 
-        if(added && noPlanSelected())//addition done and no Plan currently selected, reschedule immediately
-            reschedule();
+        if(added)//addition done
+        {   
+            publishDesireSet();
+            checkForSatisfiedDesires();// check for desire to be already fulfilled
+
+            if(desire_set_.size() > 0 && noPlanSelected())// still there to be satisfied && no plan selected, rescheduled immediately
+                reschedule();
+        }
     }
 
     /*  
@@ -873,13 +879,18 @@ private:
     {
         bool deleted = delDesire(ManagedDesire{(*msg)});
 
-        if(deleted && ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan
+        if(deleted)
         {
-            //abort current plan execution
-            shared_ptr<thread> thr = 
-                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
-                BDIPlanExecution::Request().ABORT, current_plan_));
-            thr->detach();
+            publishDesireSet();
+            
+            if(ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan)
+            {
+                //abort current plan execution
+                shared_ptr<thread> thr = 
+                    std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
+                    BDIPlanExecution::Request().ABORT, current_plan_));
+                thr->detach();
+            }
         }
     }
 
