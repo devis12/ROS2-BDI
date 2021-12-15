@@ -11,26 +11,32 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedCondition.hpp"
 
+/* Namespace for wrapper classes wrt. BDI msgs defined in ros2_bdi_interfaces::msg */
 namespace BDIManaged
 {
 
+    /* Wrapper class to easily manage and infer info from a ros2_bdi_interfaces::msg::ConditionsConjunction instance*/
     class ManagedConditionsConjunction
     {
 
         public:
+            /* Constructor methods*/
             ManagedConditionsConjunction();
             ManagedConditionsConjunction(const ros2_bdi_interfaces::msg::ConditionsConjunction& conditionsConjunction);
             ManagedConditionsConjunction(const std::vector<ManagedCondition>& literals);
             
+            /* getter method for ManagedConditionsConjunction instance prop -> literals_ */
             std::vector<ManagedCondition> getLiterals() const {return literals_;}
+
             // returns true if all literals are satisfied against the passed belief set
             // n.b. result is true if literals_ array is empty
             bool isSatisfied(const std::set<ManagedBelief>& mbSet);
             
-            // convert to ConditionsConjunction msg generated from current ManagedConditionsConjunction object
+            // convert instance to ros2_bdi_interfaces::msg::ConditionsConjunction format
             ros2_bdi_interfaces::msg::ConditionsConjunction toConditionsConjunction() const;
 
         private:
+            /* All literals need to be satisfied being this a conjunction among them */
             std::vector<ManagedCondition> literals_;
 
     };  // class ManagedConditionsConjunction

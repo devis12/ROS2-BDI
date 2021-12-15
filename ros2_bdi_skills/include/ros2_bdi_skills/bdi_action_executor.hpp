@@ -35,25 +35,38 @@
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {
 public:
+  /*
+    Constructor for every action executor node, 
+      @action_name should match the one within the pddl domain definition
+      @working_freq represents the frequency at which the doWork method is called (expressed in Hz)
+  */
   BDIActionExecutor(const std::string& action_name, const int& working_freq);
 
+  /*
+    Method called when node is triggered by the Executor node of PlanSys2
+    Progress for the action sets to 0.0f
+  */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
       on_activate(const rclcpp_lifecycle::State & previous_state);
 
 protected:
 
-    /*return arguments of the actions*/
+    /*returns arguments of the actions*/
     std::vector<std::string> getArguments() {return get_arguments();}
-    /*return current progress state of the action*/
+    /*returns current progress state of the action*/
     float getProgress() {return progress_;} 
 
     /*
-        Call to perform at each action activation
+      Method regularly called at the frequency specified in the constructor to handle the advancement of the action,
+      wrapper method for the domain specific logics written within advanceWork by the user. Its purpose is to hide
+      calls that has to be made to PlanSys2, to avoid the user the burden to check a second docs.
     */
-    void activation();
-
     void do_work();
 
+    /*
+      Method called once in each run of do_work() with the domain specific logic for the action advancement 
+      written by the user. Returns the estimated percentage of progress made in the [0-1] range
+    */
     virtual float advanceWork() = 0;
 
     /*
@@ -87,7 +100,8 @@ protected:
     // method to be called when the execution successfully comes to completion (specific success msg added)
     void execSuccess(const std::string& statusSpecific)
     {
-      RCLCPP_INFO(this->get_logger(), "Action execution success: " + statusSpecific);
+      if(this->get_parameter(PARAM_DEBUG).as_bool())
+        RCLCPP_INFO(this->get_logger(), "Action execution success: " + statusSpecific);
       finish(true, 1.0, action_name_ + " successful execution" + ((statusSpecific == "")? ": action performed" : ": " + statusSpecific));
     }
 
@@ -100,7 +114,8 @@ protected:
     //method to be called when the execution fail (specific error to be given)
     void execFailed(const std::string& errSpecific)
     {
-      RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + errSpecific);
+      if(this->get_parameter(PARAM_DEBUG).as_bool())
+        RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + errSpecific);
       finish(false, progress_, action_name_ + " failed execution" + ((errSpecific == "")? ": generic error" : ": " + errSpecific));
     }
 

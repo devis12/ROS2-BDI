@@ -40,67 +40,11 @@ ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& val
     {
         if(priority_ < 0.0f)
             priority_ = 0.0f;
-        
+
         if(deadline_ < 0.0f)
             deadline_ = 0.0f;
     }
-
-
-ManagedDesire::ManagedDesire(const string& name, const string& desire_group, const vector<ManagedBelief>& value,const float& priority,const float& deadline):
-    name_(name),
-    desire_group_(desire_group),
-    value_ (value),
-    priority_(priority),
-    deadline_(deadline),
-    precondition_(ManagedConditionsDNF()),
-    context_(ManagedConditionsDNF()),
-    rollback_belief_add_(vector<ManagedBelief>()),
-    rollback_belief_del_(vector<ManagedBelief>())
-    {
-        if(priority_ < 0.0f)
-            priority_ = 0.0f;
-        
-        if(deadline_ < 0.0f)
-            deadline_ = 0.0f;
-    }
-
-ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
-                        const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
-    name_(name),
-    desire_group_(name),
-    value_ (value),
-    priority_(priority),
-    deadline_(deadline),
-    precondition_(precondition),
-    context_(context),
-    rollback_belief_add_(vector<ManagedBelief>()),
-    rollback_belief_del_(vector<ManagedBelief>())
-    {
-        if(priority_ < 0.0f)
-            priority_ = 0.0f;
-        
-        if(deadline_ < 0.0f)
-            deadline_ = 0.0f;
-    }
-
-ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
-                        const vector<ManagedBelief>& rollbackBeliefsAdd, const vector<ManagedBelief>& rollbackBeliefsDel):
-    name_(name),
-    desire_group_(name),
-    value_ (value),
-    priority_(priority),
-    deadline_(deadline),
-    precondition_(ManagedConditionsDNF()),
-    context_(ManagedConditionsDNF()),
-    rollback_belief_add_(rollbackBeliefsAdd),
-    rollback_belief_del_(rollbackBeliefsDel)
-    {
-        if(priority_ < 0.0f)
-            priority_ = 0.0f;
-        
-        if(deadline_ < 0.0f)
-            deadline_ = 0.0f;
-    }                     
+      
 
 ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& value,const float& priority,const float& deadline,
                 const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context,

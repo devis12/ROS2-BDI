@@ -10,13 +10,16 @@
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 
+/* Namespace for wrapper classes wrt. BDI msgs defined in ros2_bdi_interfaces::msg */
 namespace BDIManaged
 {
     
+    /* Wrapper class to easily manage and infer info from a ros2_bdi_interfaces::msg::Condition instance*/
     class ManagedCondition
     {
 
         public:
+            /* Constructor methods */
             ManagedCondition(const ManagedBelief& managedBelief, const std::string& check);
             ManagedCondition(const ros2_bdi_interfaces::msg::Condition& condition);
             
@@ -27,10 +30,11 @@ namespace BDIManaged
             // return true iff check is VALID && condition is verified against the beliefs and no belief in set denies it
             bool performCheckAgainstBeliefs(const std::set<ManagedBelief>& mbSet);
 
+            /* getter methods for ManagedCondition instance prop -> literals_ */
             ManagedBelief getMGBelief() const {return condition_to_check_;};
             std::string getCheck() const {return check_;};
 
-            // convert to condition msg
+            // convert instance to ros2_bdi_interfaces::msg::Condition msg
             ros2_bdi_interfaces::msg::Condition toCondition() const;
 
             /*
@@ -55,7 +59,9 @@ namespace BDIManaged
             // return true iff check_ is a valid check string property for a Fluent type Belief
             bool isCheckStringForFluent() const;
 
+            /*  Belief that needs to be checked, available checks differs based on the belief type */
             ManagedBelief condition_to_check_;
+            /*  Check to be performed (consult ros2_bdi_interfaces::msg::Condition msg for info)*/
             std::string check_;
 
     };  // class ManagedCondition

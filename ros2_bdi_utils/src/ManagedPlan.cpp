@@ -68,8 +68,11 @@ BDIPlan ManagedPlan::toPlan() const
 float ManagedPlan::computeDeadline(const vector<PlanItem>& planitems)
 {
     float deadline = 0.0f;
+    // you cannot compute the sum of all duration, because not all plans are 
+    // linear sequence of actions (i.e. actions can start in group and/or actions
+    // can start when other actions during plan exec. has not finished yet)
     for(PlanItem pi : planitems)
-        deadline += pi.duration;
+        deadline = std::max(deadline, pi.time + pi.duration);
     return deadline;
 }
 
