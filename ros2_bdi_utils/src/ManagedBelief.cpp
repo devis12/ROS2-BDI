@@ -65,6 +65,18 @@ Belief ManagedBelief::toBelief() const
     return b;
 }
 
+/*
+    Get param list as a single joined string separated from spaces
+*/
+string ManagedBelief::getParamsJoined(const char separator) const
+{
+    string params_string = "";
+    vector<string> mb_params = this->getParams();
+    for(int i=0; i<mb_params.size(); i++)
+        params_string += (i==mb_params.size()-1)? mb_params[i] : mb_params[i] + separator;
+    return params_string;
+}
+
 string ManagedBelief::pddlTypeString() const
 {
     string pddl_type_string =   (pddl_type_ == Belief().INSTANCE_TYPE)? INSTANCE_S  :

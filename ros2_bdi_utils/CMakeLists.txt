@@ -16,6 +16,7 @@ include_directories(include)
 
 set(UTILS-SOURCES
   src/PDDLBDIConverter.cpp
+  src/BDIPDDLConverter.cpp
   src/BDIFilter.cpp
 
   src/ManagedBelief.cpp

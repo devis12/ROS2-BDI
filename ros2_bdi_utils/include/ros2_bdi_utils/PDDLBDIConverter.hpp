@@ -43,10 +43,6 @@ namespace PDDLBDIConverter
   */
   std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLFunctions(const std::vector<plansys2::Function> functions);
 
-  /*
-    Convert Desire into PDDL Goal
-  */
-  std::string desireToGoal(const ros2_bdi_interfaces::msg::Desire& desire);
   
 }  // namespace PDDLBDIConverter
 

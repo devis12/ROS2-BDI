@@ -73,7 +73,7 @@ class AskSweeping : public BDIActionExecutor
 
             Desire desire = Desire();
             desire.name = "sweep_" + waypoint;
-            desire.deadline = 16.0;
+            desire.deadline = 16.4;
             desire.priority = 0.6;
             desire.value = target;
 

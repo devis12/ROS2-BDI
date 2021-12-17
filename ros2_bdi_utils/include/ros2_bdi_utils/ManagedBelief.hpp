@@ -35,6 +35,11 @@ namespace BDIManaged
             float getValue() const {return value_;};
             std::string pddlTypeString() const;
 
+            /*
+                Get param list as a single joined string separated from spaces as per default
+            */
+            std::string getParamsJoined(const char separator = ' ') const;
+
             /*  convert instance to ros2_bdi_interfaces::msg::Belief format */
             ros2_bdi_interfaces::msg::Belief toBelief() const;
             

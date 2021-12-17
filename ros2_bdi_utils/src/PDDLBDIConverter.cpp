@@ -104,28 +104,4 @@ namespace PDDLBDIConverter
     return beliefs;
   }
 
-  /*
-    Convert Desire into PDDL Goal
-  */
-  string desireToGoal(const Desire& desire)
-  {
-      string goal_string = "(and ";
-        
-      for(Belief b : desire.value)
-      {
-        if(b.pddl_type == Belief().PREDICATE_TYPE){
-          string params_list = "";
-          for(int i=0; i<b.params.size(); i++)
-              params_list += (i==b.params.size()-1)? b.params[i] : b.params[i] + " ";
-          
-          goal_string += "(" + b.name + " " + params_list + ")";
-        }
-         
-      }
-      
-      goal_string += ")";
-
-      return goal_string;
-  }
-
 }

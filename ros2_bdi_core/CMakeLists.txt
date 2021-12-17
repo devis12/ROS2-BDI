@@ -20,6 +20,8 @@ find_package(ros2_bdi_interfaces REQUIRED)
 
 find_library(yaml-cpp REQUIRED)
 
+include_directories(include)
+
 set(common_dependencies
   rclcpp
   plansys2_msgs
@@ -74,9 +76,9 @@ ament_target_dependencies(communications
   ros2_bdi_utils
 )
 
-# install(DIRECTORY include/
-#   DESTINATION include/
-# )
+install(DIRECTORY include/
+  DESTINATION include/
+)
 
 install(TARGETS
   belief_manager
@@ -87,6 +89,6 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ament_export_include_directories(include)
+ament_export_include_directories(include)
 
 ament_package()
