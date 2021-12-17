@@ -613,3 +613,15 @@ void BeliefManager::delBelief(const ManagedBelief& mb)
         RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.pddlTypeString()+"): " + 
             mb.getName() + " " + mb.getParamsJoined() + " (value = " + std::to_string(mb.getValue()) +")");
 }
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<BeliefManager>();
+
+  node->init();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
+
+  return 0;
+}

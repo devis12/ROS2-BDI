@@ -47,12 +47,12 @@ class BeliefManager : public rclcpp::Node
         void setState(StateType state){ state_ = state; }
 
         /*
-        Received notification about PlanSys2 nodes state by plansys2 monitor node
+            Received notification about PlanSys2 nodes state by plansys2 monitor node
         */
         void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
 
         /*
-        Publish the current belief set of the agent in agent_id_/belief_set topic
+            Publish the current belief set of the agent in agent_id_/belief_set topic
         */
         void publishBeliefSet();
 

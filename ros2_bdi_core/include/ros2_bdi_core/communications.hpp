@@ -81,6 +81,8 @@ private:
     */
     void updatedBeliefSet(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
 
+    
+
     /*  
         Read Belief Request service handler        
     */
@@ -147,7 +149,7 @@ private:
     // lock to put waiting for next belief set addition/deletion
     std::vector<std::mutex> belief_set_upd_locks_;
     // managed belief you're waiting for (to be added or deleted)
-    BDIManaged::ManagedBelief belief_waiting_for_;
+    std::vector<BDIManaged::ManagedBelief> belief_waiting_for_;
     // belief operation in waiting and not performed in last belief set upd counter
     std::vector<int> belief_waiting_for_counter_;
     
@@ -166,7 +168,7 @@ private:
     // lock to put waiting for next desire set addition/deletion
     std::vector<std::mutex> desire_set_upd_locks_;
     // managed desire you're waiting for (to be added or deleted)
-    BDIManaged::ManagedDesire desire_waiting_for_;
+    std::vector<BDIManaged::ManagedDesire> desire_waiting_for_;
     // desire operation in waiting and not performed in last desire set upd counter
     std::vector<int> desire_waiting_for_counter_;
     

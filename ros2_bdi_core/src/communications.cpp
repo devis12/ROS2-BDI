@@ -6,6 +6,7 @@
 /* Parameters affecting internal logic (recompiling required) */
 #define ADD_I 1
 #define DEL_I 0
+#define MAX_WAIT_UPD 4 // indicates number of belief/desire set notification to wait before considering a submitted upd request failed 
 
 /* ROS2 Parameter names for PlanSys2Monitor node */
 #define PARAM_AGENT_ID "agent_id"
@@ -105,6 +106,8 @@ void CommunicationManager::init()
   belief_set_upd_locks_ = vector<mutex>(2);
   // init two counter for waiting belief upd
   belief_waiting_for_counter_ = vector<int>(2);
+  // init two empty managed beliefs where to store the two you're waiting for an update
+  belief_waiting_for_ = vector<ManagedBelief>(2);
 
   // init server for handling check desire requests from other agents
   chk_desire_server_ = this->create_service<CheckDesire>("check_desire_srv", 
@@ -127,6 +130,8 @@ void CommunicationManager::init()
   desire_set_upd_locks_ = vector<mutex>(2);
   // init two counter for waiting desire upd
   desire_waiting_for_counter_ = vector<int>(2);
+  // init two empty managed desires where to store the two you're waiting for an update
+  desire_waiting_for_ = vector<ManagedDesire>(2);
 
   string acceptingBeliefsMsg = "accepting beliefs alteration from: ";
   vector<string> acceptingBeliefsGroups = this->get_parameter(PARAM_BELIEF_WRITE).as_string_array();
@@ -276,7 +281,7 @@ void CommunicationManager::checkDesireSetWaitingUpd(const int& updIndex, const i
   else
   {
     //waiting for a belief upd operation
-    if(desire_set_.count(desire_waiting_for_) == countCheck || desire_waiting_for_counter_[updIndex] == 4)
+    if(desire_set_.count(desire_waiting_for_[updIndex]) == countCheck || desire_waiting_for_counter_[updIndex] == MAX_WAIT_UPD)
       desire_set_upd_locks_[updIndex].unlock();// acquired by add_desire/del_desire srv, release it so it can proceed if alteration done or waited too much already
     else
       desire_waiting_for_counter_[updIndex]++;
@@ -316,7 +321,7 @@ void CommunicationManager::checkBeliefSetWaitingUpd(const int& updIndex, const i
   else
   {
     //waiting for a belief upd operation
-    if(belief_set_.count(belief_waiting_for_) == countCheck || belief_waiting_for_counter_[updIndex] == 4)
+    if(belief_set_.count(belief_waiting_for_[updIndex]) == countCheck || belief_waiting_for_counter_[updIndex] == MAX_WAIT_UPD)
       belief_set_upd_locks_[updIndex].unlock();// acquired by add_belief/del_belief srv, release it so it can proceed if alteration done or waited too much already
     else
       belief_waiting_for_counter_[updIndex]++;
@@ -370,7 +375,7 @@ void CommunicationManager::handleAddBeliefRequest(const UpdBeliefSet::Request::S
     add_belief_publisher_->publish(request->belief);
     
     belief_set_upd_locks_[ADD_I].lock();
-      belief_waiting_for_ = ManagedBelief{request->belief};
+      belief_waiting_for_[ADD_I] = ManagedBelief{request->belief};
       belief_waiting_for_counter_[ADD_I] = 0;
     belief_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
     belief_set_upd_locks_[ADD_I].unlock();//release it
@@ -396,7 +401,7 @@ void CommunicationManager::handleDelBeliefRequest(const UpdBeliefSet::Request::S
     del_belief_publisher_->publish(request->belief);
     
     belief_set_upd_locks_[DEL_I].lock();
-      belief_waiting_for_ = ManagedBelief{request->belief};
+      belief_waiting_for_[DEL_I] = ManagedBelief{request->belief};
       belief_waiting_for_counter_[DEL_I] = 0;
     belief_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
     belief_set_upd_locks_[DEL_I].unlock();//release it
@@ -444,9 +449,9 @@ void CommunicationManager::handleAddDesireRequest(const UpdDesireSet::Request::S
       add_desire_publisher_->publish(request->desire);
               
       desire_set_upd_locks_[ADD_I].lock();
-        desire_waiting_for_ = ManagedDesire{request->desire};
+        desire_waiting_for_[ADD_I] = ManagedDesire{request->desire};
         desire_waiting_for_counter_[ADD_I] = 0;
-      desire_set_upd_locks_[ADD_I].lock();//stuck until belief_set upd unlock it
+      desire_set_upd_locks_[ADD_I].lock();//stuck until desire_set upd unlock it
       desire_set_upd_locks_[ADD_I].unlock();//release it
 
       response->updated = desire_set_.count(ManagedDesire{request->desire}) == 1 || ManagedDesire{request->desire}.isFulfilled(belief_set_);
@@ -472,9 +477,9 @@ void CommunicationManager::handleDelDesireRequest(const UpdDesireSet::Request::S
     response->accepted = true;
     del_desire_publisher_->publish(request->desire);
     desire_set_upd_locks_[DEL_I].lock();
-        desire_waiting_for_ = ManagedDesire{request->desire};
+        desire_waiting_for_[DEL_I] = ManagedDesire{request->desire};
         desire_waiting_for_counter_[DEL_I] = 0;
-    desire_set_upd_locks_[DEL_I].lock();//stuck until belief_set upd unlock it
+    desire_set_upd_locks_[DEL_I].lock();//stuck until desire_set upd unlock it
     desire_set_upd_locks_[DEL_I].unlock();//release it
 
     response->updated = desire_set_.count(ManagedDesire{request->desire}) == 0;
