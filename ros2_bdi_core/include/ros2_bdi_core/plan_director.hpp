@@ -95,12 +95,6 @@ private:
     void resetWorkTimer(const int& ms);
 
     /*
-        Returns all the items within a PlanItem.action string
-        E.g. "(dosweep sweeper kitchen)" -> ["dosweep", "sweeper", "kitchen"]
-    */
-    std::vector<std::string> extractPlanItemActionElements(std::string planItemAction);
-
-    /*
         Return true if plan exec request is well formed 
             - request = ABORT | EXECUTE
             - at least a planitem elem in body
@@ -133,24 +127,18 @@ private:
     */
     void checkPlanExecution();
 
-
+    /* 
+        Use PlanSys2 feedback received from the executor to build the BDIPlanExecutionInfo to be published to the respecive topic
+        Call NECESSARY to update the properties regarding the status of the current monitored/managed plan exec.
+    */
     ros2_bdi_interfaces::msg::BDIPlanExecutionInfo getPlanExecutionInfo(const plansys2::ExecutorClient::ExecutePlan::Feedback& feedback);
 
 
-
+    /*
+    Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
+    */
     uint8_t getPlanExecutionStatus();
 
-
-    /*  
-        Take time msg (int second, int nanosecond)
-        transform it in float second
-    */
-    float fromTimeMsgToSeconds(const int& sec_ts, const int& nanosec_ts);
-
-    /*
-        get index of action with given action_name & args in the vector<PlanItem> in current_plan_.body 
-    */
-    int getActionIndex(const std::string& action_name, const std::vector<std::string>& args);
 
     /*
         The belief set has been updated
@@ -204,7 +192,7 @@ private:
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
     int first_ts_plan_sec;
-    int first_ts_plan_nanosec;
+    unsigned int first_ts_plan_nanosec;
     // last recorded timestamp during plan execution
     float last_ts_plan_exec;
 

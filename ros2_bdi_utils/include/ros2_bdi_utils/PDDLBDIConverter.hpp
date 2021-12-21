@@ -6,8 +6,12 @@
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 
+#include "plansys2_msgs/msg/plan_item.hpp"
+#include "plansys2_msgs/msg/action_execution_info.hpp"
+
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 
 
 namespace PDDLBDIConverter
@@ -42,6 +46,17 @@ namespace PDDLBDIConverter
     Convert PlanSys2 PDDL Functions to ROS2-BDI Beliefs
   */
   std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLFunctions(const std::vector<plansys2::Function> functions);
+
+  /*
+    Build a BDIActionExecutionInfo from the corresponding PlanSys2 ActionExecutionInfo
+    PlanSys2 plan body is needed too (PlanItem array) to get the index of the executing action within it
+
+    Timestamps of corresponding plan start are passed too 
+  */
+  ros2_bdi_interfaces::msg::BDIActionExecutionInfo buildBDIActionExecutionInfo(
+    const plansys2_msgs::msg::ActionExecutionInfo& psys2_action_feed, 
+    const std::vector<plansys2_msgs::msg::PlanItem>& current_plan_body,
+    const int& first_ts_plan_sec, const unsigned int& first_ts_plan_nanosec);
 
   
 }  // namespace PDDLBDIConverter

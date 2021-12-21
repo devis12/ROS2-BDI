@@ -18,6 +18,7 @@ set(UTILS-SOURCES
   src/PDDLBDIConverter.cpp
   src/BDIPDDLConverter.cpp
   src/BDIFilter.cpp
+  src/PDDLUtils.cpp
 
   src/ManagedBelief.cpp
   src/ManagedDesire.cpp

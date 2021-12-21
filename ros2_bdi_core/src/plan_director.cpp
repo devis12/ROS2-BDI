@@ -3,8 +3,11 @@
 #include <boost/algorithm/string.hpp>
 
 #include "plansys2_msgs/msg/action_execution_info.hpp"
+
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
+#include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
+#include "ros2_bdi_utils/PDDLUtils.hpp"
 
 
 /* Parameters affecting internal logic (recompiling required) */
@@ -253,7 +256,7 @@ bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
         setState(EXECUTING);//put node in executing state
         //reset value, so they can be set at the first action execution feedback
         first_ts_plan_sec = -1;//reset this value
-        first_ts_plan_nanosec = -1;//reset this value
+        first_ts_plan_nanosec = 0;//reset this value
         last_ts_plan_exec = -1.0f;//reset this value
         
         counter_check_ = 0;//checks performed during this plan exec
@@ -286,25 +289,6 @@ void PlanDirector::resetWorkTimer(const int& ms)
 }
 
 /*
-    Returns all the items within a PlanItem.action string
-    E.g. "(dosweep sweeper kitchen)" -> ["dosweep", "sweeper", "kitchen"]
-*/
-vector<string> PlanDirector::extractPlanItemActionElements(string planItemAction)
-{
-    vector<string> elems;
-    if(planItemAction.length() > 0)
-    {
-        if(planItemAction.find("(") != string::npos)
-            planItemAction = planItemAction.substr(planItemAction.find("(")+1);
-        if(planItemAction.find(")") != string::npos)
-            planItemAction = planItemAction.substr(0,planItemAction.find(")"));
-        
-        boost::split(elems, planItemAction, [](char c){return c == ' ';});//split string
-    }
-    return elems;
-}
-
-/*
     Return true if plan exec request is well formed 
         - request = ABORT | EXECUTE
         - at least a planitem elem in body
@@ -328,7 +312,7 @@ bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr r
     {
         for(auto planItemObj : plan.actions)
         {
-            vector<string> actionItems = extractPlanItemActionElements(planItemObj.action);
+            vector<string> actionItems = PDDLUtils::extractPlanItemActionElements(planItemObj.action);
             if(actionItems.size() == 0)
                 return false;//plan item action not valid
             else
@@ -474,56 +458,65 @@ void PlanDirector::checkPlanExecution()
     }
 }
 
+/*
+    Find earliest action, i.e. having earliest start timestamp within PlanSys2 executor client feedback
+    vector of action exec. status
+*/
+ActionExecutionInfo extractEarliestAction(const vector<ActionExecutionInfo>& psys2_actions_status)
+{
+    if(psys2_actions_status.size() == 0)//empty array
+        return ActionExecutionInfo();
+    
+    ActionExecutionInfo earliest_action = psys2_actions_status[0];//take the first as earliest action
+    for(int i = 1; i<psys2_actions_status.size(); i++)
+        earliest_action =   (                                                                                   //update if
+                                    (psys2_actions_status[i].start_stamp.sec < earliest_action.start_stamp.sec) //earliest sec ts
+                                ||                                                                              //OR
+                                    (psys2_actions_status[i].start_stamp.sec == earliest_action.start_stamp.sec
+                                        &&
+                                    psys2_actions_status[i].start_stamp.nanosec < earliest_action.start_stamp.nanosec) // same sec ts AND earliest nanosec ts
+                            )?
+
+                            psys2_actions_status[i] : earliest_action; //otherwise do not update
+
+    
+    return earliest_action;
+}
+
+
+/* 
+    Use PlanSys2 feedback received from the executor to build the BDIPlanExecutionInfo to be published to the respecive topic
+    Call NECESSARY to update the properties regarding the status of the current monitored/managed plan exec.
+*/
 BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::ExecutePlan::Feedback& feedback)
 {
     // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
     vector<PlanItem> current_plan_body = current_plan_.getBody();
 
     BDIPlanExecutionInfo planExecutionInfo = BDIPlanExecutionInfo();
-    float start_time_s = -1.0, status_time_s = -1.0;
+    float status_time_s = -1.0;//current exec time relatively to plan start referred as the "zero" time point
 
     //find executing action status
     for (int i=0; i<feedback.action_execution_status.size(); i++) {
-        BDIActionExecutionInfo actionExecutionInfo = BDIActionExecutionInfo();
         ActionExecutionInfo psys2_action_feed = feedback.action_execution_status[i];        
         if(psys2_action_feed.status == psys2_action_feed.EXECUTING)
         {
-            actionExecutionInfo.args = psys2_action_feed.arguments;
-            actionExecutionInfo.index = getActionIndex(psys2_action_feed.action, psys2_action_feed.arguments);//retrieve action index (NOT i :-/)
-            actionExecutionInfo.name = psys2_action_feed.action;
-
-            if(first_ts_plan_sec < 0)//set just for first start timestamp captured in this plan exec (then always subtract from it)
-                first_ts_plan_sec = psys2_action_feed.start_stamp.sec;
-            if(first_ts_plan_nanosec < 0)//set just for first start timestamp captured in this plan exec (then always subtract from it)
-                first_ts_plan_nanosec = psys2_action_feed.start_stamp.nanosec;
-
-            // compute start time of this action with respect first timestamp of first action start timestamp
-            start_time_s = fromTimeMsgToSeconds(psys2_action_feed.start_stamp.sec - first_ts_plan_sec,
-                psys2_action_feed.start_stamp.nanosec - first_ts_plan_nanosec);
+            if(first_ts_plan_sec < 0)//NOTE: first_ts_plan_nanosec is uint (given builtin_interfaces/msg/Time)
+            {
+                //set just for earliest start timestamp captured in this plan exec (then always subtract from it)
+                ActionExecutionInfo psys2_action_earliest = extractEarliestAction(feedback.action_execution_status);
+                first_ts_plan_sec = psys2_action_earliest.start_stamp.sec;
+                first_ts_plan_nanosec = psys2_action_earliest.start_stamp.nanosec;
+            }
             
-            // planned start time for this action
-            actionExecutionInfo.planned_start = current_plan_body[actionExecutionInfo.index].time;
+            BDIActionExecutionInfo bdiActionExecutionInfo = PDDLBDIConverter::buildBDIActionExecutionInfo(psys2_action_feed, current_plan_body, 
+                    first_ts_plan_sec, first_ts_plan_nanosec);
 
-            // actual start time of this action
-            actionExecutionInfo.actual_start = start_time_s;
-            
-            // compute status time of this action with respect first timestamp of first action start timestamp
-            status_time_s = fromTimeMsgToSeconds(psys2_action_feed.status_stamp.sec - first_ts_plan_sec,
-                    psys2_action_feed.status_stamp.nanosec - first_ts_plan_nanosec); 
-            
-            // retrieve execution time as (status_timestamp - start_timestamp)
-            actionExecutionInfo.exec_time = status_time_s - start_time_s; 
+            planExecutionInfo.executing.push_back(bdiActionExecutionInfo);//add action execution info to plan execution info 
 
-            //retrieve estimated duration for action from pddl domain
-            actionExecutionInfo.duration = fromTimeMsgToSeconds(psys2_action_feed.duration.sec,  
-                psys2_action_feed.duration.nanosec);
-
-            actionExecutionInfo.progress = psys2_action_feed.completion;
-
-            planExecutionInfo.executing.push_back(actionExecutionInfo);//add action execution info to plan execution info 
+            status_time_s = bdiActionExecutionInfo.actual_start + bdiActionExecutionInfo.exec_time;// actual start time for action + duration action up to now
         }    
     }
-
     
     planExecutionInfo.target = current_plan_.getDesire().toDesire();
     planExecutionInfo.actions = current_plan_body;
@@ -542,6 +535,9 @@ BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::Ex
     return planExecutionInfo;
 }
 
+/*
+    Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
+*/
 uint8_t PlanDirector::getPlanExecutionStatus()
 {
     uint8_t result = BDIPlanExecutionInfo().RUNNING;
@@ -554,55 +550,6 @@ uint8_t PlanDirector::getPlanExecutionStatus()
             result = BDIPlanExecutionInfo().ABORT;
     }   
     return result;
-}
-
-
-/*  
-    Take time msg (int second, int nanosecond)
-    transform it in float second
-*/
-float PlanDirector::fromTimeMsgToSeconds(const int& sec_ts, const int& nanosec_ts)
-{
-    return sec_ts + 
-                (round((nanosec_ts) / pow(10, 6)) / pow(10, 3));
-}
-
-/*
-    get index of action with given action_name & args in the vector<PlanItem> in current_plan_.body 
-*/
-int PlanDirector::getActionIndex(const string& action_name, const vector<string>& args)
-{
-    int foundIndex = -1;
-    // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
-    vector<PlanItem> current_plan_body = current_plan_.getBody();
-
-    for(int i = 0; i < current_plan_body.size(); i++)
-    {   
-        string full_name_i = current_plan_body[i].action;// (action_name param1 param2 ...)
-        if(full_name_i.length() > 0)
-        {    
-            if(full_name_i[0] == '(')
-                full_name_i = full_name_i.substr(1);//remove start parenthesis from action name
-
-            if(full_name_i[full_name_i.length()-1] == ')')
-                full_name_i = full_name_i.substr(0, full_name_i.length()-1);//remove end parenthesis from action name
-        }   
-
-        vector<string> action_params_i;
-        boost::split(action_params_i, full_name_i, [](char c){return c == ' ';});//split string
-        if(action_params_i[0] == action_name && action_params_i.size()-1 == args.size())//same name && same num of args 
-        {
-            bool matchingParams = true; //true if all the arg of the action match
-            for(int j = 1; matchingParams && j < action_params_i.size(); j++)
-                if(action_params_i[j] != args[j-1])
-                    matchingParams = false;
-            
-            if(matchingParams)// this is the correct action we were looking for -> return i
-                return i;
-        }
-            
-    }
-    return foundIndex;
 }
 
 /*
