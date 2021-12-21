@@ -9,6 +9,33 @@
 #include "lifecycle_msgs/srv/get_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+class PlanSys2MonitorClient
+{
+    public:
+        /* Constructor for the supporting nodes for calling the services */
+        PlanSys2MonitorClient();
+        
+        /* Return true if {psys2NodeName}/get_state service called confirm that the node is active */
+        bool isPsys2NodeActive(const std::string& psys2NodeName);
+
+    private:
+        /* Get the reference to the node caller instance for the PlanSys2 node @psys2NodeName */
+        rclcpp::Node::SharedPtr getCallerNode(const std::string& psys2NodeName);
+        
+        /* Get the reference to the client caller instance for the PlanSys2 node @psys2NodeName */
+        rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr getCallerClient(const std::string& psys2NodeName);
+
+        
+        // nodes to be spinned while making request (one for each plansys2 node to be called)
+        std::vector<rclcpp::Node::SharedPtr> caller_nodes_;
+
+        // below client instances to be instantiated while making a request to ...
+
+        // ... {psys2_node}/get_state
+        std::vector<rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr> caller_clients_;
+};
+
+
 class PlanSys2Monitor : public rclcpp::Node
 {
     public:
@@ -40,20 +67,9 @@ class PlanSys2Monitor : public rclcpp::Node
         bool allActive();
 
         /*
-            Build PlanSys2 state msg wrt the current state of the respective boolean flags
-        */
-        ros2_bdi_interfaces::msg::PlanSys2State buildPlanSys2StateMsg();
-
-        /*
             Activate thread to check active state of plansys2 node (planner, domain_expert, problem_expert)
         */
         void checkPsys2NodeActive(const std::string& psys2NodeName);
-
-        /*
-            Check with a srv call to its respective get_state service if the plansys2 planner/domain_expert/problem_expert is active
-            @psys2NodeName is equal to one of the plansys2 nodes you want to check if active through get_state srv
-        */
-        void checkPsys2NodeActiveThread(const std::string& psys2NodeName);
 
         
         // agent id that defines the namespace in which the node operates
@@ -63,24 +79,17 @@ class PlanSys2Monitor : public rclcpp::Node
         // work timer interval in ms
         int work_timer_interval_;
 
-        // flag to denote if the problem expert node seems to be up and active
-        bool psys2_problem_expert_active_;
-        // flag to denote if the domain expert node seems to be up and active
-        bool psys2_domain_expert_active_;
-        // flag to denote if the planner node seems to be up and active
-        bool psys2_planner_active_;
-        // flag to denote if the executor node seems to be up and active
-        bool psys2_executor_active_;
+        // psys2 nodes active flags
+        ros2_bdi_interfaces::msg::PlanSys2State psys2_active_;
 
         // comm errors psys2
         int psys2_comm_errors_;
-
-        std::shared_ptr<std::thread> chk_problem_expert_thread_;
-        std::shared_ptr<std::thread> chk_domain_expert_thread_;
-        std::shared_ptr<std::thread> chk_planner_thread_;
-        std::shared_ptr<std::thread> chk_executor_thread_;
-
-        rclcpp::Publisher<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr psys2_state_publisher_;//PlanSys2 state publisher
+        
+        // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
+        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+        
+        // PlanSys2 state publisher
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr psys2_state_publisher_;
 
 }; // PlanSys2Monitor class prototype
 

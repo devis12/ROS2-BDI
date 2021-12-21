@@ -7,24 +7,49 @@
 #define TIMER_MIN 250
 #define TIMER_MAX 2000
 
+#define PSYS2NODES 4
+
+// psys2 nodes' names
+#define PSYS2_DOM_EXPERT "domain_expert"
+#define PSYS2_PROB_EXPERT "problem_expert"
+#define PSYS2_PLANNER "planner"
+#define PSYS2_EXECUTOR "executor"
+
+// index for the node and client callers
+#define PSYS2_DOM_EXPERT_I 0
+#define PSYS2_PROB_EXPERT_I 1
+#define PSYS2_PLANNER_I 2
+#define PSYS2_EXECUTOR_I 3
+
+//seconds to wait before giving up on performing any request (service does not appear to be up)
+#define WAIT_SRV_UP 1   
+
+//seconds to wait before giving up on waiting for the response
+#define WAIT_RESPONSE_TIMEOUT 1
+
 /* ROS2 Parameter names for PlanSys2Monitor node */
 #define PARAM_AGENT_ID "agent_id"
 #define PARAM_DEBUG "debug"
 
 using std::string;
 using std::vector;
-using std::thread;
+// using std::thread;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
 using std::placeholders::_1;
 
+using lifecycle_msgs::srv::GetState;
+
 using ros2_bdi_interfaces::msg::PlanSys2State;
+
 
 PlanSys2Monitor::PlanSys2Monitor() : rclcpp::Node("plansys2_monitor")
 {
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+
+    psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>();
 }
 
 /*
@@ -49,10 +74,12 @@ void PlanSys2Monitor::init()
 
     psys2_comm_errors_ = 0;
 
-    psys2_domain_expert_active_ = false;
-    psys2_problem_expert_active_ = false;
-    psys2_planner_active_ = false;
-    psys2_executor_active_ = false;
+    // init flag values to false
+    psys2_active_ = PlanSys2State{};
+    psys2_active_.domain_expert_active = false;
+    psys2_active_.problem_expert_active = false;
+    psys2_active_.planner_active = false;
+    psys2_active_.executor_active = false;
 
     RCLCPP_INFO(this->get_logger(), "PlanSys2 Monitor node initialized");
 }
@@ -82,14 +109,13 @@ void PlanSys2Monitor::checkPlanSys2State()
         resetWorkTimer();
     }
 
-    checkPsys2NodeActive("domain_expert");// check if domain expert is up & active
-    checkPsys2NodeActive("problem_expert");// check if problem expert is up & active
-    checkPsys2NodeActive("planner");// check if problem expert is up & active
-    checkPsys2NodeActive("executor");// check if problem expert is up & active
+    checkPsys2NodeActive(PSYS2_DOM_EXPERT);// check if domain expert is up & active
+    checkPsys2NodeActive(PSYS2_PROB_EXPERT);// check if problem expert is up & active
+    checkPsys2NodeActive(PSYS2_PLANNER);// check if problem expert is up & active
+    checkPsys2NodeActive(PSYS2_EXECUTOR);// check if problem expert is up & active
 
     //publish current state
-    PlanSys2State psys2State = buildPlanSys2StateMsg();
-    psys2_state_publisher_->publish(psys2State);
+    psys2_state_publisher_->publish(psys2_active_);
 }
 
 /*
@@ -110,99 +136,143 @@ void PlanSys2Monitor::resetWorkTimer()
 */
 bool PlanSys2Monitor::allActive()
 {
-    return psys2_domain_expert_active_ && psys2_problem_expert_active_ &&
-            psys2_executor_active_ && psys2_planner_active_; 
-            
+    return psys2_active_.domain_expert_active && psys2_active_.problem_expert_active &&
+            psys2_active_.executor_active && psys2_active_.planner_active;        
 }
 
 /*
-    Build PlanSys2 state msg wrt the current state of the respective boolean flags
-*/
-PlanSys2State PlanSys2Monitor::buildPlanSys2StateMsg()
-{
-    PlanSys2State msg = PlanSys2State();
-    msg.domain_expert_active = psys2_domain_expert_active_;
-    msg.problem_expert_active = psys2_problem_expert_active_;
-    msg.planner_active = psys2_planner_active_;
-    msg.executor_active = psys2_executor_active_;
-    return msg;
-}
+    Activate supporting client node to check active status of plansys2 node (planner, domain_expert, problem_expert)
 
-/*
-    Activate thread to check active state of plansys2 node (planner, domain_expert, problem_expert)
+    Use result to update corresponding flag
 */
 void PlanSys2Monitor::checkPsys2NodeActive(const string& psys2NodeName)
 {
-    if(psys2NodeName == "domain_expert")
-    {
-        chk_domain_expert_thread_ = std::make_shared<thread>(bind(&PlanSys2Monitor::checkPsys2NodeActiveThread, this, psys2NodeName));
-        chk_domain_expert_thread_->detach();
-    }
-    else if(psys2NodeName == "problem_expert")
-    {
-        chk_problem_expert_thread_ = std::make_shared<thread>(bind(&PlanSys2Monitor::checkPsys2NodeActiveThread, this, psys2NodeName));
-        chk_problem_expert_thread_->detach();
-    }
-    else if(psys2NodeName == "planner")
-    {
-        chk_planner_thread_ = std::make_shared<thread>(bind(&PlanSys2Monitor::checkPsys2NodeActiveThread, this, psys2NodeName));
-        chk_planner_thread_->detach();
-    }
-    else if(psys2NodeName == "executor")
-    {
-        chk_executor_thread_ = std::make_shared<thread>(bind(&PlanSys2Monitor::checkPsys2NodeActiveThread, this, psys2NodeName));
-        chk_executor_thread_->detach();
-    }
+    bool activeResult = psys2_monitor_client_->isPsys2NodeActive(psys2NodeName);
+
+    //assign active flag to respective boolean value representing the active state of the PlanSys2 node
+    if(psys2NodeName == PSYS2_DOM_EXPERT)
+        psys2_active_.domain_expert_active = activeResult;
+    else if(psys2NodeName == PSYS2_PROB_EXPERT)
+        psys2_active_.problem_expert_active = activeResult;
+    else if(psys2NodeName == PSYS2_PLANNER)
+        psys2_active_.planner_active = activeResult;
+    else if(psys2NodeName == PSYS2_EXECUTOR)
+        psys2_active_.executor_active = activeResult;
 }
 
-/*
-    Check with a srv call to its respective get_state service if the plansys2 planner/domain_expert/problem_expert is active
-    @psys2NodeName is equal to one of the plansys2 nodes you want to check if active through get_state srv
-*/
-void PlanSys2Monitor::checkPsys2NodeActiveThread(const string& psys2NodeName)
-{
-    RCLCPP_DEBUG(this->get_logger(), "Checking active state of " + psys2NodeName);
-    bool active = false;
-    try{
-        //check for service to be up
-        rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr client_ = 
-            this->create_client<lifecycle_msgs::srv::GetState>(psys2NodeName + "/get_state");
-        if(!client_->wait_for_service(std::chrono::seconds(1))){
-            //service seems not even present, just return false
-            RCLCPP_WARN(this->get_logger(), psys2NodeName + "/get_state server does not appear to be up");
-            active = false;
-        }
-        else
-        {
-            // service up -> query it to know PlanSys2 node active state
-            auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
-            auto future = client_->async_send_request(request);
-            auto response = future.get();
-            active = response->current_state.id == 3 && response->current_state.label == "active";
-        }
-        
 
+PlanSys2MonitorClient::PlanSys2MonitorClient()
+{   
+    /*Init caller nodes*/
+    caller_nodes_ = vector<rclcpp::Node::SharedPtr>();
+    for(int i=0; i<PSYS2NODES; i++)
+        caller_nodes_.push_back(rclcpp::Node::make_shared("plansys2_state_caller_"+i));
+    
+    /*Init caller clients*/
+    caller_clients_ = vector<rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr>();
+    string domain_expert_name = PSYS2_DOM_EXPERT;
+    caller_clients_.push_back(caller_nodes_[PSYS2_DOM_EXPERT_I]->create_client<lifecycle_msgs::srv::GetState>(domain_expert_name + "/get_state"));  
+    string problem_expert_name = PSYS2_PROB_EXPERT;
+    caller_clients_.push_back(caller_nodes_[PSYS2_PROB_EXPERT_I]->create_client<lifecycle_msgs::srv::GetState>(problem_expert_name + "/get_state"));  
+    string planner_name = PSYS2_PLANNER;
+    caller_clients_.push_back(caller_nodes_[PSYS2_PLANNER_I]->create_client<lifecycle_msgs::srv::GetState>(planner_name + "/get_state"));  
+    string executor_name = PSYS2_EXECUTOR;
+    caller_clients_.push_back(caller_nodes_[PSYS2_EXECUTOR_I]->create_client<lifecycle_msgs::srv::GetState>(executor_name + "/get_state"));  
+}
+
+/* Get the reference to the node caller instance for the PlanSys2 node @psys2NodeName */
+rclcpp::Node::SharedPtr PlanSys2MonitorClient::getCallerNode(const std::string& psys2NodeName)
+{
+    if(psys2NodeName == PSYS2_DOM_EXPERT && caller_nodes_.size() > PSYS2_DOM_EXPERT_I)
+    {
+        return caller_nodes_[PSYS2_DOM_EXPERT_I];
+    }
+
+    if(psys2NodeName == PSYS2_PROB_EXPERT && caller_nodes_.size() > PSYS2_PROB_EXPERT_I)
+    {
+        return caller_nodes_[PSYS2_PROB_EXPERT_I];
+    }
+
+    if(psys2NodeName == PSYS2_PLANNER && caller_nodes_.size() > PSYS2_PLANNER_I)
+    {
+        return caller_nodes_[PSYS2_PLANNER_I];
+    }
+
+    if(psys2NodeName == PSYS2_EXECUTOR && caller_nodes_.size() > PSYS2_EXECUTOR_I)
+    {
+        return caller_nodes_[PSYS2_EXECUTOR_I];
+    }
+
+    return {}; //unmatched
+}
+
+/* Get the reference to the client caller instance for the PlanSys2 node @psys2NodeName */
+rclcpp::Client<GetState>::SharedPtr PlanSys2MonitorClient::getCallerClient(const std::string& psys2NodeName)
+{
+    if(psys2NodeName == PSYS2_DOM_EXPERT && caller_clients_.size() > PSYS2_DOM_EXPERT_I)
+    {
+        return caller_clients_[PSYS2_DOM_EXPERT_I];
+    }
+
+    if(psys2NodeName == PSYS2_PROB_EXPERT && caller_clients_.size() > PSYS2_PROB_EXPERT_I)
+    {
+        return caller_clients_[PSYS2_PROB_EXPERT_I];
+    }
+
+    if(psys2NodeName == PSYS2_PLANNER && caller_clients_.size() > PSYS2_PLANNER_I)
+    {
+        return caller_clients_[PSYS2_PLANNER_I];
+    }
+
+    if(psys2NodeName == PSYS2_EXECUTOR && caller_clients_.size() > PSYS2_EXECUTOR_I)
+    {
+        return caller_clients_[PSYS2_EXECUTOR_I];
+    }
+
+    return {}; //unmatched
+}
+
+/* Return true if {psys2NodeName}/get_state service called confirm that the node is active */
+bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
+{
+    rclcpp::Node::SharedPtr node = getCallerNode(psys2NodeName);
+    rclcpp::Client<GetState>::SharedPtr client = getCallerClient(psys2NodeName);
+
+    try{
+    
+        while (!client->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
+            if (!rclcpp::ok()) {
+                return false;
+            }
+            RCLCPP_ERROR_STREAM(
+                node->get_logger(),
+                client->get_service_name() <<
+                    " service client: waiting for service to appear...");
+        }
+
+        auto request = std::make_shared<GetState::Request>();
+        auto future_result = client->async_send_request(request);
+
+        if (rclcpp::spin_until_future_complete(node, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
+            rclcpp::FutureReturnCode::SUCCESS)
+        {
+            return false;
+        }
+
+        auto response = future_result.get();
+        return response->current_state.id == 3 && response->current_state.label == "active";
+    
     }
     catch(const rclcpp::exceptions::RCLError& rclerr)
     {
-        active = false;
-        RCLCPP_ERROR(this->get_logger(), rclerr.what());
+        RCLCPP_ERROR(node->get_logger(), rclerr.what());
     }
     catch(const std::exception &e)
     {
-        active = false;
-        RCLCPP_ERROR(this->get_logger(), "Response error in " + psys2NodeName + "/get_state");
+        RCLCPP_ERROR(node->get_logger(), "Response error in while trying to call get_state srv for %s", psys2NodeName);
     }
 
-    //assign active flag to respective boolean value representing the active state of the PlanSys2 node
-    if(psys2NodeName == "domain_expert")
-        psys2_domain_expert_active_ = active;
-    else if(psys2NodeName == "problem_expert")
-        psys2_problem_expert_active_ = active;
-    else if(psys2NodeName == "planner")
-        psys2_planner_active_ = active;
-    else if(psys2NodeName == "executor")
-        psys2_executor_active_ = active;
+    return false;
 }
 
 
