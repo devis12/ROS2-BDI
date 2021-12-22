@@ -12,7 +12,7 @@ To avoid any further unpleasant interaction, it's highly recommended to disable 
 
 Once you download the current repository in your `<ros2 workspace>/src/` folder and installed the required libraries, move back to the root of your ROS2 workspace and give the standard `colcon build` command in order to compile all the packages, loading all the launch and additional files in the packages' shared folders. It's suggested to be more specific though (especially if you already have other packages in your workspace and you want to avoid to compile them all every time) building exclusively the packages of ROS2-BDI:
 ```
-colcon build --packages-select ros2_bdi_interfaces ros2_bdi_bringup ros2_bdi_utils ros2_bdi_tests --symlink-install
+colcon build --packages-select ros2_bdi_interfaces  ros2_bdi_utils  ros2_bdi_skills ros2_bdi_bringup ros2_bdi_core && colcon build --symlink-install --packages-select ros2_bdi_tests
 ```
 The above command will allow you to compile just the packages of ROS2-BDI, linking all the demo launch files which you can find within `ros2_bdi_tests/launch`, so that you don't need to recompile everything after alterations to the python launch scripts.
 Remember to **source your ROS2 setup.bash**, before try to launch any executable (otherwise you won't be able to find them):
