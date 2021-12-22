@@ -22,10 +22,30 @@ find_library(yaml-cpp REQUIRED)
 
 include_directories(include)
 
+set(CORE-SUPPORT-SOURCES
+  src/support/plansys2_monitor_client.cpp
+)
+
+add_library(${PROJECT_NAME} SHARED ${CORE-SUPPORT-SOURCES})
+ament_target_dependencies(${PROJECT_NAME} rclcpp lifecycle_msgs)
+
+install(DIRECTORY include/
+  DESTINATION include/
+)
+
+install(TARGETS
+  ${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+ament_export_include_directories(include)
+ament_export_libraries(${PROJECT_NAME})
+ament_export_dependencies(${dependencies})
+
 set(common_dependencies
   rclcpp
-  plansys2_msgs
-  lifecycle_msgs
   ros2_bdi_utils ros2_bdi_interfaces
 )
 
@@ -40,6 +60,7 @@ target_link_libraries(belief_manager
 )
 ament_target_dependencies(belief_manager 
   ${common_dependencies}
+  plansys2_msgs
   ${pddl_experts}
   std_msgs 
 )
@@ -58,26 +79,22 @@ ament_target_dependencies(scheduler
 add_executable(plan_director src/plan_director.cpp)
 ament_target_dependencies(plan_director 
   ${common_dependencies} 
+  plansys2_msgs
   ${pddl_experts}
   plansys2_executor
 )
 
 add_executable(plansys2_monitor src/plansys2_monitor.cpp)
 ament_target_dependencies(plansys2_monitor 
-  rclcpp
-  ros2_bdi_interfaces
-  lifecycle_msgs
+  ${common_dependencies}
+)
+target_link_libraries(plansys2_monitor
+    ${PROJECT_NAME}
 )
 
 add_executable(communications src/communications.cpp)
 ament_target_dependencies(communications 
-  rclcpp
-  ros2_bdi_interfaces
-  ros2_bdi_utils
-)
-
-install(DIRECTORY include/
-  DESTINATION include/
+  ${common_dependencies}
 )
 
 install(TARGETS
@@ -88,7 +105,5 @@ install(TARGETS
   communications
   DESTINATION lib/${PROJECT_NAME}
 )
-
-ament_export_include_directories(include)
 
 ament_package()

@@ -1,4 +1,11 @@
+// header file for Belief Manager node
 #include "ros2_bdi_core/belief_manager.hpp"
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
+#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
 
 #include <yaml-cpp/exceptions.h>
 
@@ -8,12 +15,6 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
-/* Parameters affecting internal logic (recompiling required) */
-#define MAX_COMM_ERRORS 16
-
-/* ROS2 Parameter names for PlanSys2Monitor node */
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_DEBUG "debug"
 
 using std::string;
 using std::vector;
@@ -41,7 +42,7 @@ using BDIManaged::ManagedBelief;
 
 /*  Constructor method */
 BeliefManager::BeliefManager()
-  : rclcpp::Node("belief_manager"), state_(STARTING)
+  : rclcpp::Node(BELIEF_MANAGER_NODE_NAME), state_(STARTING)
 {
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
@@ -75,7 +76,7 @@ void BeliefManager::init()
     belief_set_ = set<ManagedBelief>();
 
     //Belief set publisher
-    belief_set_publisher_ = this->create_publisher<BeliefSet>("belief_set", 10);
+    belief_set_publisher_ = this->create_publisher<BeliefSet>(BELIEF_SET_TOPIC, 10);
     
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
@@ -86,16 +87,16 @@ void BeliefManager::init()
 
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                "plansys2_state", qos_keep_all,
+                PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&BeliefManager::callbackPsys2State, this, _1));
 
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
-                "add_belief", qos_keep_all,
+                ADD_BELIEF_TOPIC, qos_keep_all,
                 bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
-                "del_belief", qos_keep_all,
+                DEL_BELIEF_TOPIC, qos_keep_all,
                 bind(&BeliefManager::delBeliefTopicCallBack, this, _1));
 
     //problem_expert update subscriber
@@ -183,7 +184,7 @@ void BeliefManager::publishBeliefSet()
 */
 void BeliefManager::tryInitBeliefSet()
 {
-    string init_bset_filepath = "/tmp/"+this->get_parameter("agent_id").as_string()+"/init_bset.yaml";
+    string init_bset_filepath = "/tmp/"+this->get_parameter(PARAM_AGENT_ID).as_string()+"/"+INIT_BELIEF_SET_FILENAME;
     
     try{
         vector<ManagedBelief> init_mgbeliefs = BDIYAMLParser::extractMGBeliefs(init_bset_filepath);

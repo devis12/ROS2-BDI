@@ -13,9 +13,10 @@ find_package(plansys2_msgs REQUIRED)
 find_package(plansys2_executor REQUIRED)
 find_package(plansys2_problem_expert REQUIRED)
 
-find_package(ros2_bdi_skills REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
+find_package(ros2_bdi_skills REQUIRED)
+find_package(ros2_bdi_core REQUIRED)
 
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -34,8 +35,9 @@ set(bdi_act_client_dep
   plansys2_msgs
   plansys2_executor
   ros2_bdi_interfaces
-  ros2_bdi_skills
   ros2_bdi_utils
+  ros2_bdi_skills
+  ros2_bdi_core
 )
 
 set(sensors_dep
@@ -43,6 +45,7 @@ set(sensors_dep
   ros2_bdi_interfaces
   ros2_bdi_utils
   ros2_bdi_skills
+  ros2_bdi_core
 )
 
 add_executable(movetoward src/actions/generic_cli/generic_cli_raw/movetoward.cpp)

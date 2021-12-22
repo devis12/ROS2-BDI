@@ -1,4 +1,13 @@
+// header file for Plan Director node
 #include "ros2_bdi_core/plan_director.hpp"
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Plan Director node
+#include "ros2_bdi_core/params/plan_director_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for topics' names)
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
+#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
 
 #include <boost/algorithm/string.hpp>
 
@@ -9,16 +18,6 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/PDDLUtils.hpp"
 
-
-/* Parameters affecting internal logic (recompiling required) */
-#define MAX_COMM_ERRORS 16
-#define NO_PLAN_INTERVAL 1000
-#define PLAN_INTERVAL 250
-
-/* ROS2 Parameter names for PlanSys2Monitor node */
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_DEBUG "debug"
-#define PARAM_CANCEL_AFTER_DEADLINE "rtc_deadline"
 
 using std::string;
 using std::set;
@@ -55,12 +54,12 @@ using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
 
 PlanDirector::PlanDirector()
-  : rclcpp::Node("plan_director"), state_(STARTING)
+  : rclcpp::Node(PLAN_DIRECTOR_NODE_NAME), state_(STARTING)
 {
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
-    this->declare_parameter(PARAM_CANCEL_AFTER_DEADLINE, 2.0);
+    this->declare_parameter(PARAM_CANCEL_AFTER_DEADLINE, DEFAULT_VAL_CANCEL_AFTER_DEADLINE);
 
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
@@ -99,26 +98,26 @@ void PlanDirector::init()
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                "plansys2_state", qos_keep_all,
+                PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                "belief_set", qos_keep_all,
+                BELIEF_SET_TOPIC, qos_keep_all,
                 bind(&PlanDirector::updatedBeliefSet, this, _1));
 
     // belief add + belief del publishers
-    belief_add_publisher_ = this->create_publisher<Belief>("add_belief", 10);
-    belief_del_publisher_ = this->create_publisher<Belief>("del_belief", 10);
+    belief_add_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, 10);
+    belief_del_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, 10);
 
     // init server for triggering new plan execution
-    server_plan_exec_ = this->create_service<BDIPlanExecution>("plan_execution", 
+    server_plan_exec_ = this->create_service<BDIPlanExecution>(PLAN_EXECUTION_SRV, 
         bind(&PlanDirector::handlePlanRequest, this, _1, _2));
 
     // set NO_PLAN as current_plan_ 
     setNoPlanMsg();
     // plan execution notification
-    plan_exec_publisher_ = this->create_publisher<BDIPlanExecutionInfo>("plan_execution_info", 10);
+    plan_exec_publisher_ = this->create_publisher<BDIPlanExecutionInfo>(PLAN_EXECUTION_TOPIC, 10);
 
     //loop to be called regularly to perform work (publish belief_set_, sync with plansys2 problem_expert node...)
     do_work_timer_ = this->create_wall_timer(

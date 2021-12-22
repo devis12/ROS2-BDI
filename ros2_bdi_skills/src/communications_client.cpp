@@ -1,5 +1,8 @@
 #include "ros2_bdi_skills/communications_client.hpp"
 
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 communications nodes (get services' names)
+#include "ros2_bdi_core/params/communications_params.hpp"
+
 //seconds to wait before giving up on performing any request (service does not appear to be up)
 #define WAIT_SRV_UP 1   
 
@@ -31,7 +34,7 @@ CommunicationsClient::CommunicationsClient()
 
 CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRef, const string& agentGroup, const Belief& belief)
 {
-    string serviceName = "/" + agentRef + "/check_belief_srv";
+    string serviceName = "/" + agentRef + "/" + CK_BELIEF_SRV;
     CheckBeliefResult res{belief, false, false};
 
     try{
@@ -77,9 +80,12 @@ CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRe
 
 UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, const string& agentGroup, const Belief& belief, const UpdOperation& op)
 {
-    string serviceName = "/" + agentRef + "/" + 
-        ((op==ADD)? "add" : "del") + 
-        "_belief_srv";
+    string serviceName = "/" + agentRef + "/";
+    if(op == ADD)
+        serviceName += ADD_BELIEF_SRV;
+    else
+        serviceName += DEL_BELIEF_SRV;
+
     UpdBeliefResult res{belief, op, false, false};
 
     try{
@@ -125,7 +131,7 @@ UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, c
 
 CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRef, const string& agentGroup, const Desire& desire)
 {
-    string serviceName = "/" + agentRef + "/check_desire_srv";
+    string serviceName = "/" + agentRef + "/" + CK_DESIRE_SRV;
     CheckDesireResult res{desire, false, false};
 
     try{
@@ -172,9 +178,12 @@ CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRe
 
 UpdDesireResult CommunicationsClient::updDesireRequest(const string& agentRef, const string& agentGroup, const Desire& desire, const UpdOperation& op)
 {
-    string serviceName = "/" + agentRef + "/" + 
-        ((op==ADD)? "add" : "del") + 
-        "_desire_srv";
+    string serviceName = "/" + agentRef + "/";
+    if(op == ADD)
+        serviceName += ADD_DESIRE_SRV;
+    else
+        serviceName += DEL_DESIRE_SRV;
+
     UpdDesireResult res{desire, op, false, false};
     
     try{

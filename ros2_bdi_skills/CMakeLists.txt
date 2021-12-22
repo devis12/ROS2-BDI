@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(plansys2_executor REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
+find_package(ros2_bdi_core REQUIRED)
 
 include_directories(include)
 
@@ -20,7 +21,7 @@ set(SKILLS-SOURCES
 )
 
 add_library(${PROJECT_NAME} SHARED ${SKILLS-SOURCES})
-ament_target_dependencies(${PROJECT_NAME} rclcpp ros2_bdi_interfaces ros2_bdi_utils plansys2_executor)
+ament_target_dependencies(${PROJECT_NAME} rclcpp ros2_bdi_interfaces ros2_bdi_utils ros2_bdi_core plansys2_executor)
 
 install(DIRECTORY include/
   DESTINATION include/

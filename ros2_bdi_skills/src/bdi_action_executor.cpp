@@ -1,4 +1,7 @@
+// header file for bdi action executor abstract class
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
 
 using std::string;
 using std::vector;
@@ -168,7 +171,7 @@ void BDIActionExecutor::monitor(const string& agentRef, const Desire& desire)
   qos_keep_all.keep_all();
 
   agent_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-            "/"+agentRef+"/belief_set", qos_keep_all,
+            "/"+agentRef+"/"+BELIEF_SET_TOPIC, qos_keep_all,
             bind(&BDIActionExecutor::agentBeliefSetCallback, this, _1));
   
   monitored_desire_ = ManagedDesire{desire};

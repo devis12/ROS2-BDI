@@ -1,4 +1,15 @@
+// header file for Scheduler node
 #include "ros2_bdi_core/scheduler.hpp"   
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler node
+#include "ros2_bdi_core/params/scheduler_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for plan exec srv & topic)
+#include "ros2_bdi_core/params/plan_director_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
+#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
 
 #include <thread>
 
@@ -11,20 +22,6 @@
 #include "ros2_bdi_utils/ManagedCondition.hpp"
 #include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
-
-/* Parameters affecting internal logic (recompiling required) */
-#define MAX_COMM_ERRORS 16
-#define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_PREEMPT"
-#define VAL_RESCHEDULE_POLICY_IF_EXEC "PREEMPT"
-
-/* ROS2 Parameter names for PlanSys2Monitor node */
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_DEBUG "debug"
-#define PARAM_MAX_TRIES_COMP_PLAN "comp_plan_tries"
-#define PARAM_MAX_TRIES_EXEC_PLAN "exec_plan_tries"
-#define PARAM_RESCHEDULE_POLICY "reschedule_policy"
-#define PARAM_AUTOSUBMIT_PREC "autosub_prec"
-#define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
 using std::string;
 using std::vector;
@@ -64,7 +61,7 @@ using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
 
 Scheduler::Scheduler()
-  : rclcpp::Node("scheduler"), state_(STARTING)
+  : rclcpp::Node(SCHEDULER_NODE_NAME), state_(STARTING)
 {
 psys2_comm_errors_ = 0;
 this->declare_parameter(PARAM_AGENT_ID, "agent0");
@@ -103,7 +100,7 @@ void Scheduler::init()
     desire_set_ = set<ManagedDesire>();
 
     //Desire set publisher
-    desire_set_publisher_ = this->create_publisher<DesireSet>("desire_set", 10);
+    desire_set_publisher_ = this->create_publisher<DesireSet>(DESIRE_SET_TOPIC, 10);
 
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
@@ -114,26 +111,26 @@ void Scheduler::init()
     psys2_problem_expert_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                "plansys2_state", qos_keep_all,
+                PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&Scheduler::callbackPsys2State, this, _1));
 
     //Desire to be added notification
     add_desire_subscriber_ = this->create_subscription<Desire>(
-                "add_desire", qos_keep_all,
+                ADD_DESIRE_TOPIC, qos_keep_all,
                 bind(&Scheduler::addDesireTopicCallBack, this, _1));
 
     //Desire to be removed notification
     del_desire_subscriber_ = this->create_subscription<Desire>(
-                "del_desire", qos_keep_all,
+                DEL_DESIRE_TOPIC, qos_keep_all,
                 bind(&Scheduler::delDesireTopicCallBack, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                "belief_set", qos_keep_all,
+                BELIEF_SET_TOPIC, qos_keep_all,
                 bind(&Scheduler::updatedBeliefSet, this, _1));
 
     plan_exec_info_subscriber_ = this->create_subscription<BDIPlanExecutionInfo>(
-        "plan_execution_info", 10,
+        PLAN_EXECUTION_TOPIC, 10,
             bind(&Scheduler::updatePlanExecution, this, _1)
     );
 
@@ -243,7 +240,7 @@ void Scheduler::callbackPsys2State(const PlanSys2State::SharedPtr msg)
 */
 void Scheduler::tryInitDesireSet()
 {
-    string init_dset_filepath = "/tmp/"+this->get_parameter("agent_id").as_string()+"/init_dset.yaml";
+    string init_dset_filepath = "/tmp/"+this->get_parameter(PARAM_AGENT_ID).as_string() + "/" + INIT_DESIRE_SET_FILENAME; 
     try{
         vector<ManagedDesire> init_mgdesires = BDIYAMLParser::extractMGDesires(init_dset_filepath);
         for(ManagedDesire initMGDesire : init_mgdesires)
@@ -566,7 +563,7 @@ void Scheduler::triggerPlanExecution(const int& PLAN_EXEC_REQUEST, const Managed
 
     //check for service to be up
     rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
-        this->create_client<BDIPlanExecution>("plan_execution");
+        this->create_client<BDIPlanExecution>(PLAN_EXECUTION_SRV);
     
     int err = 0;
     while(!client_->wait_for_service(std::chrono::seconds(1))){
@@ -641,14 +638,7 @@ void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
                     string addNote = desireAchieved? 
                         "desire \"" + targetDesireName + "\" achieved will be removed from desire set" : 
                         "desire \"" + targetDesireName + "\" still not achieved! It'll not removed from the desire set yet";
-                    if(!desireAchieved)
-                    {
-                        std::cout << "\n\n";
-                        std::cout << "\ndesire: " << targetDesire << std::endl;
-                        for(auto mb : belief_set_)
-                            std:: cout << "\n" << mb;
-                        std::cout << "\n\n";
-                    }
+                    
                     RCLCPP_INFO(this->get_logger(), "Plan successfully executed: " + addNote);
                 }
             }

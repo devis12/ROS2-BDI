@@ -1,4 +1,10 @@
 #include "ros2_bdi_skills/sensor.hpp"
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Sensor node
+#include "ros2_bdi_skills/params/sensor_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
 
 using std::string;
 using std::chrono::seconds;
@@ -57,10 +63,10 @@ void Sensor::init()
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     // Add new belief publisher
-    add_belief_publisher_ = this->create_publisher<Belief>("add_belief", 10);
+    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, 10);
 
     // Del belief publisher
-    del_belief_publisher_ = this->create_publisher<Belief>("del_belief", 10);
+    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, 10);
     
     // retrieve from parameter frequency at which to perform sensing
     float sensing_freq = this->get_parameter(PARAM_SENSING_FREQ).as_double();

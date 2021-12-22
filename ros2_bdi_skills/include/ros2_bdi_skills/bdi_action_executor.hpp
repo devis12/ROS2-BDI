@@ -22,15 +22,13 @@
 #include "ros2_bdi_skills/communications_structs.hpp"
 #include "ros2_bdi_skills/communications_client.hpp"
 
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+
 #include "plansys2_executor/ActionExecutorClient.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_AGENT_GROUP_ID "agent_group"
-#define PARAM_DEBUG "debug"
-  
 
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {

@@ -1,22 +1,15 @@
+// header file for Communications node
 #include "ros2_bdi_core/communications.hpp"
+// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
+#include "ros2_bdi_core/params/core_common_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Communications node
+#include "ros2_bdi_core/params/communications_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler node (for desire set topic)
+#include "ros2_bdi_core/params/scheduler_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
 
 #include "ros2_bdi_utils/BDIFilter.hpp"
-
-
-/* Parameters affecting internal logic (recompiling required) */
-#define ADD_I 1
-#define DEL_I 0
-#define MAX_WAIT_UPD 4 // indicates number of belief/desire set notification to wait before considering a submitted upd request failed 
-
-/* ROS2 Parameter names for PlanSys2Monitor node */
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_AGENT_GROUP_ID "agent_group"
-#define PARAM_BELIEF_CHECK "belief_ck"
-#define PARAM_BELIEF_WRITE "belief_w"
-#define PARAM_DESIRE_CHECK "desire_ck"
-#define PARAM_DESIRE_WRITE "desire_w"
-#define PARAM_DESIRE_MAX_PRIORITIES "desire_pr"
-#define PARAM_DEBUG "debug"
 
 using std::string;
 using std::vector;
@@ -43,7 +36,7 @@ using BDIManaged::ManagedDesire;
 
 
 CommunicationManager::CommunicationManager()
-  : rclcpp::Node("communication_manager")
+  : rclcpp::Node(COMMUNICATIONS_NODE_NAME)
 {
   this->declare_parameter(PARAM_AGENT_ID, "agent0");
   this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
@@ -64,7 +57,7 @@ void CommunicationManager::init()
   agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
   // init server for handling is accepted group queries
-  accepted_server_ = this->create_service<IsAcceptedOperation>("is_accepted_operation", 
+  accepted_server_ = this->create_service<IsAcceptedOperation>(IS_ACCEPTED_OP_SRV, 
       bind(&CommunicationManager::handleIsAcceptedGroup, this, _1, _2));
 
   rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
@@ -77,30 +70,30 @@ void CommunicationManager::init()
 
   //register to belief set updates to have the mirroring of the last published version of it
   belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-              "belief_set", qos_keep_all,
+              BELIEF_SET_TOPIC, qos_keep_all,
               bind(&CommunicationManager::updatedBeliefSet, this, _1), sub_opt);
   
   //register to desire set updates to have the mirroring of the last published version of it
   desire_set_subscriber_ = this->create_subscription<DesireSet>(
-              "desire_set", qos_keep_all,
+              DESIRE_SET_TOPIC, qos_keep_all,
               bind(&CommunicationManager::updatedDesireSet, this, _1), sub_opt);
 
   // init server for handling check belief requests from other agents
-  chk_belief_server_ = this->create_service<CheckBelief>("check_belief_srv", 
+  chk_belief_server_ = this->create_service<CheckBelief>(CK_BELIEF_SRV, 
       bind(&CommunicationManager::handleCheckBeliefRequest, this, _1, _2));
   
   // init server for handling add belief requests from other agents
-  add_belief_server_ = this->create_service<UpdBeliefSet>("add_belief_srv", 
+  add_belief_server_ = this->create_service<UpdBeliefSet>(ADD_BELIEF_SRV, 
       bind(&CommunicationManager::handleAddBeliefRequest, this, _1, _2));
     
   // init server for handling del belief requests from other agents
-  del_belief_server_ = this->create_service<UpdBeliefSet>("del_belief_srv", 
+  del_belief_server_ = this->create_service<UpdBeliefSet>(DEL_BELIEF_SRV, 
       bind(&CommunicationManager::handleDelBeliefRequest, this, _1, _2));
   
   // add belief publisher -> to publish on the topic and alter the belief set when the request can go through
-  add_belief_publisher_ = this->create_publisher<Belief>("add_belief", 10);
+  add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, 10);
   // del belief publisher -> to publish on the topic and alter the belief set when the request can go through
-  del_belief_publisher_ = this->create_publisher<Belief>("del_belief", 10);
+  del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, 10);
 
   // init two locks for waiting belief upd
   belief_set_upd_locks_ = vector<mutex>(2);
@@ -110,21 +103,21 @@ void CommunicationManager::init()
   belief_waiting_for_ = vector<ManagedBelief>(2);
 
   // init server for handling check desire requests from other agents
-  chk_desire_server_ = this->create_service<CheckDesire>("check_desire_srv", 
+  chk_desire_server_ = this->create_service<CheckDesire>(CK_DESIRE_SRV, 
       bind(&CommunicationManager::handleCheckDesireRequest, this, _1, _2));
 
   // init server for handling add belief requests from other agents
-  add_desire_server_ = this->create_service<UpdDesireSet>("add_desire_srv", 
+  add_desire_server_ = this->create_service<UpdDesireSet>(ADD_DESIRE_SRV, 
       bind(&CommunicationManager::handleAddDesireRequest, this, _1, _2));
     
     // init server for handling del belief requests from other agents
-  del_desire_server_ = this->create_service<UpdDesireSet>("del_desire_srv", 
+  del_desire_server_ = this->create_service<UpdDesireSet>(DEL_DESIRE_SRV, 
       bind(&CommunicationManager::handleDelDesireRequest, this, _1, _2));
 
   // add desire publisher -> to publish on the topic and alter the desire set when the request can go through
-  add_desire_publisher_ = this->create_publisher<Desire>("add_desire", 10);
+  add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, 10);
   // del desire publisher -> to publish on the topic and alter the desire set when the request can go through
-  del_desire_publisher_ = this->create_publisher<Desire>("del_desire", 10);
+  del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, 10);
 
   // init two locks for waiting desire upd
   desire_set_upd_locks_ = vector<mutex>(2);

@@ -8,12 +8,6 @@
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#define PARAM_AGENT_ID "agent_id"
-#define PARAM_DEBUG "debug"
-#define PARAM_SENSING_FREQ "sensing_freq" 
-#define PARAM_SENSOR_NAME "sensor_name"
-#define PARAM_INIT_SLEEP "init_sleep"
-
 typedef enum {ADD, UPD, DEL, NOP} UpdOperation;
 
 class Sensor : public rclcpp::Node
