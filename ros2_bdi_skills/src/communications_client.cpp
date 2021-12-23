@@ -41,14 +41,12 @@ CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRe
         ck_belief_client_ = node_->create_client<CheckBelief>(serviceName);
     
         while (!ck_belief_client_->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
-            if (!rclcpp::ok()) {
-                return res;
-            }
-
             RCLCPP_ERROR_STREAM(
                 node_->get_logger(),
                 ck_belief_client_->get_service_name() <<
-                    " service client: waiting for service to appear...");
+                    " service appears to be down");
+                    
+            return res;
         }
         auto request = std::make_shared<CheckBelief::Request>();
         request->belief = belief;
@@ -92,14 +90,12 @@ UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, c
         upd_belief_client_ = node_->create_client<UpdBeliefSet>(serviceName);
 
         while (!upd_belief_client_->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
-            if (!rclcpp::ok()) {
-                return res;
-            }
-
             RCLCPP_ERROR_STREAM(
                 node_->get_logger(),
                 upd_belief_client_->get_service_name() <<
-                    " service client: waiting for service to appear...");
+                    " service appears to be down");
+                    
+            return res;
         }
 
         auto request = std::make_shared<UpdBeliefSet::Request>();
@@ -136,17 +132,14 @@ CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRe
 
     try{
         ck_desire_client_ = node_->create_client<CheckDesire>(serviceName);
-
         
         while (!ck_desire_client_->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
-            if (!rclcpp::ok()) {
-                return res;
-            }
-
             RCLCPP_ERROR_STREAM(
                 node_->get_logger(),
                 ck_desire_client_->get_service_name() <<
-                    " service client: waiting for service to appear...");
+                    " service appears to be down");
+                    
+            return res;
         }
 
         auto request = std::make_shared<CheckDesire::Request>();
@@ -190,14 +183,12 @@ UpdDesireResult CommunicationsClient::updDesireRequest(const string& agentRef, c
         upd_desire_client_ = node_->create_client<UpdDesireSet>(serviceName);
 
         while (!upd_desire_client_->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
-            if (!rclcpp::ok()) {
-                return res;
-            }
-
             RCLCPP_ERROR_STREAM(
                 node_->get_logger(),
                 upd_desire_client_->get_service_name() <<
-                    " service client: waiting for service to appear...");
+                    " service appears to be down");
+                    
+            return res;
         }
 
         auto request = std::make_shared<UpdDesireSet::Request>();

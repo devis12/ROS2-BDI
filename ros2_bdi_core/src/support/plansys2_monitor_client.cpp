@@ -8,12 +8,12 @@ using std::vector;
 
 using lifecycle_msgs::srv::GetState;
 
-PlanSys2MonitorClient::PlanSys2MonitorClient()
+PlanSys2MonitorClient::PlanSys2MonitorClient(const string& nodesBasename)
 {   
     /*Init caller nodes*/
     caller_nodes_ = vector<rclcpp::Node::SharedPtr>();
     for(int i=0; i<PSYS2NODES; i++)
-        caller_nodes_.push_back(rclcpp::Node::make_shared("plansys2_state_caller_"+i));
+        caller_nodes_.push_back(rclcpp::Node::make_shared(nodesBasename + std::to_string(i)));
     
     /*Init caller clients*/
     caller_clients_ = vector<rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr>();
@@ -86,8 +86,8 @@ bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
     rclcpp::Client<GetState>::SharedPtr client = getCallerClient(psys2NodeName);
 
     try{
-    
-        while (!client->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
+        
+        while (!client->wait_for_service(std::chrono::seconds(WAIT_GET_STATE_SRV_UP))) {
             if (!rclcpp::ok()) {
                 return false;
             }
@@ -100,7 +100,7 @@ bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
         auto request = std::make_shared<GetState::Request>();
         auto future_result = client->async_send_request(request);
 
-        if (rclcpp::spin_until_future_complete(node, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
+        if (rclcpp::spin_until_future_complete(node, future_result, std::chrono::seconds(WAIT_GET_STATE_RESPONSE_TIMEOUT)) !=
             rclcpp::FutureReturnCode::SUCCESS)
         {
             return false;
@@ -116,7 +116,7 @@ bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
     }
     catch(const std::exception &e)
     {
-        RCLCPP_ERROR(node->get_logger(), "Response error in while trying to call get_state srv for %s", psys2NodeName);
+        RCLCPP_ERROR(node->get_logger(), "Response error in while trying to call %s srv", client->get_service_name());
     }
 
     return false;

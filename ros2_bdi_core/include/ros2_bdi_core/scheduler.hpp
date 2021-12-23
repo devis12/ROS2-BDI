@@ -24,6 +24,8 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/support/trigger_plan_client.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
@@ -107,12 +109,19 @@ private:
         If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
         try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
     */
-    void tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
 
     /*
-        Contact plan executor to trigger the execution of the current_plan_
+        Launch execution of selectedPlan; if successful current_plan_ gets value of selectedPlan
+        return true if successful
     */
-    void triggerPlanExecution(const int& PLAN_EXEC_REQUEST, const BDIManaged::ManagedPlan& mgPlan);
+    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+    
+    /*
+        Abort execution of current_plan_; if successful current_plan_ becomes empty
+        return true if successful
+    */
+    bool abortCurrentPlanExecution();
 
     /*
         Received update on current plan execution
@@ -246,6 +255,8 @@ private:
     BDIManaged::ManagedPlan current_plan_;
     // last plan execution info
     ros2_bdi_interfaces::msg::BDIPlanExecutionInfo current_plan_exec_info_;
+    // Plan Execution Service manager for client operations
+    std::shared_ptr<TriggerPlanClient> plan_exec_srv_client_;
 
     //mutex for sync when modifying desire_set
     std::mutex mtx_add_del_;

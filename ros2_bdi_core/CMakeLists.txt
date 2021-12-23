@@ -24,10 +24,11 @@ include_directories(include)
 
 set(CORE-SUPPORT-SOURCES
   src/support/plansys2_monitor_client.cpp
+  src/support/trigger_plan_client.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${CORE-SUPPORT-SOURCES})
-ament_target_dependencies(${PROJECT_NAME} rclcpp lifecycle_msgs)
+ament_target_dependencies(${PROJECT_NAME} rclcpp lifecycle_msgs ros2_bdi_interfaces)
 
 install(DIRECTORY include/
   DESTINATION include/
@@ -75,6 +76,10 @@ ament_target_dependencies(scheduler
   ${pddl_experts}
   plansys2_planner
 )
+# link scheduler to ros2_bdi_core library since it makes usage of trigger_plan_client 
+target_link_libraries(scheduler
+    ${PROJECT_NAME}
+)
 
 add_executable(plan_director src/plan_director.cpp)
 ament_target_dependencies(plan_director 
@@ -88,6 +93,7 @@ add_executable(plansys2_monitor src/plansys2_monitor.cpp)
 ament_target_dependencies(plansys2_monitor 
   ${common_dependencies}
 )
+# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
 target_link_libraries(plansys2_monitor
     ${PROJECT_NAME}
 )

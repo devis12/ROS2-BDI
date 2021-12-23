@@ -12,6 +12,12 @@
 
 #define INIT_DESIRE_SET_FILENAME "init_dset.yaml"
 
+//seconds to wait before giving up on performing a request (service does not appear to be up)
+#define WAIT_PLAN_EXEC_SRV_UP 1   
+
+//seconds to wait before giving up on waiting for the response
+#define WAIT_PLAN_EXEC_RESPONSE_TIMEOUT 1
+
 /* ROS2 Parameter names for PlanSys2Monitor node */
 #define PARAM_MAX_TRIES_COMP_PLAN "comp_plan_tries"
 #define PARAM_MAX_TRIES_EXEC_PLAN "exec_plan_tries"

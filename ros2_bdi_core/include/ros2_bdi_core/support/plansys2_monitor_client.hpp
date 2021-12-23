@@ -12,8 +12,11 @@
 class PlanSys2MonitorClient
 {
     public:
-        /* Constructor for the supporting nodes for calling the services */
-        PlanSys2MonitorClient();
+        /* 
+            Constructor for the supporting nodes for calling the services 
+                @nodesBasename is the basename given to the supporting nodes
+        */
+        PlanSys2MonitorClient(const std::string& nodesBasename);
         
         /* Return true if {psys2NodeName}/get_state service called confirm that the node is active */
         bool isPsys2NodeActive(const std::string& psys2NodeName);

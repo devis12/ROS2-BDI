@@ -11,8 +11,6 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
 #include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
 
-#include <thread>
-
 #include <yaml-cpp/exceptions.h>
 
 #include "ros2_bdi_utils/BDIFilter.hpp"
@@ -27,7 +25,6 @@ using std::string;
 using std::vector;
 using std::set;
 using std::map;
-using std::thread;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -63,14 +60,14 @@ using BDIManaged::ManagedPlan;
 Scheduler::Scheduler()
   : rclcpp::Node(SCHEDULER_NODE_NAME), state_(STARTING)
 {
-psys2_comm_errors_ = 0;
-this->declare_parameter(PARAM_AGENT_ID, "agent0");
-this->declare_parameter(PARAM_DEBUG, true);
-this->declare_parameter(PARAM_MAX_TRIES_COMP_PLAN, 8);
-this->declare_parameter(PARAM_MAX_TRIES_EXEC_PLAN, 8);
-this->declare_parameter(PARAM_RESCHEDULE_POLICY, VAL_RESCHEDULE_POLICY_NO_IF_EXEC);
-this->declare_parameter(PARAM_AUTOSUBMIT_PREC, false);
-this->declare_parameter(PARAM_AUTOSUBMIT_CONTEXT, false);
+    psys2_comm_errors_ = 0;
+    this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_MAX_TRIES_COMP_PLAN, 8);
+    this->declare_parameter(PARAM_MAX_TRIES_EXEC_PLAN, 8);
+    this->declare_parameter(PARAM_RESCHEDULE_POLICY, VAL_RESCHEDULE_POLICY_NO_IF_EXEC);
+    this->declare_parameter(PARAM_AUTOSUBMIT_PREC, false);
+    this->declare_parameter(PARAM_AUTOSUBMIT_CONTEXT, false);
 
 }
 
@@ -128,6 +125,8 @@ void Scheduler::init()
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
                 BELIEF_SET_TOPIC, qos_keep_all,
                 bind(&Scheduler::updatedBeliefSet, this, _1));
+
+    plan_exec_srv_client_ = std::make_shared<TriggerPlanClient>(PLAN_EXECUTION_SRV + string("_s_caller"));
 
     plan_exec_info_subscriber_ = this->create_subscription<BDIPlanExecutionInfo>(
         PLAN_EXECUTION_TOPIC, 10,
@@ -496,21 +495,66 @@ void Scheduler::reschedule()
         delDesire(md);
 
     if(selectedPlan.getBody().size() > 0)
-        tryTriggerPlanExecution(selectedPlan);
+    {
+        bool triggered = tryTriggerPlanExecution(selectedPlan);
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+        {
+            if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+            else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+        }
+    }
+}
+
+/*
+    Launch execution of selectedPlan; if successful current_plan_ gets value of selectedPlan
+    return true if successful
+*/
+bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
+{
+    //trigger plan execution
+    bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
+    if(triggered)
+        current_plan_ = selectedPlan;// selectedPlan can now be set as currently executing plan
+
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+    {
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"%s\" success", current_plan_.getDesire().getName());
+        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"%s\" failed", selectedPlan.getDesire().getName());
+    }
+
+    return triggered;
+}
+
+/*
+    Abort execution of current_plan_; if successful current_plan_ becomes empty
+    return true if successful
+*/
+bool Scheduler::abortCurrentPlanExecution()
+{
+    bool aborted = plan_exec_srv_client_->abortPlanExecution(current_plan_.toPlan());
+    if(aborted)
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getDesire().getName());
+        
+        current_plan_ = ManagedPlan{}; //notifying you're not executing any plan right now
+    }  
+    return aborted;
 }
 
 
 /*
     If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
-    try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
+    try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution) by exploiting the TriggerPlanClient
+
 */
-void Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
+bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
 {      
     string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
     bool noPlan = noPlanSelected();
     //rescheduling not ammitted -> a plan already executing and policy not admit any switch with higher priority plans
     if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)
-        return;
+        return false;
 
     //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
     bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
@@ -521,17 +565,9 @@ void Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
                 RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
                             " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
             
-        //trigger plan execution
-        shared_ptr<thread> thr = 
-            std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
-            BDIPlanExecution::Request().ABORT, current_plan_));
-        thr->detach();
-
-        //mutex to handle better ABORT old plan -> EXECUTE new plan sequence
-        //while(mtx_abort_trigger_.try_lock())//when you fail it means that aborting thread has started
-        //    mtx_abort_trigger_.unlock();
-        //mtx_abort_trigger_.lock();//wait aborting thread to be finished
-        //mtx_abort_trigger_.unlock();
+        //trigger plan abortion
+        if(!abortCurrentPlanExecution())
+            return false;//current plan abortion failed
     }
     
     //desire still in desire set
@@ -539,77 +575,39 @@ void Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     
     //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
     if(selectedPlan.getBody().size() <= 0 || !desireInDesireSet)
-        return;
-        
-    // selectedPlan can now be set as currently executing plan
-    current_plan_ = selectedPlan;
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Ready to execute plan for desire \"" + current_plan_.getDesire().getName() + "\"");
-            
-    //trigger plan execution
-    shared_ptr<thread> thr = 
-        std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
-        BDIPlanExecution::Request().EXECUTE, current_plan_));
-    thr->detach();
-
-}
-
-/*
-    Contact plan executor to trigger the execution of the current_plan_
-*/
-void Scheduler::triggerPlanExecution(const int& PLAN_EXEC_REQUEST, const ManagedPlan& mgPlan)
-{
-    //mtx_abort_trigger_.lock();
-
-    //check for service to be up
-    rclcpp::Client<BDIPlanExecution>::SharedPtr client_ = 
-        this->create_client<BDIPlanExecution>(PLAN_EXECUTION_SRV);
+        return false;
     
-    int err = 0;
-    while(!client_->wait_for_service(std::chrono::seconds(1))){
-        //service seems not even present, just return false
-        RCLCPP_WARN(this->get_logger(), "plan_execution server does not appear to be up");
-        if(err==3)
-            return;
-        err++;
-    }
 
-    auto request = std::make_shared<BDIPlanExecution::Request>();
-    request->request = PLAN_EXEC_REQUEST;
-    request->plan = mgPlan.toPlan();
-    auto future = client_->async_send_request(request);
-
-    try{
-        auto response = future.get();
-        if(PLAN_EXEC_REQUEST == request->EXECUTE && !response->success)
-        {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-            
-            if(mgPlan == current_plan_)//aborted current plan execution
-                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                //next reschedule(); will select a new plan if computable for a desire in desire set
-        }
-        else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
-        {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-        }
-        else if(PLAN_EXEC_REQUEST == request->ABORT && response->success)
-        {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
-            
-            if(mgPlan == current_plan_)//aborted current plan execution
-                current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-                //next reschedule(); will select a new plan if computable for a desire in desire set
-        }
-    }catch(const std::exception &e){
-        RCLCPP_ERROR(this->get_logger(), "Response error in executor/get_state");
-    }
-
-    //mtx_abort_trigger_.unlock();
+    return launchPlanExecution(selectedPlan);
 }
+
+// bool Scheduler::launchPlanExecution(const ManagedPlan& mgPlan)
+// {
+
+//     if(PLAN_EXEC_REQUEST == request->EXECUTE && !response->success)
+//     {
+//         if(this->get_parameter(PARAM_DEBUG).as_bool())
+//             RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+        
+//         if(mgPlan == current_plan_)//aborted current plan execution
+//             current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+//             //next reschedule(); will select a new plan if computable for a desire in desire set
+//     }
+//     else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
+//     {
+//         if(this->get_parameter(PARAM_DEBUG).as_bool())
+//             RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+//     }
+//     else if(PLAN_EXEC_REQUEST == request->ABORT && response->success)
+//     {
+//         if(this->get_parameter(PARAM_DEBUG).as_bool())
+//             RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
+        
+//         if(mgPlan == current_plan_)//aborted current plan execution
+//             current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
+//             //next reschedule(); will select a new plan if computable for a desire in desire set
+//     }
+//  }
 
 /*
     Received update on current plan execution
@@ -735,10 +733,7 @@ void Scheduler::checkForSatisfiedDesires()
                         "(executing %d out of %d)", lastActionIndex, executingActionIndex);
 
                 //abort current_plan_ plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
-                shared_ptr<thread> thr = 
-                    std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
-                    BDIPlanExecution::Request().ABORT, current_plan_));
-                thr->detach();
+                abortCurrentPlanExecution();
             }
             else
             {
@@ -840,13 +835,7 @@ void Scheduler::delDesireTopicCallBack(const Desire::SharedPtr msg)
         publishDesireSet();
         
         if(ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan)
-        {
-            //abort current plan execution
-            shared_ptr<thread> thr = 
-                std::make_shared<thread>(bind(&Scheduler::triggerPlanExecution, this, 
-                BDIPlanExecution::Request().ABORT, current_plan_));
-            thr->detach();
-        }
+            abortCurrentPlanExecution();//abort current plan execution
     }
 }
 

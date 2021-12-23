@@ -19,7 +19,7 @@ PlanSys2Monitor::PlanSys2Monitor() : rclcpp::Node(PSYS2_MONITOR_NODE_NAME)
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
 
-    psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>();
+    psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(PSYS2_MONITOR_NODE_NAME + string("_caller_"));
 }
 
 /*
