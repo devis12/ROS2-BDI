@@ -22,12 +22,12 @@ ManagedPlan::ManagedPlan():
     {
         Desire d = Desire{};
         d.name = NO_PLAN;
-        desire_ = d;
+        target_ = d;
     }
 
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems):
-    desire_(md),
+    target_(md),
     body_(planitems),
     precondition_(ManagedConditionsDNF{}),
     context_(ManagedConditionsDNF{})
@@ -37,7 +37,7 @@ ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planit
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
     const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
-    desire_(md),
+    target_(md),
     body_(planitems),
     precondition_(precondition),
     context_(context)
@@ -55,7 +55,7 @@ Plan ManagedPlan::toPsys2Plan() const
 BDIPlan ManagedPlan::toPlan() const
 {
     BDIPlan p = BDIPlan();
-    p.desire = desire_.toDesire();
+    p.target = target_.toDesire();
     p.actions = body_;
 
     p.precondition = precondition_.toConditionsDNF();

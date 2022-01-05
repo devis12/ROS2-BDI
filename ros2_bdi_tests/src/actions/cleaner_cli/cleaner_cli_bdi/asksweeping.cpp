@@ -45,11 +45,11 @@ class AskSweeping : public BDIActionExecutor
                     execFailed("Desire to sweep " + waypoint + " has been denied by " + sweeper_id);
                 
             
-            }else if(isMonitoredDesireSatisfied()){
+            }else if(isMonitoredDesireFulfilled(sweeper_id, sweep_desire_)){
                 advancement = 1.0f - currProgress;//missing part complete
                 execSuccess(waypoint + " has been swept given the update coming from " + sweeper_id);
                 
-            }else if(!isMonitoredDesireSatisfied() && currProgress < 0.96f)
+            }else if(!isMonitoredDesireFulfilled(sweeper_id, sweep_desire_) && currProgress < 0.96f)
                 advancement = 0.015625f;//action still in progress
 
             else

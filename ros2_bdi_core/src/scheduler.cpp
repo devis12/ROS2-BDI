@@ -221,6 +221,7 @@ void Scheduler::step()
 void Scheduler::publishDesireSet()
 {
     DesireSet dset_msg = BDIFilter::extractDesireSetMsg(desire_set_);
+    dset_msg.agent_id = agent_id_;
     desire_set_publisher_->publish(dset_msg);
 }
 
@@ -580,34 +581,6 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
 
     return launchPlanExecution(selectedPlan);
 }
-
-// bool Scheduler::launchPlanExecution(const ManagedPlan& mgPlan)
-// {
-
-//     if(PLAN_EXEC_REQUEST == request->EXECUTE && !response->success)
-//     {
-//         if(this->get_parameter(PARAM_DEBUG).as_bool())
-//             RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-        
-//         if(mgPlan == current_plan_)//aborted current plan execution
-//             current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-//             //next reschedule(); will select a new plan if computable for a desire in desire set
-//     }
-//     else if(PLAN_EXEC_REQUEST == request->EXECUTE && response->success)
-//     {
-//         if(this->get_parameter(PARAM_DEBUG).as_bool())
-//             RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-//     }
-//     else if(PLAN_EXEC_REQUEST == request->ABORT && response->success)
-//     {
-//         if(this->get_parameter(PARAM_DEBUG).as_bool())
-//             RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
-        
-//         if(mgPlan == current_plan_)//aborted current plan execution
-//             current_plan_ = ManagedPlan{};//notifying you're not executing any plan right now
-//             //next reschedule(); will select a new plan if computable for a desire in desire set
-//     }
-//  }
 
 /*
     Received update on current plan execution

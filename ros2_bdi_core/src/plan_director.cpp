@@ -354,8 +354,8 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
 
     string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
-    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire \"" + request->plan.desire.name + "\"");
-    ManagedDesire mdPlan = ManagedDesire{request->plan.desire};
+    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire \"" + request->plan.target.name + "\"");
+    ManagedDesire mdPlan = ManagedDesire{request->plan.target};
     ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
     ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
     bool done = false;

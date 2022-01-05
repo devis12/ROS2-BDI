@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <tuple>
+#include <map>
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
@@ -30,6 +32,15 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
+typedef std::tuple
+        <
+          std::string, 
+          BDIManaged::ManagedDesire, 
+          rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr
+        > 
+
+        MonitorDesire;
+
 class BDIActionExecutor : public plansys2::ActionExecutorClient
 {
 public:
@@ -46,6 +57,14 @@ public:
   */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
       on_activate(const rclcpp_lifecycle::State & previous_state);
+
+  /*
+    Method called when node is deactivate by the Executor node of PlanSys2
+    cleanup of monitored_desires, subscription, belief set if needed
+  */
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
+      on_deactivate(const rclcpp_lifecycle::State & previous_state);
+
 
 protected:
 
@@ -71,9 +90,9 @@ protected:
       Utility methods to check other agents' desire sets or 
       to send belief request (ADD/DEL) to other agents within the action doWork method implementation
     */
-    BDICommunications::CheckBeliefResult sendCheckBeliefRequest(const std::string& agentRef, 
+    BDICommunications::CheckBeliefResult sendCheckBeliefRequest(const std::string& agent_ref, 
         const ros2_bdi_interfaces::msg::Belief& belief);
-    BDICommunications::UpdBeliefResult sendUpdBeliefRequest(const std::string& agentRef, 
+    BDICommunications::UpdBeliefResult sendUpdBeliefRequest(const std::string& agent_ref, 
         const ros2_bdi_interfaces::msg::Belief& belief, const BDICommunications::UpdOperation& op);
     
     /*
@@ -81,26 +100,26 @@ protected:
       send desire request (ADD/DEL) to other agents within the action doWork method implementation
       (flag for monitoring fulfillment is provided for the ADD scenario)
     */
-    BDICommunications::CheckDesireResult sendCheckDesireRequest(const std::string& agentRef, 
+    BDICommunications::CheckDesireResult sendCheckDesireRequest(const std::string& agent_ref, 
         const ros2_bdi_interfaces::msg::Desire& desire);
-    BDICommunications::UpdDesireResult sendUpdDesireRequest(const std::string& agentRef, 
-        const ros2_bdi_interfaces::msg::Desire& desire, const BDICommunications::UpdOperation& op, const bool& monitorFulfill);
+    BDICommunications::UpdDesireResult sendUpdDesireRequest(const std::string& agent_ref, 
+        const ros2_bdi_interfaces::msg::Desire& desire, const BDICommunications::UpdOperation& op, const bool& monitor_fulfill);
 
     /*
       if no monitored desire, just return false
       otherwise check if it is fulfilled in the respective monitored belief set
     */
-    bool isMonitoredDesireSatisfied();
+    bool isMonitoredDesireFulfilled(const std::string& agent_ref, const ros2_bdi_interfaces::msg::Desire& desire);
 
     // method to be called when the execution successfully comes to completion (generic success msg added)
     void execSuccess() { execSuccess(""); }
 
     // method to be called when the execution successfully comes to completion (specific success msg added)
-    void execSuccess(const std::string& statusSpecific)
+    void execSuccess(const std::string& success_log)
     {
       if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "Action execution success: " + statusSpecific);
-      finish(true, 1.0, action_name_ + " successful execution" + ((statusSpecific == "")? ": action performed" : ": " + statusSpecific));
+        RCLCPP_INFO(this->get_logger(), "Action execution success: " + success_log);
+      finish(true, 1.0, action_name_ + " successful execution" + ((success_log == "")? ": action performed" : ": " + success_log));
     }
 
     //method to be called when the execution fail (generic error to be given: no specific added)
@@ -110,11 +129,11 @@ protected:
     }
 
     //method to be called when the execution fail (specific error to be given)
-    void execFailed(const std::string& errSpecific)
+    void execFailed(const std::string& err_log)
     {
       if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + errSpecific);
-      finish(false, progress_, action_name_ + " failed execution" + ((errSpecific == "")? ": generic error" : ": " + errSpecific));
+        RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + err_log);
+      finish(false, progress_, action_name_ + " failed execution" + ((err_log == "")? ": generic error" : ": " + err_log));
     }
 
 
@@ -131,14 +150,11 @@ private:
     void agentBeliefSetCallback(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
 
 
-    //listen to belief set of agents to know if/when desires are fulfilled
-    rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr agent_belief_set_subscriber_;
+    //currently monitored desires: vector of tuples in the form (agent_id, desire to fulfill, subs to belief set of agent_id)
+    std::vector<MonitorDesire>  monitored_desires_;
 
-    //currently monitoring desire
-    BDIManaged::ManagedDesire monitored_desire_;
-
-    //currently monitoring belief set
-    std::set<BDIManaged::ManagedBelief> monitored_beliefset_;
+    //currently monitoring belief sets: map (agent_id, belief set for agent_id)
+    std::map<std::string, std::set<BDIManaged::ManagedBelief>> monitored_bsets_;
 
     // action name
     std::string action_name_;

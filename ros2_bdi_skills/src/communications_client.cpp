@@ -32,9 +32,9 @@ CommunicationsClient::CommunicationsClient()
     node_ = rclcpp::Node::make_shared("communications_client");
 }
 
-CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRef, const string& agentGroup, const Belief& belief)
+CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agent_ref, const string& agent_group, const Belief& belief)
 {
-    string serviceName = "/" + agentRef + "/" + CK_BELIEF_SRV;
+    string serviceName = "/" + agent_ref + "/" + CK_BELIEF_SRV;
     CheckBeliefResult res{belief, false, false};
 
     try{
@@ -50,7 +50,7 @@ CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRe
         }
         auto request = std::make_shared<CheckBelief::Request>();
         request->belief = belief;
-        request->agent_group = agentGroup;
+        request->agent_group = agent_group;
         auto future_result = ck_belief_client_->async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node_, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
@@ -76,9 +76,9 @@ CheckBeliefResult CommunicationsClient::checkBeliefRequest(const string& agentRe
     return res;
 }
 
-UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, const string& agentGroup, const Belief& belief, const UpdOperation& op)
+UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agent_ref, const string& agent_group, const Belief& belief, const UpdOperation& op)
 {
-    string serviceName = "/" + agentRef + "/";
+    string serviceName = "/" + agent_ref + "/";
     if(op == ADD)
         serviceName += ADD_BELIEF_SRV;
     else
@@ -100,7 +100,7 @@ UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, c
 
         auto request = std::make_shared<UpdBeliefSet::Request>();
         request->belief = belief;
-        request->agent_group = agentGroup;
+        request->agent_group = agent_group;
         auto future_result = upd_belief_client_->async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node_, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
@@ -125,9 +125,9 @@ UpdBeliefResult CommunicationsClient::updBeliefRequest(const string& agentRef, c
     return res;
 }
 
-CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRef, const string& agentGroup, const Desire& desire)
+CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agent_ref, const string& agent_group, const Desire& desire)
 {
-    string serviceName = "/" + agentRef + "/" + CK_DESIRE_SRV;
+    string serviceName = "/" + agent_ref + "/" + CK_DESIRE_SRV;
     CheckDesireResult res{desire, false, false};
 
     try{
@@ -144,7 +144,7 @@ CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRe
 
         auto request = std::make_shared<CheckDesire::Request>();
         request->desire = desire;
-        request->agent_group = agentGroup;
+        request->agent_group = agent_group;
         auto future_result = ck_desire_client_->async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node_, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
@@ -169,9 +169,9 @@ CheckDesireResult CommunicationsClient::checkDesireRequest(const string& agentRe
     return res;
 }
 
-UpdDesireResult CommunicationsClient::updDesireRequest(const string& agentRef, const string& agentGroup, const Desire& desire, const UpdOperation& op)
+UpdDesireResult CommunicationsClient::updDesireRequest(const string& agent_ref, const string& agent_group, const Desire& desire, const UpdOperation& op)
 {
-    string serviceName = "/" + agentRef + "/";
+    string serviceName = "/" + agent_ref + "/";
     if(op == ADD)
         serviceName += ADD_DESIRE_SRV;
     else
@@ -193,7 +193,7 @@ UpdDesireResult CommunicationsClient::updDesireRequest(const string& agentRef, c
 
         auto request = std::make_shared<UpdDesireSet::Request>();
         request->desire = desire;
-        request->agent_group = agentGroup;
+        request->agent_group = agent_group;
         auto future_result = upd_desire_client_->async_send_request(request);
 
         if (rclcpp::spin_until_future_complete(node_, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=

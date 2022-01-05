@@ -176,6 +176,7 @@ void BeliefManager::callbackPsys2State(const PlanSys2State::SharedPtr msg)
 void BeliefManager::publishBeliefSet()
 {
     BeliefSet bset_msg = BDIFilter::extractBeliefSetMsg(belief_set_);
+    bset_msg.agent_id = agent_id_;
     belief_set_publisher_->publish(bset_msg);
 }
 

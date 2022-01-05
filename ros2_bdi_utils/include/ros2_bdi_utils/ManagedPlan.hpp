@@ -26,7 +26,7 @@ namespace BDIManaged
                 const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context);
             
             /* getter methods for ManagedPlan instance prop  */
-            ManagedDesire getDesire() const {return desire_;};
+            ManagedDesire getDesire() const {return target_;};
             std::vector<plansys2_msgs::msg::PlanItem> getBody() const {return body_;};
             float getPlanDeadline() const {return plan_deadline_;};
 
@@ -44,7 +44,7 @@ namespace BDIManaged
             float computeDeadline(const std::vector<plansys2_msgs::msg::PlanItem>& planitems);
 
             /* Desire to be fulfilled by plan execution*/
-            ManagedDesire desire_;
+            ManagedDesire target_;
 
             /* Plansys2 action (name, duration, start time) vector enwrapping the tree of actions to be performed to fulfilled the desire
                 that needs to be passed to PlanSys2 Executor */

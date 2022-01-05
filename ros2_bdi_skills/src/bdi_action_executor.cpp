@@ -6,6 +6,9 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
+using std::tuple;
+using std::pair;
 using std::shared_ptr;
 using std::thread;
 using std::chrono::seconds;
@@ -84,6 +87,21 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   }
 
 /*
+  Method called when node is deactivate by the Executor node of PlanSys2
+  cleanup of monitored_desires, subscription, belief set if needed
+*/
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
+    BDIActionExecutor::on_deactivate(const rclcpp_lifecycle::State & previous_state) 
+  {
+    monitored_bsets_.clear();
+    for(auto monitor_desire : monitored_desires_)
+      std::get<2>(monitor_desire).reset();//should allow to cancel subscription to topic (https://answers.ros.org/question/354792/rclcpp-how-to-unsubscribe-from-a-topic/)
+    monitored_desires_.clear();
+
+    return ActionExecutorClient::on_deactivate(previous_state);
+  }
+
+/*
   Method regularly called at the frequency specified in the constructor to handle the advancement of the action,
   wrapper method for the domain specific logics written within advanceWork by the user. Its purpose is to hide
   calls that has to be made to PlanSys2, to avoid the user the burden to check a second docs.
@@ -120,14 +138,14 @@ void BDIActionExecutor::do_work()
     Utility methods to check other agents' desire sets or 
     to send belief request (ADD/DEL) to other agents within the action doWork method implementation
 */
-CheckBeliefResult BDIActionExecutor::sendCheckBeliefRequest(const string& agentRef, const Belief& belief)
+CheckBeliefResult BDIActionExecutor::sendCheckBeliefRequest(const string& agent_ref, const Belief& belief)
 {
-  return comm_client_->checkBeliefRequest(agentRef, agent_group_, belief);
+  return comm_client_->checkBeliefRequest(agent_ref, agent_group_, belief);
 }
 
-UpdBeliefResult BDIActionExecutor::sendUpdBeliefRequest(const string& agentRef, const Belief& belief, const UpdOperation& op)
+UpdBeliefResult BDIActionExecutor::sendUpdBeliefRequest(const string& agent_ref, const Belief& belief, const UpdOperation& op)
 {
-  return comm_client_->updBeliefRequest(agentRef, agent_group_, belief, op);
+  return comm_client_->updBeliefRequest(agent_ref, agent_group_, belief, op);
 }
 
 
@@ -137,16 +155,16 @@ UpdBeliefResult BDIActionExecutor::sendUpdBeliefRequest(const string& agentRef, 
   (flag for monitoring fulfillment is provided for the ADD scenario)
 */
 
-CheckDesireResult BDIActionExecutor::sendCheckDesireRequest(const string& agentRef, const Desire& desire)
+CheckDesireResult BDIActionExecutor::sendCheckDesireRequest(const string& agent_ref, const Desire& desire)
 {
-  return comm_client_->checkDesireRequest(agentRef, agent_group_, desire);
+  return comm_client_->checkDesireRequest(agent_ref, agent_group_, desire);
 }
 
-UpdDesireResult BDIActionExecutor::sendUpdDesireRequest(const string& agentRef, const Desire& desire, const UpdOperation& op, const bool& monitorFulfill)
+UpdDesireResult BDIActionExecutor::sendUpdDesireRequest(const string& agent_ref, const Desire& desire, const UpdOperation& op, const bool& monitor_fulfill)
 {
-  auto res = comm_client_->updDesireRequest(agentRef, agent_group_, desire, op);
-  if(res.accepted && res.performed && monitorFulfill)
-    monitor(agentRef, desire);
+  auto res = comm_client_->updDesireRequest(agent_ref, agent_group_, desire, op);
+  if(res.accepted && res.performed && monitor_fulfill)
+    monitor(agent_ref, desire);
   return res;
 }
 
@@ -154,27 +172,30 @@ UpdDesireResult BDIActionExecutor::sendUpdDesireRequest(const string& agentRef, 
   if no monitored desire, just return false
   otherwise check if it is fulfilled in the respective monitored belief set
 */
-bool BDIActionExecutor::isMonitoredDesireSatisfied()
+bool BDIActionExecutor::isMonitoredDesireFulfilled(const std::string& agent_ref, const ros2_bdi_interfaces::msg::Desire& desire)
 {
-  if(monitored_desire_ == ManagedDesire{})
-    return false;
-  else
-    return monitored_desire_.isFulfilled(monitored_beliefset_);
+  for(auto monitor_desire : monitored_desires_)
+  {
+    if(std::get<0>(monitor_desire) == agent_ref && std::get<1>(monitor_desire) == ManagedDesire{desire})
+      return monitored_bsets_.find(agent_ref) != monitored_bsets_.end() &&
+        (ManagedDesire{desire}).isFulfilled(monitored_bsets_.find(agent_ref)->second);
+  }   
+  return false;
 }
 
 /*
   Monitor belief set update of an agent 
 */
-void BDIActionExecutor::monitor(const string& agentRef, const Desire& desire)
+void BDIActionExecutor::monitor(const string& agent_ref, const Desire& desire)
 {
   rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
   qos_keep_all.keep_all();
 
-  agent_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-            "/"+agentRef+"/"+BELIEF_SET_TOPIC, qos_keep_all,
+  rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr agent_belief_set_subscriber = this->create_subscription<BeliefSet>(
+            "/"+agent_ref+"/"+BELIEF_SET_TOPIC, qos_keep_all,
             bind(&BDIActionExecutor::agentBeliefSetCallback, this, _1));
-  
-  monitored_desire_ = ManagedDesire{desire};
+
+  monitored_desires_.push_back(std::make_tuple(agent_ref, ManagedDesire{desire}, agent_belief_set_subscriber));
 }
 
 /*
@@ -182,5 +203,9 @@ void BDIActionExecutor::monitor(const string& agentRef, const Desire& desire)
 */
 void BDIActionExecutor::agentBeliefSetCallback(const BeliefSet::SharedPtr msg)
 {
-    monitored_beliefset_ = BDIFilter::extractMGBeliefs(msg->value);
+  map<string, set<ManagedBelief>>::iterator it = monitored_bsets_.find(msg->agent_id);
+  if(it != monitored_bsets_.end())
+    it->second = BDIFilter::extractMGBeliefs(msg->value);
+  else
+    monitored_bsets_.insert(monitored_bsets_.begin(), pair<string, set<ManagedBelief>>(msg->agent_id, BDIFilter::extractMGBeliefs(msg->value)));
 }
