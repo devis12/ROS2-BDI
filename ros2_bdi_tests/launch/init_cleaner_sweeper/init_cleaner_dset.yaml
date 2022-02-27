@@ -1,22 +1,23 @@
--
-  name: "clean_rooms"
+- name: "clean_rooms"
   priority: 0.6
   deadline: 80.0
   value:
-    -
-      name: "cleaned"
+    - name: "cleaned"
       pddl_type: 2
       params:
         - "bathroom"
-    -
-      name: "cleaned"
+    - name: "cleaned"
       pddl_type: 2
       params:
         - "kitchen"
-        
+
   rollback_belief_add:
-    -
-      name: "workfree"
+    - name: "workfree"
       pddl_type: 2
       params:
         - "cleaner"
+    - name: "in"
+      pddl_type: 2
+      params:
+        - "cleaner"
+        - "undefined_wp"

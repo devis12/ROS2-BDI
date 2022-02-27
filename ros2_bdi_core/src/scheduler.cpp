@@ -519,8 +519,8 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
 
     if(this->get_parameter(PARAM_DEBUG).as_bool())
     {
-        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"%s\" success", current_plan_.getDesire().getName());
-        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"%s\" failed", selectedPlan.getDesire().getName());
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getDesire().getName() + "\" success");
+        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getDesire().getName() + "\" failed");
     }
 
     return triggered;
