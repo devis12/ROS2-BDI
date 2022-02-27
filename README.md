@@ -1,6 +1,8 @@
 # ROS2-BDI
 A MAS (Multi Agent System) framework aiming to run on top of ROS2 Foxy, emulating the BDI architecture for implementing the agents' behaviour. The framework makes usage of an automated PDDL planner for computing plans in the means-end reasoning phase. Specifically it uses [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/design/index.html).
 
+For **user's documentation** follow this [link](https://devis12.github.io/ROS2-BDI.github.io/).
+
 ## Requirements 
 In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/foxy/index.html#) and [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/) have been already installed and setup**. Use this [guide](https://github.com/devis12/ROS2-BDI/blob/main/ros2_psys2_setup.pdf) to walk you through this process in latest LTS Ubuntu distributions (e.g. 20.04 LTS). With other recent Ubuntu-based distributions (e.g. Mint 20+) you may encounter some issues in the installation of dependencies which can be easily overcome by specifying the option `--os="ubuntu:"` if using rosdep or installing them manually (e.g. `sudo apt install ros-foxy-popf`). 
 
