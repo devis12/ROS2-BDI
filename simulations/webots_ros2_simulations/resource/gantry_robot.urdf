@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<robot name="gantry">
+    <webots>
+        <plugin type="webots_ros2_simulations.gantry_robot_driver.GantryRobotDriver" />
+    </webots>
+</robot>

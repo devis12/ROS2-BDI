@@ -1,0 +1,32 @@
+set instance boxA1 box
+set instance boxA2 box
+set instance boxB1 box
+set instance boxB2 box
+set instance boxC1 box
+set instance boxC2 box
+
+set instance base1 stackbase
+set instance base2 stackbase
+set instance baseA stackbase
+set instance baseB stackbase
+set instance baseC stackbase
+
+set instance gripperA gripper
+set predicate (upon gripperA base2)
+set predicate (free gripperA)
+
+set predicate (on boxA1 base1)
+set predicate (on boxC2 boxA1)
+set predicate (on boxA2 boxC2)
+
+set predicate (on boxB1 base2)
+set predicate (on boxB2 boxB1)
+set predicate (on boxC1 boxB2)
+
+set predicate (clear boxA2)
+set predicate (clear boxC1)
+set predicate (clear baseA)
+set predicate (clear baseB)
+set predicate (clear baseC)
+
+set goal (and (on boxC1 boxC2) (on boxC1 boxC2) (on boxA2 baseA) (on boxA1 boxA2))

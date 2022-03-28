@@ -12,7 +12,6 @@ find_package(rclcpp_action REQUIRED)
 
 install(DIRECTORY
   launch
-  worlds
   pddl
   DESTINATION share/${PROJECT_NAME}
 )
