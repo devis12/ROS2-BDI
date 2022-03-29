@@ -11,13 +11,12 @@ class GripperPickup : public BDIActionExecutor
         {
             gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
             gripper_status_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/cmd_gripper_status", rclcpp::QoS(1).keep_all());
-            action_status_ = 0;
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             on_activate(const rclcpp_lifecycle::State & previous_state)
         {
-            
+            action_status_ = 0;
             gripper_pose_cmd_publisher_->on_activate();
             gripper_status_cmd_publisher_->on_activate();
 
