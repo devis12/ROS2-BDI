@@ -40,9 +40,9 @@ MOTOR_POSES = {
     'start': [Z1, Z1, Z1, Z1, X2, ALPHA1],
     'base1': [Z1, Z1, Z1, Z1, X1, ALPHA1],
     'base2': [Z2, Z2, Z2, Z2, X2, ALPHA2],
-    'baseA': [ZA, ZA, ZA, ZA, XA, ALPHAA],
-    'baseB': [ZB, ZB, ZB, ZB, XB, ALPHAB],
-    'baseC': [ZC, ZC, ZC, ZC, XC, ALPHAC],
+    'basea': [ZA, ZA, ZA, ZA, XA, ALPHAA],
+    'baseb': [ZB, ZB, ZB, ZB, XB, ALPHAB],
+    'basec': [ZC, ZC, ZC, ZC, XC, ALPHAC],
 }
 
 GRIPPER_POSES = {

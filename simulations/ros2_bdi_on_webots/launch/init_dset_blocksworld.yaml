@@ -1,0 +1,35 @@
+- name: "sort_boxes"
+  priority: 0.2
+  deadline: 116.0
+  value:
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxc2"
+        - "basec"
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxc1"
+        - "basec"
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxa2"
+        - "basea"
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxa1"
+        - "basea"
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxb2"
+        - "baseb"
+    - name: "in"
+      pddl_type: 2
+      params: 
+        - "boxb1"
+        - "baseb"
+  

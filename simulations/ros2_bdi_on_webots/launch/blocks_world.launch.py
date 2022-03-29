@@ -31,18 +31,47 @@ def generate_launch_description():
             'gantry_robot.launch.py')),
     )
 
+    # move gripper action
+    move_gripper = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='move_gripper',
+        name='move_gripper'
+    )
+
+    move_gripper1 = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='move_gripper',
+        name='move_gripper'
+    )
+
+    # gripper pickup action
+    gripper_pickup = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='gripper_pickup',
+        name='gripper_pickup'
+    )
+
+    # gripper putdown action
+    gripper_putdown = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='gripper_putdown',
+        name='gripper_putdown'
+    )
+
     agent_ld = AgentLaunchDescription(
         agent_id=AGENT_ID,
         agent_group=AGENT_GROUP_ID,
         init_params={
             'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'blocks-domain.pddl'),
+            'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_bset_blocksworld.yaml'),
+            'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_dset_blocksworld.yaml'),
         },
-        actions=[],
+        actions=[move_gripper, move_gripper1, gripper_pickup, gripper_putdown],
         sensors=[]
     ) 
 
     return LaunchDescription([
-            # agent_ld,
+            agent_ld,
             webots_gauntry_sim
         ]
     )
