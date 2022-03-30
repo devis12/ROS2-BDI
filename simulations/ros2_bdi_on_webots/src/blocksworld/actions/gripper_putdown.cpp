@@ -3,20 +3,28 @@
 
 #include "example_interfaces/msg/string.hpp"
 
+#define ROBOT_NAME_PARAM "robot_name"
+#define ROBOT_NAME_PARAM_DEFAULT "gantry"
+
+typedef enum {LOW, OPEN, HIGH} PutdownStatus;
+
 class GripperPutdown : public BDIActionExecutor
 {
     public:
         GripperPutdown()
-        : BDIActionExecutor("gripper_putdown", 2, false)
+        : BDIActionExecutor("gripper_putdown", 3, false)
         {
-            gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
-            gripper_status_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/cmd_gripper_status", rclcpp::QoS(1).keep_all());
+            this->declare_parameter(ROBOT_NAME_PARAM, ROBOT_NAME_PARAM_DEFAULT);
+            robot_name_ = this->get_parameter(ROBOT_NAME_PARAM).as_string();
+            gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
+            gripper_status_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             on_activate(const rclcpp_lifecycle::State & previous_state)
         {
-            action_status_ = 0;
+            action_status_ = LOW;
+            repeat_ = 0;
             gripper_pose_cmd_publisher_->on_activate();
             gripper_status_cmd_publisher_->on_activate();
 
@@ -35,13 +43,13 @@ class GripperPutdown : public BDIActionExecutor
         float advanceWork()
         {
             auto msg = example_interfaces::msg::String();
-            msg.data = (action_status_ < 4)? "low"   : 
+            msg.data = (action_status_ == LOW)? "low"   : 
                         ( 
-                            (action_status_ < 8)? "open" :
+                            (action_status_ == OPEN)? "open" :
                             "high"
                         );
             
-            if(msg.data == "open")
+            if(action_status_ == OPEN)
             {   
                 gripper_status_cmd_publisher_->publish(msg);
             }
@@ -50,15 +58,23 @@ class GripperPutdown : public BDIActionExecutor
                 gripper_pose_cmd_publisher_->publish(msg);
             }
             
-            action_status_++;
+            repeat_++;
+            if(repeat_ == 3)
+            {
+                //publish same cmd for three action steps then switch to new status
+                repeat_ = 0;
+                action_status_ = (action_status_ == LOW)? OPEN : HIGH;
+            }
 
-            return 0.08f;            
+            return 0.112f;            
         }
 
     private:
-        uint8_t action_status_;
+        PutdownStatus action_status_;
+        uint8_t repeat_;
         rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_pose_cmd_publisher_;
         rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_status_cmd_publisher_;
+        std::string robot_name_;
 };
 
 int main(int argc, char ** argv)

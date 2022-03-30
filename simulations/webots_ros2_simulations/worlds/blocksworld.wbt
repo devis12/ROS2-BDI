@@ -12,8 +12,8 @@ WorldInfo {
   lineScale 0.5
 }
 Viewpoint {
-  orientation -0.22160678643400702 -0.01277183340311088 0.9750524665257331 2.803068702034632
-  position 5.152898452463029 -1.9774784740257922 3.0253651882908335
+  orientation -0.3941642647548964 0.3905770450617365 0.8319159237934289 1.4774971218493598
+  position -5.463012800773023 -12.720471973088355 12.759681361703816
 }
 TexturedBackground {
 }
@@ -77,8 +77,6 @@ DEF RAIL4 Solid {
 }
 DEF GANTRY Robot {
   translation 0 0 0.98
-  name "gantry"
-  controller "<extern>"
   children [
     DEF PILLARS_GROUP Group {
       children [
@@ -278,6 +276,9 @@ DEF GANTRY Robot {
       endPoint Solid {
         rotation 0 0 1 1.5708
         children [
+          GPS {
+            name "bridge_motor_gps"
+          }
           DEF TURRET_HINGE_JOINT HingeJoint {
             jointParameters HingeJointParameters {
               axis 0 0 1
@@ -415,9 +416,11 @@ DEF GANTRY Robot {
       }
     }
   ]
+  name "gantry"
   boundingObject USE PILLARS_GROUP
   physics Physics {
   }
+  controller "<extern>"
 }
 DEF BOX_A1 Solid {
   translation 0 -0.8 0.15
@@ -466,7 +469,7 @@ DEF BOX_A2 Solid {
   }
 }
 DEF BOX_B1 Solid {
-  translation -0.4 0.0 0.15
+  translation -0.4 0 0.15
   children [
     DEF BOX_SHAPE Shape {
       appearance PBRAppearance {
@@ -489,7 +492,7 @@ DEF BOX_B1 Solid {
   }
 }
 DEF BOX_B2 Solid {
-  translation -0.4 0.0 0.35
+  translation -0.4 0 0.35
   children [
     DEF BOX_SHAPE Shape {
       appearance PBRAppearance {
@@ -512,7 +515,7 @@ DEF BOX_B2 Solid {
   }
 }
 DEF BOX_C1 Solid {
-  translation -0.4 0.0 0.55
+  translation -0.4 0 0.55
   children [
     DEF BOX_SHAPE Shape {
       appearance PBRAppearance {
@@ -601,9 +604,8 @@ DEF PLATFORM_2 Solid {
   name "platform 2"
   boundingObject USE PLATFORM2_SHAPE
 }
-
 DEF PLATFORM_A Solid {
-  translation 0.0 0.8 0.02
+  translation 2 0.8 0.02
   rotation 0 0 1 -1.5707953071795862
   children [
     DEF PLATFORMA_SHAPE Shape {
@@ -622,12 +624,10 @@ DEF PLATFORM_A Solid {
     }
   ]
   name "platform A"
-  boundingObject USE PLATFORM2_SHAPE
+  boundingObject USE PLATFORMA_SHAPE
 }
-
-
 DEF PLATFORM_B Solid {
-  translation -0.4 0.8 0.02
+  translation -0.5 0.8 0.02
   rotation 0 0 1 -1.5707953071795862
   children [
     DEF PLATFORMB_SHAPE Shape {
@@ -646,11 +646,10 @@ DEF PLATFORM_B Solid {
     }
   ]
   name "platform B"
-  boundingObject USE PLATFORM2_SHAPE
+  boundingObject USE PLATFORMB_SHAPE
 }
-
 DEF PLATFORM_C Solid {
-  translation -0.8 0.8 0.02
+  translation -3 0.8 0.02
   rotation 0 0 1 -1.5707953071795862
   children [
     DEF PLATFORMC_SHAPE Shape {
@@ -669,5 +668,74 @@ DEF PLATFORM_C Solid {
     }
   ]
   name "platform C"
-  boundingObject USE PLATFORM2_SHAPE
+  boundingObject USE PLATFORMC_SHAPE
+}
+DEF DEPOSIT_A Solid {
+  translation 2 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITA_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/A.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit A"
+  boundingObject USE DEPOSITA_SHAPE
+}
+DEF DEPOSIT_B Solid {
+  translation -0.5 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITB_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/B.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit B"
+  boundingObject USE DEPOSITB_SHAPE
+}
+DEF DEPOSIT_C Solid {
+  translation -3 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITC_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/C.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit C"
+  boundingObject USE DEPOSITC_SHAPE
 }

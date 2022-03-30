@@ -34,14 +34,8 @@ def generate_launch_description():
     # move gripper action
     move_gripper = AgentAction(
         package='ros2_bdi_on_webots',
-        executable='move_gripper',
-        name='move_gripper'
-    )
-
-    move_gripper1 = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='move_gripper',
-        name='move_gripper'
+        executable='gripper_move',
+        name='gripper_move'
     )
 
     # gripper pickup action
@@ -66,7 +60,7 @@ def generate_launch_description():
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_bset_blocksworld.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_dset_blocksworld.yaml'),
         },
-        actions=[move_gripper, move_gripper1, gripper_pickup, gripper_putdown],
+        actions=[move_gripper, gripper_pickup, gripper_putdown],
         sensors=[]
     ) 
 

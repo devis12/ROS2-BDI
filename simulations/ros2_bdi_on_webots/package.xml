@@ -13,6 +13,8 @@
   <depend>ros2_bdi_bringup</depend>
   <depend>ros2_bdi_skills</depend>
   <depend>example_interfaces</depend>
+  <depend>geometry_msgs</depend>
+  <depend>webots_ros2_simulations_interfaces</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

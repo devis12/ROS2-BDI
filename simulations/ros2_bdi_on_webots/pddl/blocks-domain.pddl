@@ -62,9 +62,9 @@
         )
     )
 
-    (:durative-action move_gripper
+    (:durative-action gripper_move
         :parameters (?g - gripper ?sb1 ?sb2 - stackbase)
-        :duration (= ?duration 4)
+        :duration (= ?duration 5)
         :condition (and
             (at start (upon ?g ?sb1))
         )

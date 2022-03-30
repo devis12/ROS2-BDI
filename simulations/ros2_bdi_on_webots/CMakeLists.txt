@@ -14,6 +14,8 @@ find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_skills REQUIRED)
 find_package(example_interfaces REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(webots_ros2_simulations_interfaces REQUIRED)
 
 set(bdi_act_client_dep
   rclcpp
@@ -22,20 +24,19 @@ set(bdi_act_client_dep
   ros2_bdi_interfaces
   ros2_bdi_utils
   ros2_bdi_skills
-  example_interfaces
 )
 
-add_executable(move_gripper src/blocksworld/actions/move_gripper.cpp)
-ament_target_dependencies(move_gripper ${bdi_act_client_dep})
+add_executable(gripper_move src/blocksworld/actions/gripper_move.cpp)
+ament_target_dependencies(gripper_move ${bdi_act_client_dep} example_interfaces geometry_msgs webots_ros2_simulations_interfaces)
 
 add_executable(gripper_pickup src/blocksworld/actions/gripper_pickup.cpp)
-ament_target_dependencies(gripper_pickup ${bdi_act_client_dep})
+ament_target_dependencies(gripper_pickup ${bdi_act_client_dep} example_interfaces)
 
 add_executable(gripper_putdown src/blocksworld/actions/gripper_putdown.cpp)
-ament_target_dependencies(gripper_putdown ${bdi_act_client_dep})
+ament_target_dependencies(gripper_putdown ${bdi_act_client_dep} example_interfaces)
 
 install(TARGETS
-  move_gripper
+  gripper_move
   gripper_pickup
   gripper_putdown
   DESTINATION lib/${PROJECT_NAME}

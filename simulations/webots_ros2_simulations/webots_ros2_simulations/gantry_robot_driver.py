@@ -1,14 +1,28 @@
+import math
+
 import rclpy
 from example_interfaces.msg import String
+from example_interfaces.msg import Float32
+from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import Point
+from webots_ros2_simulations_interfaces.msg import MoveStatus
+
+def euclidean_distance(p1, p2, _2d = False):
+    dx_sq = (p1.x - p2.x)**2
+    dy_sq = (p1.y - p2.y)**2
+    dz_sq = 0.0 if _2d else (p1.z - p2.z)**2
+    return math.sqrt(dx_sq + dy_sq + dz_sq)
+
+MOVING_EPS = 0.016
 
 NUM_MOTORS = 9
 NUM_POS_MOTORS = 6 
 
 Z1 = 0.0
-Z2 = 5.0
-ZA = 0.0
-ZB = 5.0
-ZC = 10.0
+Z2 = 5.7
+ZA = -25.3
+ZB = 6.3
+ZC = 37.8
 X1 = 0.8
 X2 = 0.0
 XA = -0.8
@@ -23,6 +37,9 @@ HI = 0.0
 LO = 0.72
 OPEN = 0.00
 CLOSE = 0.09
+
+
+ROBOT_NAME = 'gantry'
 
 MOTOR_NAMES = [
     'wheel1_motor',
@@ -45,6 +62,15 @@ MOTOR_POSES = {
     'basec': [ZC, ZC, ZC, ZC, XC, ALPHAC],
 }
 
+GPS_POSES = {
+    'start': Point(x=0.0, y=0.0, z=0.0),
+    'base1': Point(x=0.0, y=-0.8, z=0.02),
+    'base2': Point(x=-0.4, y=0.0, z=0.02),
+    'basea': Point(x=2.0, y=0.8, z=0.02),
+    'baseb': Point(x=-0.5, y=0.8, z=0.02),
+    'basec': Point(x=-3.0, y=0.8, z=0.02),
+}
+
 GRIPPER_POSES = {
     'high': HI,
     'low': LO
@@ -63,20 +89,53 @@ class GantryRobotDriver:
         for i in range(0, NUM_MOTORS):
             self.__motors.append(self.__robot.getDevice(MOTOR_NAMES[i]))
 
-        self.__target_motors_pose = MOTOR_POSES['start']
-        self.__current_motors_pose = MOTOR_POSES['start']
+        self.__target_pose_name = 'start'
+        self.__current_pose_name = 'start'
         self.__gripper_pose = GRIPPER_POSES['high']
         self.__gripper_status = GRIPPER_STATUS['open']
 
+        self.__current_gps_pose = Point()
+
         rclpy.init(args=None)
-        self.__node = rclpy.create_node('my_gantry_driver')
-        self.__node.create_subscription(String, 'cmd_motors_pose', self.__cmd_motors_pose_callback, 1)
-        self.__node.create_subscription(String, 'cmd_gripper_pose', self.__cmd_grippers_pose_callback, 1)
-        self.__node.create_subscription(String, 'cmd_gripper_status', self.__cmd_grippers_status_callback, 1)
-        #self.__node.create_subscription(String, 'print_met', self.print_methods, 1)
+        self.__node = rclpy.create_node('my_'+ROBOT_NAME+'_driver')
+        self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_motors_pose', self.__cmd_motors_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
+        self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_pose', self.__cmd_grippers_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
+        self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_status', self.__cmd_grippers_status_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
+        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
+
+        self.__move_status_publisher_ = self.__node.create_publisher(MoveStatus, '/'+ROBOT_NAME+'/motors_move_status', rclpy.qos.QoSProfile(depth=2, reliability=1))
+
+    def __callback_bridge_motor_gps(self, new_gps_point):
+        #self.__node.get_logger().info("GPS bridge motor type={}: x={}, y={}, z={}".format(type(new_gps_point.point), new_gps_point.point.x, new_gps_point.point.y, new_gps_point.point.z))
+        self.__current_gps_pose = new_gps_point.point
+        if(self.__target_pose_name != self.__current_pose_name and self.__target_pose_name in GPS_POSES):
+            ed = euclidean_distance(self.__current_gps_pose, GPS_POSES[self.__target_pose_name], _2d=True)
+            init_ed = euclidean_distance(GPS_POSES[self.__current_pose_name], GPS_POSES[self.__target_pose_name], _2d=True)
+            msg_move_status = MoveStatus()
+            msg_move_status.start_name = self.__current_pose_name
+            msg_move_status.target_name = self.__target_pose_name
+            msg_move_status.current_pos = self.__current_gps_pose
+            msg_move_status.target_pos = GPS_POSES[self.__target_pose_name]
+            msg_move_status.progress = (init_ed-ed)/init_ed
+            msg_move_status.progress = msg_move_status.progress if msg_move_status.progress >= 0 and msg_move_status.progress <= 1.0 else 0.0
+            msg_move_status.euclidean_dist = ed
+            '''
+            self.__node.get_logger().info("Moving to {}, p1=(x={}, y={}, z={}) p2=(x={}, y={}, z={}) ed={}, init_ed={}".format(
+                self.__target_pose_name, 
+                self.__current_gps_pose.x,self.__current_gps_pose.y,self.__current_gps_pose.z,
+                GPS_POSES[self.__target_pose_name].x,GPS_POSES[self.__target_pose_name].y,GPS_POSES[self.__target_pose_name].z,
+                ed, init_ed))
+            '''
+
+            if(ed < MOVING_EPS):#reached the target
+                self.__current_pose_name = self.__target_pose_name#update current pose name
+                msg_move_status.progress = 1.0
+            
+            self.__move_status_publisher_.publish(msg_move_status)
+
 
     def __cmd_motors_pose_callback(self, new_motors_pose):
-        self.__target_motors_pose = new_motors_pose.data
+        self.__target_pose_name = new_motors_pose.data
     
     def __cmd_grippers_pose_callback(self, new_gripper_pose):
         if(new_gripper_pose.data in GRIPPER_POSES):
@@ -86,51 +145,19 @@ class GantryRobotDriver:
         if(new_gripper_status.data in GRIPPER_STATUS):
             self.__gripper_status = GRIPPER_STATUS[new_gripper_status.data]
 
-    '''
-    def print_methods(self, msg):
-         for i in range (0, NUM_MOTORS) :
-            #print("Motor {} pose: {}".format(MOTOR_NAMES[i], self.__motors[i].getPositionSensorTag()))
-            object_methods = [method_name for method_name in dir(self.__motors[i])
-                if callable(getattr(self.__motors[i], method_name))]
-            print("\nMotor {}".format(MOTOR_NAMES[i]))
-            print("methods:")
-            for met in object_methods:
-                print(met)
-    '''
-    
-    '''
-    def open_gripper(self):
-        self.__motors[7].setPosition(OPEN)
-        self.__motors[8].setPosition(OPEN)
-    
-    def close_gripper(self):
-        self.__motors[7].setPosition(CLOSE)
-        self.__motors[8].setPosition(CLOSE)
-
-    def raise_gripper(self):
-        self.__motors[6].setPosition(HI)
-    
-    def lower_gripper(self):
-        self.__motors[6].setPosition(LO)
-    ''' 
-
     def move_to_target(self):
-        if(self.__target_motors_pose in MOTOR_POSES):
-            target_pose = MOTOR_POSES[self.__target_motors_pose]
+        if(self.__target_pose_name in MOTOR_POSES):
+            target_pose = MOTOR_POSES[self.__target_pose_name]
+
             for i in range(0, NUM_POS_MOTORS):
+                #self.__node.get_logger().info("Moving {} to {}".format(MOTOR_NAMES[i], target_pose[i]))
                 self.__motors[i].setPosition(float(target_pose[i]))
-
-            self.__current_motors_pose = self.__target_motors_pose
-
-            new_pose_msg = String()
-            new_pose_msg.data = self.__current_motors_pose
-            #self.motors_pose_publisher_.publish(new_pose_msg)
 
     def step(self):
         rclpy.spin_once(self.__node, timeout_sec=0)
 
         # move wheel motors to target position
-        if(self.__target_motors_pose != self.__current_motors_pose):
+        if self.__target_pose_name != self.__current_pose_name:
             self.move_to_target()
         
         #move gripper
