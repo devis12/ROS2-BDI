@@ -61,7 +61,8 @@ def generate_launch_description():
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_dset_blocksworld.yaml'),
         },
         actions=[move_gripper, gripper_pickup, gripper_putdown],
-        sensors=[]
+        sensors=[],
+        run_only_psys2=False#Debug option to launch just psys2
     ) 
 
     return LaunchDescription([

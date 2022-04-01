@@ -7,7 +7,7 @@
 #include "webots_ros2_simulations_interfaces/msg/move_status.hpp"
 #include "geometry_msgs/msg/point.hpp"
 
-#define MOVING_DIFF 0.0001
+#define MEANINGFUL_DIFF 0.001
 #define ROBOT_NAME_PARAM "robot_name"
 #define ROBOT_NAME_PARAM_DEFAULT "gantry"
 
@@ -52,16 +52,19 @@ class GripperMove : public BDIActionExecutor
             if(last_step_progress_info_ > 0.0 && destination != move_status_.target_name)//action execution had started, but it somehow was interrupted by some other controllers
                 execFailed("Target position for the action was '" + destination + "' and now has been changed to '" + move_status_.target_name + "'!");
             
-            else if(last_step_progress_info_ == 0.0 && destination != move_status_.target_name)//move cmd to trigger action execution hasn't been given yet 
+            else if (last_step_progress_info_ == 0.0 && destination != move_status_.target_name)//move cmd to trigger action execution hasn't been given yet 
             {
                 auto msg = example_interfaces::msg::String();
                 msg.data = destination;
                 move_gripper_cmd_publisher_->publish(msg);
             }
-            else
+            else if (destination == move_status_.target_name) 
             {
                 step_progress = move_status_.progress - last_step_progress_info_;
                 last_step_progress_info_ = move_status_.progress;
+
+                if(move_status_.progress == 1.0 || move_status_.progress > 0.975 && step_progress < MEANINGFUL_DIFF)
+                    execSuccess();
             }
             
             return step_progress;            

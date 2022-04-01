@@ -1,18 +1,18 @@
 <?xml version="1.0" ?>
 <robot name="My robot">
     <webots>
-        <device reference="ds0" type="DistanceSensor">
+        <device reference="ds01" type="DistanceSensor">
             <ros>
-                <topicName>/left_sensor</topicName>
+                <topicName>/left_sensor1</topicName>
                 <alwaysOn>true</alwaysOn>
             </ros>
         </device>
-        <device reference="ds1" type="DistanceSensor">
+        <device reference="ds11" type="DistanceSensor">
             <ros>
-                <topicName>/right_sensor</topicName>
+                <topicName>/right_sensor1</topicName>
                 <alwaysOn>true</alwaysOn>
             </ros>
         </device>
-        <plugin type="webots_ros2_simulations.simple_robot_driver.MySimpleRobotDriver" />
+        <plugin type="webots_ros2_simulations.simple_robot_driver.MySimpleRobotDriver" webots_robot_name="my_simple_robot11" />
     </webots>
 </robot>

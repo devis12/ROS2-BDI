@@ -19,9 +19,9 @@ NUM_MOTORS = 9
 NUM_POS_MOTORS = 6 
 
 Z1 = 0.0
-Z2 = 5.7
+Z2 = 5.4
 ZA = -25.3
-ZB = 6.3
+ZB = 6.4
 ZC = 37.8
 X1 = 0.8
 X2 = 0.0
