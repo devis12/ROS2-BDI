@@ -82,7 +82,7 @@ DEF BOX_A1 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/A.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
           ]
         }
         roughness 1
@@ -105,7 +105,7 @@ DEF BOX_A2 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/A.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
           ]
         }
         roughness 1
@@ -128,7 +128,7 @@ DEF BOX_B1 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/B.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
           ]
         }
         roughness 1
@@ -151,7 +151,7 @@ DEF BOX_B2 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/B.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
           ]
         }
         roughness 1
@@ -174,7 +174,7 @@ DEF BOX_C1 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/C.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
           ]
         }
         roughness 1
@@ -197,7 +197,7 @@ DEF BOX_C2 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/C.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
           ]
         }
         roughness 1
@@ -221,7 +221,7 @@ DEF PLATFORM_1 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/1.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/1.png"
           ]
         }
         roughness 1
@@ -243,7 +243,7 @@ DEF PLATFORM_2 Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/2.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/2.png"
           ]
         }
         roughness 1
@@ -265,7 +265,7 @@ DEF PLATFORM_A Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/A.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
           ]
         }
         roughness 1
@@ -287,7 +287,7 @@ DEF PLATFORM_B Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/B.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
           ]
         }
         roughness 1
@@ -309,7 +309,7 @@ DEF PLATFORM_C Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/C.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
           ]
         }
         roughness 1
@@ -332,7 +332,7 @@ DEF DEPOSIT_A Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/A.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
           ]
         }
         roughness 1
@@ -355,7 +355,7 @@ DEF DEPOSIT_B Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/B.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
           ]
         }
         roughness 1
@@ -378,7 +378,7 @@ DEF DEPOSIT_C Solid {
       appearance PBRAppearance {
         baseColorMap ImageTexture {
           url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/ros2_bdi_on_webots/textures/C.png"
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
           ]
         }
         roughness 1
