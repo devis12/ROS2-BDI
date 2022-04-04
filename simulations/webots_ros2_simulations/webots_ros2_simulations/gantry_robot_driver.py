@@ -13,7 +13,7 @@ def euclidean_distance(p1, p2, _2d = False):
     dz_sq = 0.0 if _2d else (p1.z - p2.z)**2
     return math.sqrt(dx_sq + dy_sq + dz_sq)
 
-MOVING_EPS = 0.016
+ON_TARGET_EPS = 0.032
 
 NUM_MOTORS = 9
 NUM_POS_MOTORS = 6 
@@ -25,9 +25,9 @@ ZB = 6.4
 ZC = 37.8
 X1 = 0.8
 X2 = 0.0
-XA = -0.8
-XB = -0.8
-XC = -0.8
+XA = -1.12
+XB = -1.12
+XC = -1.12
 ALPHA1 = +1.5708
 ALPHA2 = +1.5708
 ALPHAA = +3.1416
@@ -96,39 +96,37 @@ class GantryRobotDriver:
 
         self.__current_gps_pose = Point()
 
-        rclpy.init(args=None)
+        if not rclpy.ok():
+            rclpy.init(args=None)
         self.__node = rclpy.create_node('my_'+ROBOT_NAME+'_driver')
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_motors_pose', self.__cmd_motors_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_pose', self.__cmd_grippers_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_status', self.__cmd_grippers_status_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
-        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
+        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'_driver/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
 
         self.__move_status_publisher_ = self.__node.create_publisher(MoveStatus, '/'+ROBOT_NAME+'/motors_move_status', rclpy.qos.QoSProfile(depth=2, reliability=1))
 
+        self.__node.get_logger().info(self.__robot.getName() + ' driver support node set up')
+        
     def __callback_bridge_motor_gps(self, new_gps_point):
         #self.__node.get_logger().info("GPS bridge motor type={}: x={}, y={}, z={}".format(type(new_gps_point.point), new_gps_point.point.x, new_gps_point.point.y, new_gps_point.point.z))
         self.__current_gps_pose = new_gps_point.point
-        if(self.__target_pose_name != self.__current_pose_name and self.__target_pose_name in GPS_POSES):
-            ed = euclidean_distance(self.__current_gps_pose, GPS_POSES[self.__target_pose_name], _2d=True)
-            init_ed = euclidean_distance(GPS_POSES[self.__current_pose_name], GPS_POSES[self.__target_pose_name], _2d=True)
+        if(self.__target_pose_name in GPS_POSES):
             msg_move_status = MoveStatus()
             msg_move_status.start_name = self.__current_pose_name
             msg_move_status.target_name = self.__target_pose_name
             msg_move_status.current_pos = self.__current_gps_pose
             msg_move_status.target_pos = GPS_POSES[self.__target_pose_name]
-            msg_move_status.progress = (init_ed-ed)/init_ed
-            msg_move_status.progress = msg_move_status.progress if msg_move_status.progress >= 0 and msg_move_status.progress <= 1.0 else 0.0
-            msg_move_status.euclidean_dist = ed
-            '''
-            self.__node.get_logger().info("Moving to {}, p1=(x={}, y={}, z={}) p2=(x={}, y={}, z={}) ed={}, init_ed={}".format(
-                self.__target_pose_name, 
-                self.__current_gps_pose.x,self.__current_gps_pose.y,self.__current_gps_pose.z,
-                GPS_POSES[self.__target_pose_name].x,GPS_POSES[self.__target_pose_name].y,GPS_POSES[self.__target_pose_name].z,
-                ed, init_ed))
-            '''
-
-            if(ed < MOVING_EPS):#reached the target
-                self.__current_pose_name = self.__target_pose_name#update current pose name
+            
+            if self.__current_pose_name != self.__target_pose_name:
+                ed = euclidean_distance(self.__current_gps_pose, GPS_POSES[self.__target_pose_name], _2d=True)
+                init_ed = euclidean_distance(GPS_POSES[self.__current_pose_name], GPS_POSES[self.__target_pose_name], _2d=True)
+                msg_move_status.progress = (init_ed-ed)/init_ed
+                msg_move_status.progress = msg_move_status.progress if msg_move_status.progress >= 0 and msg_move_status.progress <= 1.0 else 0.0
+                msg_move_status.progress = 1.0 if ed < ON_TARGET_EPS else msg_move_status.progress
+                msg_move_status.euclidean_dist = ed
+            
+            else:
                 msg_move_status.progress = 1.0
             
             self.__move_status_publisher_.publish(msg_move_status)

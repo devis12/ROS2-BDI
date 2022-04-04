@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<robot name="my_simple_robot2">
+    <webots>
+        <plugin type="webots_ros2_simulations.simple_robot_driver.MySimpleRobotDriver" webots_robot_name="my_simple_robot2" />
+    </webots>
+</robot>

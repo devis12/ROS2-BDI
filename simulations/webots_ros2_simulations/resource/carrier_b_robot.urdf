@@ -1,13 +1,13 @@
 <?xml version="1.0" ?>
-<robot name="gantry">
+<robot name="carrier_b">
     <webots>
-        <device reference="bridge_motor_gps" type="GPS">
+        <device reference="gps" type="GPS">
             <ros>
                 <enabled>true</enabled>
                 <alwaysOn>true</alwaysOn>
                  <updateRate>8</updateRate>
             </ros>
         </device>
-        <plugin type="webots_ros2_simulations.gantry_robot_driver.GantryRobotDriver"  webots_robot_name="gantry"/>
+        <plugin type="webots_ros2_simulations.carrier_robot_driver.CarrierRobotDriver"  webots_robot_name="carrier_b"/>
     </webots>
 </robot>

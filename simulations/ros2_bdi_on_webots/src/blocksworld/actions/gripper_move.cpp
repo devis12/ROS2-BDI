@@ -63,7 +63,7 @@ class GripperMove : public BDIActionExecutor
                 step_progress = move_status_.progress - last_step_progress_info_;
                 last_step_progress_info_ = move_status_.progress;
 
-                if(move_status_.progress == 1.0 || move_status_.progress > 0.975 && step_progress < MEANINGFUL_DIFF)
+                if(move_status_.progress == 1.0 || move_status_.progress > 0.95 && step_progress < MEANINGFUL_DIFF)
                     execSuccess();
             }
             

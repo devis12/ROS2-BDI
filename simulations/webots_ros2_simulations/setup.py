@@ -6,11 +6,15 @@ data_files.append(('share/ament_index/resource_index/packages', ['resource/' + p
 
 data_files.append(('share/' + package_name + '/launch', ['launch/simple_robot.launch.py']))
 data_files.append(('share/' + package_name + '/worlds', ['worlds/simple_world.wbt']))
-data_files.append(('share/' + package_name + '/resource', ['resource/my_simple_robot.urdf']))
+data_files.append(('share/' + package_name + '/resource', ['resource/my_simple_robot1.urdf']))
+data_files.append(('share/' + package_name + '/resource', ['resource/my_simple_robot2.urdf']))
 
-data_files.append(('share/' + package_name + '/launch', ['launch/gantry_robot.launch.py']))
+data_files.append(('share/' + package_name + '/launch', ['launch/blocks_world.launch.py']))
 data_files.append(('share/' + package_name + '/worlds', ['worlds/blocksworld.wbt']))
 data_files.append(('share/' + package_name + '/resource', ['resource/gantry_robot.urdf']))
+data_files.append(('share/' + package_name + '/resource', ['resource/carrier_a_robot.urdf']))
+data_files.append(('share/' + package_name + '/resource', ['resource/carrier_b_robot.urdf']))
+data_files.append(('share/' + package_name + '/resource', ['resource/carrier_c_robot.urdf']))
 
 data_files.append(('share/' + package_name, ['package.xml']))
 
@@ -23,13 +27,14 @@ setup(
     zip_safe=True,
     maintainer='devis',
     maintainer_email='devis.dalmoro@unitn.it',
-    description='TODO: Package description',
+    description='TODO: Package description',    
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'my_simple_robot_driver = ' + package_name + '.simple_robot_driver:main',
             'gantry_robot_driver = ' + package_name + '.gantry_robot_driver:main',
+            'carrier_robot_driver = ' + package_name + '.carrier_robot_driver:main',
         ],
     },
 )

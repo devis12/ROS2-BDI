@@ -21,7 +21,7 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "left wheel motor 1"
+          name "left_wheel_motor_1"
         }
       ]
       endPoint Solid {
@@ -44,7 +44,7 @@ Robot {
             ]
           }
         ]
-        name "left wheel 1"
+        name "left_wheel_1"
         boundingObject USE WHEEL
         physics Physics {
         }
@@ -57,7 +57,7 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "right wheel motor 1"
+          name "right_wheel_motor_1"
         }
       ]
       endPoint Solid {
@@ -65,7 +65,7 @@ Robot {
         children [
           USE WHEEL
         ]
-        name "right wheel 1"
+        name "right_wheel_1"
         boundingObject USE WHEEL
         physics Physics {
         }
@@ -141,6 +141,7 @@ Robot {
   }
   physics Physics {
   }
+  controller "<extern>"
   name "my_simple_robot1"
 }
 Robot {
@@ -153,7 +154,7 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "left wheel motor 2"
+          name "left_wheel_motor_2"
         }
       ]
       endPoint Solid {
@@ -176,7 +177,7 @@ Robot {
             ]
           }
         ]
-        name "left wheel 2"
+        name "left_wheel_2"
         boundingObject USE WHEEL
         physics Physics {
         }
@@ -189,7 +190,7 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "right wheel motor 2"
+          name "right_wheel_motor_2"
         }
       ]
       endPoint Solid {
