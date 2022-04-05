@@ -3,19 +3,15 @@
 
 #include "example_interfaces/msg/string.hpp"
 
-#define ROBOT_NAME_PARAM "robot_name"
-#define ROBOT_NAME_PARAM_DEFAULT "gantry"
+typedef enum {LOW, CLOSE, HIGH} PickupStatus;
 
-typedef enum {LOW, OPEN, HIGH} PutdownStatus;
-
-class GripperPutdown : public BDIActionExecutor
+class GripperPickup : public BDIActionExecutor
 {
     public:
-        GripperPutdown()
-        : BDIActionExecutor("gripper_putdown", 3, false)
+        GripperPickup()
+        : BDIActionExecutor("gripper_pickup", 3, false)
         {
-            this->declare_parameter(ROBOT_NAME_PARAM, ROBOT_NAME_PARAM_DEFAULT);
-            robot_name_ = this->get_parameter(ROBOT_NAME_PARAM).as_string();
+            robot_name_ = this->get_parameter("agent_id").as_string();
             gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
             gripper_status_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
         }
@@ -45,11 +41,11 @@ class GripperPutdown : public BDIActionExecutor
             auto msg = example_interfaces::msg::String();
             msg.data = (action_status_ == LOW)? "low"   : 
                         ( 
-                            (action_status_ == OPEN)? "open" :
+                            (action_status_ == CLOSE)? "close" :
                             "high"
                         );
             
-            if(action_status_ == OPEN)
+            if(action_status_ == CLOSE)
             {   
                 gripper_status_cmd_publisher_->publish(msg);
             }
@@ -63,14 +59,14 @@ class GripperPutdown : public BDIActionExecutor
             {
                 //publish same cmd for three action steps then switch to new status
                 repeat_ = 0;
-                action_status_ = (action_status_ == LOW)? OPEN : HIGH;
+                action_status_ = (action_status_ == LOW)? CLOSE : HIGH;
             }
 
             return 0.112f;            
         }
 
     private:
-        PutdownStatus action_status_;
+        PickupStatus action_status_;
         uint8_t repeat_;
         rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_pose_cmd_publisher_;
         rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_status_cmd_publisher_;
@@ -81,7 +77,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
-  auto actionNode = std::make_shared<GripperPutdown>();
+  auto actionNode = std::make_shared<GripperPickup>();
   rclcpp::spin(actionNode->get_node_base_interface());
 
   rclcpp::shutdown();

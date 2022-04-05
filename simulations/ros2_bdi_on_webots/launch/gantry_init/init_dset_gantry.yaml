@@ -2,6 +2,11 @@
   priority: 0.2
   deadline: 116.0
   value:
+    - name: "upon"
+      pddl_type: 2
+      params: 
+        - "grippera"
+        - "start"
     - name: "in"
       pddl_type: 2
       params: 

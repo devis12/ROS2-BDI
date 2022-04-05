@@ -18,21 +18,27 @@ ON_TARGET_EPS = 0.032
 NUM_MOTORS = 9
 NUM_POS_MOTORS = 6 
 
-Z1 = 0.0
-Z2 = 5.4
-ZA = -25.3
-ZB = 6.4
-ZC = 37.8
-X1 = 0.8
-X2 = 0.0
-XA = -1.12
-XB = -1.12
-XC = -1.12
+X1 = 0.11
+X2 = 5.16
+X3 = 10.22
+XA = -25.3
+XB = 6.4
+XC = 37.8
+
+Y1 = 0.9
+Y2 = 0.0
+Y3 = Y1
+YA = -0.9
+YB = -0.9
+YC = -0.9
+
 ALPHA1 = +1.5708
 ALPHA2 = +1.5708
+ALPHA3 = +1.5708
 ALPHAA = +3.1416
 ALPHAB = +3.1416
 ALPHAC = +3.1416
+
 HI = 0.0
 LO = 0.72
 OPEN = 0.00
@@ -54,21 +60,24 @@ MOTOR_NAMES = [
 ]
 
 MOTOR_POSES = {
-    'start': [Z1, Z1, Z1, Z1, X2, ALPHA1],
-    'base1': [Z1, Z1, Z1, Z1, X1, ALPHA1],
-    'base2': [Z2, Z2, Z2, Z2, X2, ALPHA2],
-    'basea': [ZA, ZA, ZA, ZA, XA, ALPHAA],
-    'baseb': [ZB, ZB, ZB, ZB, XB, ALPHAB],
-    'basec': [ZC, ZC, ZC, ZC, XC, ALPHAC],
+    'start': [X1, X1, X1, X1, Y2, ALPHA1],
+    'base1': [X1, X1, X1, X1, Y1, ALPHA1],
+    'base2': [X2, X2, X2, X2, Y2, ALPHA2],
+    'base3': [X3, X3, X3, X3, Y3, ALPHA3],
+    'basea': [XA, XA, XA, XA, YA, ALPHAA],
+    'baseb': [XB, XB, XB, XB, YB, ALPHAB],
+    'basec': [XC, XC, XC, XC, YC, ALPHAC],
 }
 
 GPS_POSES = {
-    'start': Point(x=0.0, y=0.0, z=0.0),
-    'base1': Point(x=0.0, y=-0.8, z=0.02),
-    'base2': Point(x=-0.4, y=0.0, z=0.02),
-    'basea': Point(x=2.0, y=0.8, z=0.02),
-    'baseb': Point(x=-0.5, y=0.8, z=0.02),
-    'basec': Point(x=-3.0, y=0.8, z=0.02),
+    'start': Point(x=0.0, y=Y2, z=0.0),
+    'base1': Point(x=0.0, y=-Y1, z=0.02),
+    'base2': Point(x=-0.4, y=Y2, z=0.02),
+    'base3': Point(x=-0.8, y=Y1, z=0.02),
+    'basea': Point(x=2.0, y=-YA, z=0.02),
+    'baseb': Point(x=-0.5, y=-YB, z=0.02),
+    'basec': Point(x=-3.0, y=-YC, z=0.02),
+    'moving': Point(x=0.0, y=Y2, z=0.0) # updated at run time
 }
 
 GRIPPER_POSES = {
@@ -90,6 +99,7 @@ class GantryRobotDriver:
             self.__motors.append(self.__robot.getDevice(MOTOR_NAMES[i]))
 
         self.__target_pose_name = 'start'
+        self.__start_pose_name = 'start'
         self.__current_pose_name = 'start'
         self.__gripper_pose = GRIPPER_POSES['high']
         self.__gripper_status = GRIPPER_STATUS['open']
@@ -113,14 +123,15 @@ class GantryRobotDriver:
         self.__current_gps_pose = new_gps_point.point
         if(self.__target_pose_name in GPS_POSES):
             msg_move_status = MoveStatus()
-            msg_move_status.start_name = self.__current_pose_name
+            msg_move_status.start_name = self.__start_pose_name
+            msg_move_status.current_name = self.__current_pose_name
             msg_move_status.target_name = self.__target_pose_name
             msg_move_status.current_pos = self.__current_gps_pose
             msg_move_status.target_pos = GPS_POSES[self.__target_pose_name]
             
             if self.__current_pose_name != self.__target_pose_name:
                 ed = euclidean_distance(self.__current_gps_pose, GPS_POSES[self.__target_pose_name], _2d=True)
-                init_ed = euclidean_distance(GPS_POSES[self.__current_pose_name], GPS_POSES[self.__target_pose_name], _2d=True)
+                init_ed = euclidean_distance(GPS_POSES[self.__start_pose_name], GPS_POSES[self.__target_pose_name], _2d=True)
                 msg_move_status.progress = (init_ed-ed)/init_ed
                 msg_move_status.progress = msg_move_status.progress if msg_move_status.progress >= 0 and msg_move_status.progress <= 1.0 else 0.0
                 msg_move_status.progress = 1.0 if ed < ON_TARGET_EPS else msg_move_status.progress
@@ -131,9 +142,16 @@ class GantryRobotDriver:
             
             self.__move_status_publisher_.publish(msg_move_status)
 
+            if msg_move_status.progress >= 1.0:
+                self.__current_pose_name = self.__target_pose_name
 
     def __cmd_motors_pose_callback(self, new_motors_pose):
-        self.__target_pose_name = new_motors_pose.data
+        if(self.__target_pose_name != new_motors_pose.data):#new target
+            self.__start_pose_name = self.__current_pose_name
+            if self.__start_pose_name == 'moving':
+                GPS_POSES['moving'] = self.__current_gps_pose
+                
+            self.__target_pose_name = new_motors_pose.data
     
     def __cmd_grippers_pose_callback(self, new_gripper_pose):
         if(new_gripper_pose.data in GRIPPER_POSES):
@@ -156,6 +174,7 @@ class GantryRobotDriver:
 
         # move wheel motors to target position
         if self.__target_pose_name != self.__current_pose_name:
+            self.__current_pose_name = 'moving'
             self.move_to_target()
         
         #move gripper

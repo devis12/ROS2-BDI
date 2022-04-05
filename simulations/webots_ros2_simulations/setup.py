@@ -35,6 +35,7 @@ setup(
             'my_simple_robot_driver = ' + package_name + '.simple_robot_driver:main',
             'gantry_robot_driver = ' + package_name + '.gantry_robot_driver:main',
             'carrier_robot_driver = ' + package_name + '.carrier_robot_driver:main',
+            'carrier_robot_driver_advanced = ' + package_name + '.carrier_robot_driver_advanced:main',
         ],
     },
 )

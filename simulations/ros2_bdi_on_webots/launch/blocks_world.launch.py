@@ -1,4 +1,3 @@
-import sys
 import os
 import os.path
 
@@ -9,17 +8,7 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch import LaunchDescription
 
-ros2_bdi_bringup_dir = get_package_share_directory('ros2_bdi_bringup')
-sys.path.append(ros2_bdi_bringup_dir + '/launch/')
-from bdi_agent import AgentLaunchDescription
-from bdi_agent_skills import AgentAction
-from bdi_agent_skills import AgentSensor
-from webots_ros2_driver.webots_launcher import WebotsLauncher
-
-
 def generate_launch_description():
-    AGENT_ID = 'block_master'
-    AGENT_GROUP_ID = 'block_masters'
 
     bdi_onwebots_share_dir = get_package_share_directory('ros2_bdi_on_webots')
     
@@ -28,45 +17,46 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('webots_ros2_simulations'),
             'launch',
-            'gantry_robot.launch.py')),
+            'blocks_world.launch.py')),
     )
 
-    # move gripper action
-    move_gripper = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='gripper_move',
-        name='gripper_move'
+    # Launch description for gantry agent
+    gantry_agent_ld = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            bdi_onwebots_share_dir,
+            'launch',
+            'gantry.launch.py')),
     )
-
-    # gripper pickup action
-    gripper_pickup = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='gripper_pickup',
-        name='gripper_pickup'
-    )
-
-    # gripper putdown action
-    gripper_putdown = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='gripper_putdown',
-        name='gripper_putdown'
-    )
-
-    agent_ld = AgentLaunchDescription(
-        agent_id=AGENT_ID,
-        agent_group=AGENT_GROUP_ID,
-        init_params={
-            'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'blocks-domain.pddl'),
-            'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_bset_blocksworld.yaml'),
-            'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'init_dset_blocksworld.yaml'),
-        },
-        actions=[move_gripper, gripper_pickup, gripper_putdown],
-        sensors=[],
-        run_only_psys2=False#Debug option to launch just psys2
-    ) 
+    
+    # # Launch description for carrier_a agent
+    # carrier_a_agent_ld = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         bdi_onwebots_share_dir,
+    #         'launch',
+    #         'carrier_a.launch.py')),
+    # )
+    
+    # # Launch description for carrier_b agent
+    # carrier_b_agent_ld = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         bdi_onwebots_share_dir,
+    #         'launch',
+    #         'carrier_b.launch.py')),
+    # )
+    
+    # # Launch description for carrier_c agent
+    # carrier_c_agent_ld = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         bdi_onwebots_share_dir,
+    #         'launch',
+    #         'carrier_c.launch.py')),
+    # )
 
     return LaunchDescription([
-            agent_ld,
-            webots_gauntry_sim
+            webots_gauntry_sim,
+            # gantry_agent_ld,
+            # carrier_a_agent_ld,
+            # carrier_b_agent_ld,
+            # carrier_c_agent_ld,
         ]
     )

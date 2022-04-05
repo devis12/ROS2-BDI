@@ -9,6 +9,7 @@
 
   <depend>rclpy</depend>
   <depend>webots_ros2_simulations_interfaces</depend>
+  <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>example_interfaces</depend>
   <depend>webots_ros2_driver</depend>
