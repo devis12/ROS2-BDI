@@ -299,11 +299,19 @@ bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr r
 {
     auto req = request->request;
     if(req != request->ABORT && req != request->EXECUTE)//invalid request
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Plan request operation = %d not valid", request->request);
         return false;
+    }    
 
     auto plan = request->plan;
     if(plan.actions.size() == 0)
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Plan request with empty plan");
         return false;
+    }
 
     if(!psys2_domain_expert_active_ || !psys2_problem_expert_active_)
         psys2_comm_errors_++;
@@ -319,19 +327,40 @@ bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr r
                 string actName = actionItems[0];//first position action name
                 shared_ptr<DurativeAction> actDA = domain_expert_client_->getDurativeAction(actName);//retrieve it from the domain expert
                 if(actDA->parameters.size() != actionItems.size() - 1)
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Plan request operation not valid: dur. action " + actName + " has wrong number of params");
                     return false;//plan item not valid -> unexpected num of parameters wrt domain definition of durative act
-                
+                }  
+                    
                 for(int i = 0 ; i<actDA->parameters.size(); i++)
                 {
                     plansys2_msgs::msg::Param paramDA = actDA->parameters[i];//retrieve param domain definition
                     std::optional<plansys2::Instance> paramInstanceOpt = problem_expert_client_->getInstance(actionItems[i+1]);//retrieve corresponding parameter from plan item action
                     if(!paramInstanceOpt.has_value())
+                    {
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
+                            RCLCPP_INFO(this->get_logger(), "Plan request operation not valid: dur. action " + actName + " presents invalid instance " + actionItems[i+1]);
+                        
                         return false;//invalid instance
+                    }  
                     else
                     {
                         plansys2::Instance paramInstance = paramInstanceOpt.value();
+                        
+                        //check type in domain == type in stated action param (check also for subtypes!!!)
                         if(paramInstance.type != paramDA.type)
-                            return false;//instance valid, but do not respect type of the expected param for the action
+                        {
+                            if(std::find(paramDA.sub_types.begin(), paramDA.sub_types.end(), paramInstance.type) == paramDA.sub_types.end())//not even in the subtype array
+                            {
+                                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                                    RCLCPP_INFO(this->get_logger(), "Plan request operation not valid: dur. action " + actName + " presents invalid typed instance " + actionItems[i+1] +
+                                        ": " + paramDA.type + " needed, " + paramInstance.type + " found");
+                                
+                                return false;//instance valid, but do not respect type of the expected param for the action
+                            }
+                            
+                        }  
                     }    
                 }
             }

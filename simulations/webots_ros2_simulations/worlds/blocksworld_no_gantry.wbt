@@ -1,0 +1,564 @@
+#VRML_SIM R2022a utf8
+WorldInfo {
+  info [
+    "Demo of a gantry robot playing the Hanoi Towers."
+    "The robot moves a stack of colored blocks from one location to another, using the recursive Hanoi Towers algorithm."
+    "Biologically Inspired Robotics Group (BIRG)."
+  ]
+  title "Gantry Robot"
+  CFM 0.0001
+  ERP 0.6
+  basicTimeStep 4
+  lineScale 0.5
+}
+Viewpoint {
+  orientation -0.3941642647548964 0.3905770450617365 0.8319159237934289 1.4774971218493598
+  position -5.463012800773023 -12.720471973088355 12.759681361703816
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  size 100 100
+  appearance PBRAppearance {
+    baseColorMap ImageTexture {
+      url [
+        "https://raw.githubusercontent.com/cyberbotics/webots/R2022a/projects/default/worlds/textures/grid.png"
+      ]
+    }
+    roughness 1
+    metalness 0
+  }
+}
+DEF RAIL1 Solid {
+  translation 0 -0.532 0.01
+  children [
+    DEF RAIL_SHAPE Shape {
+      appearance DEF RAIL_APPEARANCE PBRAppearance {
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 80 0.02 0.02
+      }
+    }
+  ]
+  name "rail1"
+  boundingObject USE RAIL_SHAPE
+  locked TRUE
+}
+DEF RAIL2 Solid {
+  translation 0 -0.468 0.01
+  children [
+    USE RAIL_SHAPE
+  ]
+  name "rail2"
+  boundingObject USE RAIL_SHAPE
+  locked TRUE
+}
+DEF RAIL3 Solid {
+  translation 0 0.468 0.01
+  children [
+    USE RAIL_SHAPE
+  ]
+  name "rail3"
+  boundingObject USE RAIL_SHAPE
+  locked TRUE
+}
+DEF RAIL4 Solid {
+  translation 0 0.532 0.01
+  children [
+    USE RAIL_SHAPE
+  ]
+  name "rail4"
+  boundingObject USE RAIL_SHAPE
+  locked TRUE
+}
+DEF BOX_A1 Solid {
+  translation 0 -0.8 0.15
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box A1"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF BOX_A2 Solid {
+  translation 0 -0.8 0.55
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box A2"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF BOX_B1 Solid {
+  translation -0.4 0 0.15
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box B1"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF BOX_B2 Solid {
+  translation -0.4 0 0.35
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box B2"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF BOX_C1 Solid {
+  translation -0.4 0 0.55
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box C1"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF BOX_C2 Solid {
+  translation 0 -0.8 0.35
+  children [
+    DEF BOX_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.2 0.2 0.2
+      }
+    }
+  ]
+  name "box C2"
+  boundingObject USE BOX_SHAPE
+  physics Physics {
+  }
+}
+DEF PLATFORM_1 Solid {
+  translation 0 -0.8 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORM1_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/1.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform 1"
+  boundingObject USE PLATFORM1_SHAPE
+}
+DEF PLATFORM_2 Solid {
+  translation -0.4 0 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORM2_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/2.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform 2"
+  boundingObject USE PLATFORM2_SHAPE
+}
+DEF PLATFORM_A Solid {
+  translation 2 0.8 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORMA_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform A"
+  boundingObject USE PLATFORMA_SHAPE
+}
+DEF PLATFORM_B Solid {
+  translation -0.5 0.8 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORMB_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform B"
+  boundingObject USE PLATFORMB_SHAPE
+}
+DEF PLATFORM_C Solid {
+  translation -3 0.8 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORMC_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform C"
+  boundingObject USE PLATFORMC_SHAPE
+}
+DEF DEPOSIT_A Solid {
+  translation 2 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITA_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit A"
+  boundingObject USE DEPOSITA_SHAPE
+}
+DEF DEPOSIT_B Solid {
+  translation -0.5 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITB_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit B"
+  boundingObject USE DEPOSITB_SHAPE
+}
+DEF DEPOSIT_C Solid {
+  translation -3 5.8 0
+  rotation 0 0 1 -1.5707953071795862
+  scale 5 5 5
+  children [
+    DEF DEPOSITC_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "deposit C"
+  boundingObject USE DEPOSITC_SHAPE
+}
+
+Robot {
+  translation 2.0 3.0 0.12
+  rotation 0.0 0.0 1.0 1.5708
+  scale 3 3 3
+  children [
+    DEF BODY Shape {
+      appearance PBRAppearance {
+        baseColor 0.0 0.8 0.0
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.32 0.1 0.05
+      }
+    }
+    DEF WHEEL1 HingeJoint {
+      jointParameters HingeJointParameters {
+        position 1886.4311572226009
+        axis 0 1 0
+        anchor 0.05 0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "wheel1"
+        }
+      ]
+      endPoint Solid {
+        translation 0.05 0.06 0
+        rotation 0.6139858291679015 0.5581304117747092 -0.5581324619059513 2.0403163717567523
+        children [
+          DEF WHEEL Shape {
+            appearance PBRAppearance {
+              baseColor 0.0 0.0 0.0
+              roughness 1
+              metalness 0
+            }
+            geometry Cylinder {
+              height 0.02
+              radius 0.04
+              subdivision 24
+            }
+          }
+        ]
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+        linearVelocity -0.0381050337867251 -0.012165786004867972 5.5610738467053765e-09
+        angularVelocity 0.3041446422525002 -0.9526258638576741 -1.4381271255149725e-08
+      }
+    }
+    DEF WHEEL2 HingeJoint {
+      jointParameters HingeJointParameters {
+        position 849.6327809150216
+        axis 0 1 0
+        anchor 0.05 -0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "wheel2"
+        }
+      ]
+      endPoint Solid {
+        translation 0.05 -0.06 0
+        rotation -0.6419131266283836 -0.5421924834458128 0.5421944750336677 4.282927763579224
+        children [
+          USE WHEEL
+        ]
+        name "solid(1)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+        linearVelocity -0.03810503500133647 -0.012165786392664715 -5.561057238826365e-09
+        angularVelocity 0.30414464228617466 -0.9526258639536554 -1.4380656446904388e-08
+      }
+    }
+    DEF WHEEL3 HingeJoint {
+      jointParameters HingeJointParameters {
+        position 1886.4312190274604
+        axis 0 1 0
+        anchor -0.05 0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "wheel3"
+        }
+      ]
+      endPoint Solid {
+        translation -0.05 0.06 0
+        rotation 0.6139620795454026 0.5581434745151869 -0.5581455246944113 2.0403508673321484
+        children [
+          USE WHEEL
+        ]
+        name "solid(2)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+        linearVelocity -0.03810503411066804 -0.012165784990230969 5.561228554181722e-09
+        angularVelocity 0.30414464228630134 -0.952625863846883 -1.4369054998774703e-08
+      }
+    }
+    DEF WHEEL4 HingeJoint {
+      jointParameters HingeJointParameters {
+        position 849.6328424186684
+        axis 0 1 0
+        anchor -0.05 -0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "wheel4"
+        }
+      ]
+      endPoint Solid {
+        translation -0.05 -0.06 0
+        rotation -0.6418895828156815 -0.5422064199683497 0.5422084116073964 4.282894416335675
+        children [
+          USE WHEEL
+        ]
+        name "solid(3)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+        linearVelocity -0.038105035325279715 -0.012165785378027578 -5.5609025059885904e-09
+        angularVelocity 0.30414464231996874 -0.9526258639428666 -1.4368438175622091e-08
+      }
+    }
+    DEF DS_RIGHT DistanceSensor {
+      translation 0.1 -0.03 0
+      rotation 0 0 1 -0.3
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0.184314 0.596078 0.847059
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_right"
+    }
+    DEF DS_LEFT DistanceSensor {
+      translation 0.1 0.03 0
+      rotation 0 0 1 0.3
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0.184314 0.596078 0.847059
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_left"
+    }
+  ]
+  boundingObject USE BODY
+  physics Physics {
+    density -1
+    mass 1
+  }
+  controller "<extern>"
+  linearVelocity -0.03810503455600258 -0.012165785691447642 8.569563901390802e-14
+  angularVelocity -9.005896621639167e-08 -2.8754769377140008e-08 1.4849686684409748e-09
+}

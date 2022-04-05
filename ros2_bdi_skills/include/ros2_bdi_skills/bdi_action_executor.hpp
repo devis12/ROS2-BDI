@@ -49,7 +49,7 @@ public:
       @action_name should match the one within the pddl domain definition
       @working_freq represents the frequency at which the doWork method is called (expressed in Hz)
   */
-  BDIActionExecutor(const std::string& action_name, const int& working_freq);
+  BDIActionExecutor(const std::string action_name, const int working_freq, const bool agent_id_as_specialized_arg = true);
 
   /*
     Method called when node is triggered by the Executor node of PlanSys2

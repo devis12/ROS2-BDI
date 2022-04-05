@@ -60,7 +60,8 @@ def AgentLaunchDescription(
     agent_group='group0',
     init_params={},
     actions=[],
-    sensors=[]
+    sensors=[],
+    run_only_psys2=False
 ):
     print("Generating launch description for agent \"{}\" in group \"{}\"".format(agent_id, agent_group))
     if not (PDDL_FILE_PARAM in init_params):
@@ -92,16 +93,6 @@ def AgentLaunchDescription(
     ld.add_action(stdout_linebuf_envvar)
     ld.add_action(declare_namespace_cmd)
     ld.add_action(log_level_cmd)
-    
-    # create tmp folder, delete if already there
-    create_tmp_folder_agent(agent_id, True)
-    if INIT_BSET_PARAM in init_params:
-        # if passed as a param, put init belief set file in the agent tmp folder
-        load_init_file(init_params[INIT_BSET_PARAM], 'init_bset.yaml', agent_id)
-
-    if INIT_DSET_PARAM in init_params:
-        # if passed as a param, put init desire set file in the agent tmp folder
-        load_init_file(init_params[INIT_DSET_PARAM], 'init_dset.yaml', agent_id)   
 
     '''
         [*] PLANSYS2 Bringup
@@ -120,54 +111,66 @@ def AgentLaunchDescription(
     )
     # Declare the launch options
     ld.add_action(plansys2_cmd)
+
+    if(not run_only_psys2):
+
+        # create tmp folder, delete if already there
+        create_tmp_folder_agent(agent_id, True)
+        if INIT_BSET_PARAM in init_params:
+            # if passed as a param, put init belief set file in the agent tmp folder
+            load_init_file(init_params[INIT_BSET_PARAM], 'init_bset.yaml', agent_id)
+
+        if INIT_DSET_PARAM in init_params:
+            # if passed as a param, put init desire set file in the agent tmp folder
+            load_init_file(init_params[INIT_DSET_PARAM], 'init_dset.yaml', agent_id)   
     
-    '''
-        [*] PLANSYS2 MONITOR NODE init.
-    '''
-    plansys2_monitor = build_PlanSys2Monitor(namespace, agent_id)
+        '''
+            [*] PLANSYS2 MONITOR NODE init.
+        '''
+        plansys2_monitor = build_PlanSys2Monitor(namespace, agent_id)
 
 
-    '''
-        [*] BELIEF MANAGER NODE init.
-    '''
-    belief_manager = build_BeliefManager(namespace, agent_id) 
-    
-    '''
-        [*] SCHEDULER NODE init.
-    '''
-    #  Default init params for Scheduler Node
-    scheduler = build_Scheduler(namespace, agent_id, init_params)
+        '''
+            [*] BELIEF MANAGER NODE init.
+        '''
+        belief_manager = build_BeliefManager(namespace, agent_id) 
+        
+        '''
+            [*] SCHEDULER NODE init.
+        '''
+        #  Default init params for Scheduler Node
+        scheduler = build_Scheduler(namespace, agent_id, init_params)
 
-    '''
-        [*] PLAN DIRECTOR NODE init.
-    '''
-    plan_director = build_PlanDirector(namespace, agent_id, init_params)
-    
-    '''
-        [*] COMMUNICATION NODE init.
-    '''
-    communications_manager = build_CommunicationsNode(namespace, agent_id, agent_group, init_params)
-    
-    '''
-        [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
-    '''
-    # Declare plansys2 monitor node
-    ld.add_action(plansys2_monitor)
-    #Add belief manager
-    ld.add_action(belief_manager)
-    #Add BDI scheduler
-    ld.add_action(scheduler)
-    #Add plan director
-    ld.add_action(plan_director)
-    #Add communication manager node
-    ld.add_action(communications_manager)
-    
+        '''
+            [*] PLAN DIRECTOR NODE init.
+        '''
+        plan_director = build_PlanDirector(namespace, agent_id, init_params)
+        
+        '''
+            [*] COMMUNICATION NODE init.
+        '''
+        communications_manager = build_CommunicationsNode(namespace, agent_id, agent_group, init_params)
+        
+        '''
+            [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
+        '''
+        # Declare plansys2 monitor node
+        ld.add_action(plansys2_monitor)
+        #Add belief manager
+        ld.add_action(belief_manager)
+        #Add BDI scheduler
+        ld.add_action(scheduler)
+        #Add plan director
+        ld.add_action(plan_director)
+        #Add communication manager node
+        ld.add_action(communications_manager)
+        
+        for act in sensors:
+            if isinstance(act, AgentSensor):
+                ld.add_action( act.to_node(namespace, [{AGENT_ID_PARAM: agent_id}, {AGENT_GROUP_ID_PARAM: agent_group}]) )
+
     for act in actions:
         if isinstance(act, AgentAction):
-            ld.add_action( act.to_node(namespace, [{AGENT_ID_PARAM: agent_id}, {AGENT_GROUP_ID_PARAM: agent_group}]) )
-    
-    for act in sensors:
-        if isinstance(act, AgentSensor):
             ld.add_action( act.to_node(namespace, [{AGENT_ID_PARAM: agent_id}, {AGENT_GROUP_ID_PARAM: agent_group}]) )
 
     return ld

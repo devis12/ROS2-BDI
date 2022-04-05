@@ -1,0 +1,45 @@
+set instance boxa1 box
+set instance boxa2 box
+set instance boxb1 box
+set instance boxb2 box
+set instance boxc1 box
+set instance boxc2 box
+
+set instance start stackbase
+set instance base1 stackbase
+set instance base2 stackbase
+set instance basea stackbase
+set instance baseb stackbase
+set instance basec stackbase
+
+set instance grippera gripper
+set predicate (upon grippera start)
+set function (= (moving_boxes grippera) 0)
+
+set predicate (on boxa1 base1 base1)
+set predicate (on boxc2 boxa1 base1)
+set predicate (on boxa2 boxc2 base1)
+set predicate (in boxa1 base1)
+set predicate (in boxc2 base1)
+set predicate (in boxa2 base1)
+set predicate (in base1 base1)
+set predicate (clear boxa2)
+
+set predicate (on boxb1 base2 base2)
+set predicate (on boxb2 boxb1 base2)
+set predicate (on boxc1 boxb2 base2)
+set predicate (in boxb1 base2)
+set predicate (in boxb2 base2)
+set predicate (in boxc1 base2)
+set predicate (in base2 base2)
+set predicate (clear boxc1)
+
+
+set predicate (clear basea)
+set predicate (clear baseb)
+set predicate (clear basec)
+set predicate (in basea basea)
+set predicate (in baseb baseb)
+set predicate (in basec basec)
+
+set goal (and (in boxc2 basec) (in boxc1 basec) (in boxa2 basea) (in boxa1 basea) (in boxb2 baseb) (in boxb1 baseb))

@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<robot name="carrier_a">
+    <webots>
+        <device reference="gps" type="GPS">
+            <ros>
+                <enabled>true</enabled>
+                <alwaysOn>true</alwaysOn>
+                 <updateRate>8</updateRate>
+            </ros>
+        </device>
+        <!--
+        <plugin type="webots_ros2_driver::Ros2IMU">
+            <enabled>true</enabled>
+            <topicName>/carrier_a_driver/imu</topicName>
+            <alwaysOn>true</alwaysOn>
+            <frameName>imu_link</frameName>
+            <inertialUnitName>inertial unit</inertialUnitName>
+        </plugin>        
+        -->
+        <plugin type="webots_ros2_simulations.carrier_robot_driver.CarrierRobotDriver"  webots_robot_name="carrier_a"/>
+    </webots>
+</robot>

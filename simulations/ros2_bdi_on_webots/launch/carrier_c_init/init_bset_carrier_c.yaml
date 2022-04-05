@@ -1,0 +1,16 @@
+-
+  name: "deposit"
+  pddl_type: 1 
+  params: 
+    - "waypoint"
+-
+  name: "base"
+  pddl_type: 1 
+  params: 
+    - "waypoint"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "deposit"

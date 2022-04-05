@@ -42,7 +42,7 @@ using BDICommunications::CommunicationsClient;
     @action_name should match the one within the pddl domain definition
     @working_freq represents the frequency at which the doWork method is called (expressed in Hz)
 */
-BDIActionExecutor::BDIActionExecutor(const string& action_name, const int& working_freq) : 
+BDIActionExecutor::BDIActionExecutor(const string action_name, const int working_freq, const bool agent_id_as_specialized_arg) : 
   plansys2::ActionExecutorClient(action_name, milliseconds((int) (1000/working_freq)))
   {
       this->declare_parameter(PARAM_AGENT_ID, "agent0");
@@ -62,7 +62,8 @@ BDIActionExecutor::BDIActionExecutor(const string& action_name, const int& worki
 
       // set agent id as specialized arguments
       vector<string> specialized_arguments = vector<string>();
-      specialized_arguments.push_back(agent_id_);
+      if(agent_id_as_specialized_arg)
+        specialized_arguments.push_back(agent_id_);
 
       this->set_parameter(rclcpp::Parameter("action_name", action_name_));
       this->set_parameter(rclcpp::Parameter("specialized_arguments", specialized_arguments));
