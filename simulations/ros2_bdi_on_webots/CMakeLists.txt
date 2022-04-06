@@ -49,6 +49,15 @@ ament_target_dependencies(gripper_pickup ${bdi_act_client_dep} example_interface
 add_executable(gripper_putdown src/blocksworld/gantry/gripper_putdown.cpp)
 ament_target_dependencies(gripper_putdown ${bdi_act_client_dep} example_interfaces)
 
+add_executable(gripper_put_on_carrier src/blocksworld/gantry/gripper_put_on_carrier.cpp)
+ament_target_dependencies(gripper_put_on_carrier ${bdi_act_client_dep} example_interfaces)
+
+add_executable(req_carrier_to_come src/blocksworld/gantry/req_carrier_to_come.cpp)
+ament_target_dependencies(req_carrier_to_come ${bdi_act_client_dep})
+
+add_executable(req_carrier_to_go src/blocksworld/gantry/req_carrier_to_go.cpp)
+ament_target_dependencies(req_carrier_to_go ${bdi_act_client_dep})
+
 install(TARGETS
   carrier_move_sensor
   carrier_move
@@ -56,6 +65,9 @@ install(TARGETS
   gripper_move
   gripper_pickup
   gripper_putdown
+  gripper_put_on_carrier
+  req_carrier_to_go
+  req_carrier_to_come
   DESTINATION lib/${PROJECT_NAME}
 )
 

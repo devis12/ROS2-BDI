@@ -10,24 +10,26 @@ from webots_ros2_simulations_interfaces.msg import MoveStatus
 ROBOT_DEFAULT_NAME = 'carrier_x'
 
 ON_TARGET_HIGH_PREC_EPS = 0.06
-ON_TARGET_LOW_PREC_EPS = 0.2
+ON_TARGET_LOW_PREC_EPS = 0.36
 
-MAX_VEL = 4.2
+MAX_VEL = 12.0
 MIN_VEL = 0.6
 
 TARGETS = {
-    'base_y': 1.02,
-    'deposit_y': 4.32,
-    'moving_y' : 4.32 # updated at run time
+    'base_y': 1.04,
+    'deposit_y': 4.34,
+    'moving_y' : 4.34 # updated at run time
 }
 
 class CarrierRobotDriver:
     def init(self, webots_node, properties):
         self.__robot = webots_node.robot
         
+        id_robot = self.__robot.getName()[len(self.__robot.getName())-1]
+        
         self.__motors = [] 
         for i in range(1,5):    
-            self.__motors.append(self.__robot.getDevice('ca_wheel{}'.format(i)))
+            self.__motors.append(self.__robot.getDevice('c{}_wheel{}'.format(id_robot, i)))
             self.__motors[i-1].setPosition(float('inf'))
             self.__motors[i-1].setVelocity(0)
 

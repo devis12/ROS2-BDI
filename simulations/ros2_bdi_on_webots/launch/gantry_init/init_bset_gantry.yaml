@@ -44,6 +44,11 @@
   params: 
     - "stackbase"
 -
+  name: "base3"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
   name: "basea"
   pddl_type: 1 
   params: 
@@ -59,6 +64,36 @@
   params: 
     - "stackbase"
 -
+  name: "carrier_a"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "deposita"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
+  name: "carrier_b"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "depositb"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
+  name: "carrier_c"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "depositc"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
   name: "grippera"
   pddl_type: 1 
   params: 
@@ -70,7 +105,7 @@
     - "grippera"
     - "start"
 -
-  name: "moving_boxes"
+  name: "holding_boxes"
   pddl_type: 3 
   params: 
     - "grippera"
@@ -179,6 +214,11 @@
   name: "clear"
   pddl_type: 2
   params: 
+    - "base3"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
     - "basec"
 -
   name: "clear"
@@ -208,3 +248,111 @@
   params: 
     - "basec"
     - "basec"
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base1"
+  value: 3
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base2"
+  value: 3
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base3"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "basea"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "baseb"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "basec"
+  value: 0
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "deposita"
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "depositb"
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "depositc"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "basea"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "baseb"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "basec"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "deposita"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "depositb"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "depositc"
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_a"
+  value: 0
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_b"
+  value: 0
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_c"
+  value: 0

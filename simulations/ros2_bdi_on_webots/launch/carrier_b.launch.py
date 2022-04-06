@@ -45,6 +45,11 @@ def generate_launch_description():
             'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'carrier', 'carrier-domain.pddl'),
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_b_init', 'init_bset_carrier_b.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_b_init', 'init_dset_carrier_b.yaml'),
+            'belief_ck': ['grippers'],   
+            'belief_w':  ['grippers'],   
+            'desire_ck': ['grippers'],   
+            'desire_w':  ['grippers'],   
+            'desire_pr': [0.6],
         },
         actions=[carrier_b_move],
         sensors=[carrier_b_move_sensor]
