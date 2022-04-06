@@ -110,7 +110,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 void BDIActionExecutor::do_work()
 {
   action_params_ = get_arguments();//get arguments of action execution
-
   progress_ += advanceWork();
   if(progress_ >= 1.0)
     execSuccess();//send feedback of complete execution to plansys2 executor (node deactivate again)
