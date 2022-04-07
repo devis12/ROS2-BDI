@@ -26,6 +26,7 @@ set(UTILS-SOURCES
   src/ManagedConditionsConjunction.cpp
   src/ManagedConditionsDNF.cpp
   src/ManagedPlan.cpp
+  src/ManagedReactiveRule.cpp
 
   src/BDIYAMLParser.cpp
 )

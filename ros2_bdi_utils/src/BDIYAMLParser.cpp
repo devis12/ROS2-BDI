@@ -2,6 +2,8 @@
 
 using std::string;
 using std::vector;
+using std::set;
+using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
@@ -11,6 +13,7 @@ using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedCondition;
 using BDIManaged::ManagedConditionsConjunction;
 using BDIManaged::ManagedConditionsDNF;
+using BDIManaged::ManagedReactiveRule;
 
 namespace BDIYAMLParser
 {
@@ -31,6 +34,73 @@ namespace BDIYAMLParser
     vector<ManagedBelief> parseMGBeliefs(YAML::Node& yaml_beliefs)
     {
         return parseMGBeliefs(yaml_beliefs, Belief().ALL_TYPE);
+    }
+
+    /*
+        Extract managed reactive rules from a YAML file containing them
+    */
+    set<ManagedReactiveRule> extractMGReactiveRules(const string& mgrrules_filepath)
+    {
+        YAML::Node my_rrules_yaml = YAML::LoadFile(mgrrules_filepath);
+        return parseMGReactiveRules(my_rrules_yaml);
+    }   
+    
+    /*
+        Parse and get managed reactive rules from a YAML node containing them
+    */
+    set<ManagedReactiveRule> parseMGReactiveRules(YAML::Node& yaml_rrules)
+    {
+        set<ManagedReactiveRule> rrules;
+        uint8_t ai_id_counter = 1;
+        for(YAML::Node::iterator it = yaml_rrules.begin(); it != yaml_rrules.end(); it++)
+        {
+            auto yaml_rrule = (*it);
+
+            if(yaml_rrule["condition"].IsDefined() && yaml_rrule["reactive_rules"].IsDefined())
+            {
+                ManagedConditionsDNF dnf_condition = parseMGConditionsDNF(yaml_rrule, "condition");
+                set<MGBeliefOp> bset_effects = set<std::pair<ReactiveOp, BDIManaged::ManagedBelief>>();
+                set<MGDesireOp> dset_effects = set<std::pair<ReactiveOp, BDIManaged::ManagedDesire>>();
+                auto yaml_rrules_effects = yaml_rrule["reactive_rules"];
+                for(YAML::Node::iterator it_eff = yaml_rrules_effects.begin(); it_eff != yaml_rrules_effects.end(); it_eff++)
+                {
+                    auto rrule_effect = (*it_eff);
+                    if(rrule_effect["set"].as<string>() == "belief")
+                    {
+                        //bset operation
+                        auto yaml_belief = rrule_effect["value"];
+                        std::optional<ManagedBelief> mg_belief = parseMGBelief(yaml_belief);
+                        string op_s = rrule_effect["operation"].as<string>();
+                        if((op_s == "ADD" || op_s == "DEL") && mg_belief.has_value())
+                        {   
+                            ReactiveOp op = (op_s == "ADD")? ReactiveOp::ADD : ReactiveOp::DEL;
+                            bset_effects.insert(std::make_pair(op, mg_belief.value()));
+                        }
+                    }
+                    else if(rrule_effect["set"].as<string>() == "desire")
+                    {
+                        //dset operation
+                        auto yaml_desire = rrule_effect["value"];
+                        std::optional<ManagedDesire> mg_desire = parseMGDesire(yaml_desire);
+                        string op_s = rrule_effect["operation"].as<string>();
+                        if((op_s == "ADD" || op_s == "DEL") && mg_desire.has_value())
+                        {   
+                            ReactiveOp op = (op_s == "ADD")? ReactiveOp::ADD : ReactiveOp::DEL;
+                            dset_effects.insert(std::make_pair(op, mg_desire.value()));
+                        }
+                    }
+                }
+
+                if(bset_effects.size() > 0 || dset_effects.size() > 0)//if any effect were registered for the given condition insert it to the set of MGReactiveRules
+                {
+                    rrules.insert(ManagedReactiveRule{ai_id_counter, dnf_condition, bset_effects, dset_effects});
+                    ai_id_counter++;
+                }
+            }
+            
+        }
+
+        return rrules;
     }
 
     /*
@@ -159,19 +229,19 @@ namespace BDIYAMLParser
     }
 
     /*
-        Given a YAML node representing a desire and the name of the condition vector (e.g. "precondition", "context"),
+        Given a YAML parent node containing a condition expressed in DNF and the name of the condition vector (e.g. "precondition", "context"),
         extract a vector of managed condition DNF clause
     */
-    ManagedConditionsDNF parseMGConditionsDNF(YAML::Node& yaml_desire, const string& condition_vect_name)
+    ManagedConditionsDNF parseMGConditionsDNF(YAML::Node& yaml_parent_node, const string& condition_vect_name)
     {
         
         vector<ManagedConditionsConjunction> mg_clauses;
 
-        if(yaml_desire[condition_vect_name].IsDefined()
-            && yaml_desire[condition_vect_name]["clauses"].IsDefined()
-            && yaml_desire[condition_vect_name]["clauses"][0]["literals"].IsDefined())//parse precondition
+        if(yaml_parent_node[condition_vect_name].IsDefined()
+            && yaml_parent_node[condition_vect_name]["clauses"].IsDefined()
+            && yaml_parent_node[condition_vect_name]["clauses"][0]["literals"].IsDefined())//parse precondition
         {
-            auto yaml_clauses = yaml_desire[condition_vect_name]["clauses"];
+            auto yaml_clauses = yaml_parent_node[condition_vect_name]["clauses"];
 
             for(YAML::Node::iterator it_clause = yaml_clauses.begin(); it_clause != yaml_clauses.end(); it_clause++)
             {
@@ -189,7 +259,7 @@ namespace BDIYAMLParser
                 mg_clauses.push_back(ManagedConditionsConjunction{literals});
             }
         }
-        return mg_clauses;
+        return ManagedConditionsDNF{mg_clauses};
     }
 
 }// namespace BDIYAMLParser

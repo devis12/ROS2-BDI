@@ -123,6 +123,10 @@ def AgentLaunchDescription(
         if INIT_DSET_PARAM in init_params:
             # if passed as a param, put init desire set file in the agent tmp folder
             load_init_file(init_params[INIT_DSET_PARAM], 'init_dset.yaml', agent_id)   
+            
+        if INIT_RRULESSET_PARAM in init_params:
+            # if passed as a param, put init reactive rules set file in the agent tmp folder
+            load_init_file(init_params[INIT_RRULESSET_PARAM], 'init_reactive_rules.yaml', agent_id)   
     
         '''
             [*] PLANSYS2 MONITOR NODE init.
@@ -152,6 +156,11 @@ def AgentLaunchDescription(
         communications_manager = build_CommunicationsNode(namespace, agent_id, agent_group, init_params)
         
         '''
+            [*] EVENT LISTENER NODE init.
+        '''
+        event_listener = build_EventListener(namespace, agent_id)
+        
+        '''
             [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
         '''
         # Declare plansys2 monitor node
@@ -164,6 +173,8 @@ def AgentLaunchDescription(
         ld.add_action(plan_director)
         #Add communication manager node
         ld.add_action(communications_manager)
+        #Add event listener node
+        ld.add_action(event_listener)
         
         for act in sensors:
             if isinstance(act, AgentSensor):

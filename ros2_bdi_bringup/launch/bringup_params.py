@@ -4,6 +4,7 @@ PDDL_FILE_PARAM = 'pddl_file'
 
 INIT_BSET_PARAM = 'init_bset'
 INIT_DSET_PARAM = 'init_dset'
+INIT_RRULESSET_PARAM = 'init_reactive_rules_set'
 
 ACCEPT_BELIEFS_R_PARAM = 'belief_ck'
 ACCEPT_BELIEFS_W_PARAM = 'belief_w'

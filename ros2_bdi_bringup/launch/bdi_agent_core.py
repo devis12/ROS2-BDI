@@ -48,6 +48,19 @@ def build_BeliefManager(namespace, agent_id):
         namespace=namespace,
         output='screen',
         parameters= [ {AGENT_ID_PARAM: agent_id} ])
+    
+
+'''
+    Reactive Rules Event Listener Node builder
+'''
+def build_EventListener(namespace, agent_id):
+    return Node(
+        package='ros2_bdi_core',
+        executable='event_listener',
+        name='event_listener',
+        namespace=namespace,
+        output='screen',
+        parameters= [ {AGENT_ID_PARAM: agent_id} ])
 
 
 '''

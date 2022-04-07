@@ -103,12 +103,22 @@ ament_target_dependencies(communications
   ${common_dependencies}
 )
 
+add_executable(event_listener src/event_listener.cpp)
+target_link_libraries(event_listener
+  yaml-cpp  
+)
+ament_target_dependencies(event_listener 
+  ${common_dependencies}
+)
+
+
 install(TARGETS
   belief_manager
   scheduler
   plan_director
   plansys2_monitor
   communications
+  event_listener
   DESTINATION lib/${PROJECT_NAME}
 )
 
