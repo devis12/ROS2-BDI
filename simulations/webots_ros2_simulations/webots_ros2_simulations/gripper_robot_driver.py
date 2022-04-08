@@ -113,7 +113,7 @@ class GripperRobotDriver:
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_motors_pose', self.__cmd_motors_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_pose', self.__cmd_grippers_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_status', self.__cmd_grippers_status_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
-        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'_driver/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
+        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
 
         self.__move_status_publisher_ = self.__node.create_publisher(MoveStatus, '/'+ROBOT_NAME+'/motors_move_status', rclpy.qos.QoSProfile(depth=2, reliability=1))
 

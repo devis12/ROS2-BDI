@@ -5,7 +5,8 @@
             <ros>
                 <enabled>true</enabled>
                 <alwaysOn>true</alwaysOn>
-                 <updateRate>4</updateRate>
+                <updateRate>4</updateRate>
+                <topicName>/gripper_a/bridge_motor_gps</topicName>
             </ros>
         </device>
         <plugin type="webots_ros2_simulations.gripper_robot_driver.GripperRobotDriver"  webots_robot_name="gripper_a"/>
