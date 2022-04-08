@@ -39,7 +39,7 @@ class ReqCarrierToCome : public BDIActionExecutor
             else
             {
                 //desire request already made
-                step_progress += 0.15;
+                step_progress += 0.1;
             }
 
             return step_progress;

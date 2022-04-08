@@ -10,7 +10,7 @@ from webots_ros2_simulations_interfaces.msg import MoveStatus
 ROBOT_DEFAULT_NAME = 'carrier_x'
 
 ON_TARGET_HIGH_PREC_EPS = 0.06
-ON_TARGET_LOW_PREC_EPS = 0.36
+ON_TARGET_LOW_PREC_EPS = 0.6
 
 MAX_VEL = 12.0
 MIN_VEL = 0.6
@@ -80,7 +80,7 @@ class CarrierRobotDriver:
                     forward_speed = MIN_VEL
                     
                 # different velocities based on the distance (if you're near slow down)
-                forward_speed *= 1.2 if abs(distance_from_target) > ON_TARGET_LOW_PREC_EPS else 0.8
+                forward_speed *= 1.2 if abs(distance_from_target) > ON_TARGET_LOW_PREC_EPS else 0.9
                 forward_speed = -abs(forward_speed) if distance_from_target > 0 else abs(forward_speed)
                 # don't go over vel. thresholds
                 if abs(forward_speed) > abs(MAX_VEL):

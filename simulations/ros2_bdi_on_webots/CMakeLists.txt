@@ -34,29 +34,32 @@ set(bdi_sensor_dep
 )
 
 
-add_executable(carrier_move_sensor src/blocksworld/carrier/carrier_move_sensor.cpp)
+add_executable(carrier_move_sensor src/blocksworld/carrier/sensors/carrier_move_sensor.cpp)
 ament_target_dependencies(carrier_move_sensor ${bdi_sensor_dep} webots_ros2_simulations_interfaces)
 
-add_executable(carrier_move src/blocksworld/carrier/carrier_move.cpp)
+add_executable(carrier_move src/blocksworld/carrier/actions/carrier_move.cpp)
 ament_target_dependencies(carrier_move ${bdi_act_client_dep} example_interfaces geometry_msgs webots_ros2_simulations_interfaces)
 
-add_executable(gripper_move src/blocksworld/gantry/gripper_move.cpp)
+add_executable(gripper_move src/blocksworld/gantry/actions/gripper_move.cpp)
 ament_target_dependencies(gripper_move ${bdi_act_client_dep} example_interfaces geometry_msgs webots_ros2_simulations_interfaces)
 
-add_executable(gripper_pickup src/blocksworld/gantry/gripper_pickup.cpp)
+add_executable(gripper_pickup src/blocksworld/gantry/actions/gripper_pickup.cpp)
 ament_target_dependencies(gripper_pickup ${bdi_act_client_dep} example_interfaces)
 
-add_executable(gripper_putdown src/blocksworld/gantry/gripper_putdown.cpp)
+add_executable(gripper_putdown src/blocksworld/gantry/actions/gripper_putdown.cpp)
 ament_target_dependencies(gripper_putdown ${bdi_act_client_dep} example_interfaces)
 
-add_executable(gripper_put_on_carrier src/blocksworld/gantry/gripper_put_on_carrier.cpp)
+add_executable(gripper_put_on_carrier src/blocksworld/gantry/actions/gripper_put_on_carrier.cpp)
 ament_target_dependencies(gripper_put_on_carrier ${bdi_act_client_dep} example_interfaces)
 
-add_executable(req_carrier_to_come src/blocksworld/gantry/req_carrier_to_come.cpp)
+add_executable(req_carrier_to_come src/blocksworld/gantry/actions/req_carrier_to_come.cpp)
 ament_target_dependencies(req_carrier_to_come ${bdi_act_client_dep})
 
-add_executable(req_carrier_to_go src/blocksworld/gantry/req_carrier_to_go.cpp)
+add_executable(req_carrier_to_go src/blocksworld/gantry/actions/req_carrier_to_go.cpp)
 ament_target_dependencies(req_carrier_to_go ${bdi_act_client_dep})
+
+add_executable(req_carrier_to_unload src/blocksworld/gantry/actions/req_carrier_to_unload.cpp)
+ament_target_dependencies(req_carrier_to_unload ${bdi_act_client_dep})
 
 install(TARGETS
   carrier_move_sensor
@@ -68,6 +71,7 @@ install(TARGETS
   gripper_put_on_carrier
   req_carrier_to_go
   req_carrier_to_come
+  req_carrier_to_unload
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -105,7 +105,7 @@
         )
     )
 
-    (:durative-action carrier_unloaded
+    (:durative-action req_carrier_to_unload
         :parameters (?c - carrier ?b - box ?dep - deposit)
         :duration (= ?duration 1)
         :condition (and

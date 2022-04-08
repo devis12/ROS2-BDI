@@ -46,18 +46,46 @@ def generate_launch_description():
         name='gripper_put_on_carrier'
     )
     
-    # req carrier to come action
-    req_carrier_to_come = AgentAction(
+    # req carrier to come action istance 1
+    req_carrier_to_come1 = AgentAction(
         package='ros2_bdi_on_webots',
         executable='req_carrier_to_come',
-        name='req_carrier_to_come'
+        name='req_carrier_to_come1'
     )
     
-    # req carrier to go action
-    req_carrier_to_go = AgentAction(
+    # req carrier to go action istance 1
+    req_carrier_to_go1 = AgentAction(
         package='ros2_bdi_on_webots',
         executable='req_carrier_to_go',
-        name='req_carrier_to_go'
+        name='req_carrier_to_go1'
+    )
+
+    # req carrier to unload action istance 1
+    req_carrier_to_unload1 = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='req_carrier_to_unload',
+        name='req_carrier_to_unload1'
+    )
+
+    # req carrier to come action istance 2
+    req_carrier_to_come2 = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='req_carrier_to_come',
+        name='req_carrier_to_come2'
+    )
+    
+    # req carrier to go action istance 2
+    req_carrier_to_go2 = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='req_carrier_to_go',
+        name='req_carrier_to_go2'
+    )
+
+    # req carrier to unload action istance 2
+    req_carrier_to_unload2 = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='req_carrier_to_unload',
+        name='req_carrier_to_unload2'
     )
 
     gantry_agent_ld = AgentLaunchDescription(
@@ -68,7 +96,10 @@ def generate_launch_description():
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gantry_init', 'init_bset_gantry.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gantry_init', 'init_dset_gantry.yaml'),
         },
-        actions=[move_gripper, gripper_pickup, gripper_putdown, gripper_put_on_carrier, req_carrier_to_come, req_carrier_to_go],
+        actions=[move_gripper, gripper_pickup, gripper_putdown, gripper_put_on_carrier, 
+                req_carrier_to_come1, req_carrier_to_go1, req_carrier_to_unload1,
+                req_carrier_to_come2, req_carrier_to_go2, req_carrier_to_unload2,
+        ],
         sensors=[],
         run_only_psys2=False
     ) 

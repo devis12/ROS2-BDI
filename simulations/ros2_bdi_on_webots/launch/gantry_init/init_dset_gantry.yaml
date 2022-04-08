@@ -17,6 +17,16 @@
       params: 
         - "boxa2"
         - "deposita"
+    - name: "stored"
+      pddl_type: 2
+      params: 
+        - "boxc1"
+        - "depositc"
+    - name: "stored"
+      pddl_type: 2
+      params: 
+        - "boxc2"
+        - "depositc"
     # - name: "in"
     #   pddl_type: 2
     #   params: 

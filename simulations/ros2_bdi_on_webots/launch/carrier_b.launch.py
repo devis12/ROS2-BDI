@@ -52,7 +52,8 @@ def generate_launch_description():
             'desire_pr': [0.6],
         },
         actions=[carrier_b_move],
-        sensors=[carrier_b_move_sensor]
+        sensors=[carrier_b_move_sensor],
+        run_only_psys2=False
     ) 
 
     return carrier_b_agent_ld
