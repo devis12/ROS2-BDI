@@ -8,7 +8,7 @@ WorldInfo {
   title "Gantry Robot"
   CFM 0.0001
   ERP 0.6
-  basicTimeStep 4
+  basicTimeStep 2
   lineScale 0.5
 }
 Viewpoint {
@@ -416,149 +416,221 @@ DEF GANTRY Robot {
       }
     }
   ]
-  name "gantry"
+  name "gripper_a"
   boundingObject USE PILLARS_GROUP
   physics Physics {
   }
   controller "<extern>"
 }
-DEF BOX_A1 Solid {
+DEF BOX_A1 Robot{
   translation 0 -0.9 0.15
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
-          ]
+  children[
+    GPS {}
+    DEF S_BOX_A1 Solid {
+      children [
+        DEF BOX_SHAPE Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+              ]
+            }
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
+      ]
+      name "s_box_a1"
+      boundingObject USE BOX_SHAPE
+      physics Physics {
       }
     }
   ]
-  name "box A1"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_a1"
 }
-DEF BOX_A2 Solid {
+DEF BOX_A2 Robot{
   translation 0 -0.9 0.55
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
-          ]
+  children[
+    GPS {}
+    DEF S_BOX_A2 Solid {
+        children [
+          DEF BOX_SHAPE Shape {
+            appearance PBRAppearance {
+              baseColorMap ImageTexture {
+                url [
+                  "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+                ]
+              }
+              roughness 1
+              metalness 0
+            }
+            geometry Box {
+              size 0.2 0.2 0.2
+            }
+          }
+        ]
+        name "s_box_a2"
+        boundingObject USE BOX_SHAPE
+        physics Physics {
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
-      }
     }
   ]
-  name "box A2"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_a2"
 }
-DEF BOX_B1 Solid {
+DEF BOX_B1 Robot{
   translation -0.4 0 0.15
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
-          ]
+  children[
+    GPS {}
+    DEF S_BOX_B1 Solid {
+      children [
+        DEF BOX_SHAPE Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+              ]
+            }
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
+      ]
+      name "s_box_b1"
+      boundingObject USE BOX_SHAPE
+      physics Physics {
       }
     }
   ]
-  name "box B1"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_b1"
 }
-DEF BOX_B2 Solid {
+DEF BOX_B2 Robot{
   translation -0.4 0 0.35
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
-          ]
+  children[
+    GPS {}
+    DEF BOX_B2 Solid {
+      children [
+        DEF BOX_SHAPE Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/B.png"
+              ]
+            }
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
+      ]
+      name "s_box_b2"
+      boundingObject USE BOX_SHAPE
+      physics Physics {
       }
     }
   ]
-  name "box B2"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_b2"
 }
-DEF BOX_C1 Solid {
+DEF BOX_C1 Robot{
   translation -0.4 0 0.55
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
-          ]
+  children[
+    GPS {}
+    DEF BOX_C1 Solid {
+      children [
+        DEF BOX_SHAPE Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+              ]
+            }
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
+      ]
+      name "s_box_c1"
+      boundingObject USE BOX_SHAPE
+      physics Physics {
       }
     }
   ]
-  name "box C1"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_c1"
 }
-DEF BOX_C2 Solid {
+DEF BOX_C2 Robot{
   translation 0 -0.9 0.35
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
-          ]
+  children[
+    GPS {}
+    DEF S_BOX_C2 Solid {
+      children [
+        DEF BOX_SHAPE Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/C.png"
+              ]
+            }
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
         }
-        roughness 1
-        metalness 0
-      }
-      geometry Box {
-        size 0.2 0.2 0.2
+      ]
+      name "s_box_c2"
+      boundingObject USE BOX_SHAPE
+      physics Physics {
       }
     }
   ]
-  name "box C2"
-  boundingObject USE BOX_SHAPE
   physics Physics {
+    density -1
+    mass 1
   }
+  boundingObject USE BOX_SHAPE
+  controller "<extern>"
+  name "box_c2"
 }
 DEF PLATFORM_1 Solid {
   translation 0 -0.9 0.02

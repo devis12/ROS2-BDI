@@ -1,13 +1,12 @@
 <?xml version="1.0" ?>
-<robot name="carrier_b">
+<robot name="box_a2">
     <webots>
         <device reference="gps" type="GPS">
             <ros>
                 <enabled>true</enabled>
                 <alwaysOn>true</alwaysOn>
-                 <updateRate>4</updateRate>
+                 <updateRate>1</updateRate>
             </ros>
         </device>
-        <plugin type="webots_ros2_simulations.carrier_robot_driver.CarrierRobotDriver"  webots_robot_name="carrier_b"/>
     </webots>
 </robot>

@@ -5,56 +5,56 @@
     - name: "upon"
       pddl_type: 2
       params: 
-        - "grippera"
+        - "gripper_a"
         - "start"
     - name: "stored"
       pddl_type: 2
       params: 
-        - "boxa1"
-        - "deposita"
+        - "box_a1"
+        - "deposit_a"
     - name: "stored"
       pddl_type: 2
       params: 
-        - "boxa2"
-        - "deposita"
-    - name: "stored"
-      pddl_type: 2
-      params: 
-        - "boxc1"
-        - "depositc"
-    - name: "stored"
-      pddl_type: 2
-      params: 
-        - "boxc2"
-        - "depositc"
+        - "box_a2"
+        - "deposit_a"
+    # - name: "stored"
+    #   pddl_type: 2
+    #   params: 
+    #     - "box_c1"
+    #     - "deposit_c"
+    # - name: "stored"
+    #   pddl_type: 2
+    #   params: 
+    #     - "box_c2"
+    #     - "deposit_c"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxc2"
-    #     - "basec"
+    #     - "box_c2"
+    #     - "base_c"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxc1"
-    #     - "basec"
+    #     - "box_c1"
+    #     - "base_c"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxa2"
+    #     - "box_a2"
     #     - "basea"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxa1"
+    #     - "box_a1"
     #     - "basea"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxb2"
-    #     - "baseb"
+    #     - "box_b2"
+    #     - "base_b"
     # - name: "in"
     #   pddl_type: 2
     #   params: 
-    #     - "boxb1"
-    #     - "baseb"
+    #     - "box_b1"
+    #     - "base_b"
   

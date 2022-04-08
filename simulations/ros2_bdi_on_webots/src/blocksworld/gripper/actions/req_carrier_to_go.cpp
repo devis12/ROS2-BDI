@@ -7,11 +7,11 @@
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 
-class ReqCarrierToCome : public BDIActionExecutor
+class ReqCarrierToGo : public BDIActionExecutor
 {
     public:
-        ReqCarrierToCome()
-        : BDIActionExecutor("req_carrier_to_come", 1, false)
+        ReqCarrierToGo()
+        : BDIActionExecutor("req_carrier_to_go", 1, false)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
         }
@@ -24,10 +24,10 @@ class ReqCarrierToCome : public BDIActionExecutor
             
             if(action_progress < 0.15)
             {
-                auto base_id = getArguments()[2];
-                base_id = base_id.substr(0, base_id.size()-1);//remove last char id (does not need it -> every carrier knows just base/deposit it's attached to)
+                auto deposit_id = getArguments()[2];
+                deposit_id = deposit_id.substr(0, deposit_id.size()-2);//remove last chars id (does not need it -> every carrier knows just base/deposit it's attached to)
                 
-                requested_desire_ = buildDesire(carrier_id, base_id);
+                requested_desire_ = buildDesire(carrier_id, deposit_id);
                 BDICommunications::UpdDesireResult result = sendUpdDesireRequest(carrier_id, requested_desire_, BDICommunications::ADD, true);
                 if (result.desire.name == requested_desire_.name)
                     step_progress += (result.accepted && result.performed)? 0.15 : 0.0; //advance and wait for its completion 
@@ -71,7 +71,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
-  auto actionNode = std::make_shared<ReqCarrierToCome>();
+  auto actionNode = std::make_shared<ReqCarrierToGo>();
   rclcpp::spin(actionNode->get_node_base_interface());
 
   rclcpp::shutdown();

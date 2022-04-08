@@ -31,4 +31,22 @@
             (at end (in ?c ?wp2))
         )
     )
+
+    (:durative-action carrier_unload_all
+        :parameters (?c - carrier)
+        :duration (= ?duration 2)
+        :condition (and
+            (at start (> (moving_boxes ?c) 0))
+        )
+        :effect (and
+            ; (at start 
+            ;     ; (forall 
+            ;     ;     (?b - box)
+            ;     ;         (imply (carrying ?c ?b) (and(not(carrying ?c ?b))))  
+            ;     ; )
+            ; )
+            (at end (assign (moving_boxes ?c) 0))
+        )
+    )
+
 )

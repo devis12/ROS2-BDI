@@ -5,7 +5,7 @@
             <ros>
                 <enabled>true</enabled>
                 <alwaysOn>true</alwaysOn>
-                 <updateRate>8</updateRate>
+                 <updateRate>4</updateRate>
             </ros>
         </device>
         <!--

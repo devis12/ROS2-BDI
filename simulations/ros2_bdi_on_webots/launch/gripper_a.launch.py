@@ -13,7 +13,7 @@ from webots_ros2_driver.webots_launcher import WebotsLauncher
 
 
 def generate_launch_description():
-    GANTRY_AGENT_ID = 'gantry'
+    GANTRY_AGENT_ID = 'gripper_a'
     GANTRY_AGENT_GROUP_ID = 'grippers'
 
     bdi_onwebots_share_dir = get_package_share_directory('ros2_bdi_on_webots')
@@ -92,9 +92,9 @@ def generate_launch_description():
         agent_id=GANTRY_AGENT_ID,
         agent_group=GANTRY_AGENT_GROUP_ID,
         init_params={
-            'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'gantry', 'gantry-domain.pddl'),
-            'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gantry_init', 'init_bset_gantry.yaml'),
-            'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gantry_init', 'init_dset_gantry.yaml'),
+            'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'gripper', 'gripper-domain.pddl'),
+            'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_bset_gripper_a.yaml'),
+            'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_dset_gripper_a.yaml'),
         },
         actions=[move_gripper, gripper_pickup, gripper_putdown, gripper_put_on_carrier, 
                 req_carrier_to_come1, req_carrier_to_go1, req_carrier_to_unload1,

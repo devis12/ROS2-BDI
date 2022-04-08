@@ -10,15 +10,15 @@ from webots_ros2_simulations_interfaces.msg import MoveStatus
 ROBOT_DEFAULT_NAME = 'carrier_x'
 
 ON_TARGET_HIGH_PREC_EPS = 0.06
-ON_TARGET_LOW_PREC_EPS = 0.6
+ON_TARGET_LOW_PREC_EPS = 0.36
 
 MAX_VEL = 12.0
-MIN_VEL = 0.6
+MIN_VEL = 3.0
 
 TARGETS = {
     'base_y': 1.04,
-    'deposit_y': 4.34,
-    'moving_y' : 4.34 # updated at run time
+    'deposit_y': 4.36,
+    'moving_y' : 4.36 # updated at run time
 }
 
 class CarrierRobotDriver:

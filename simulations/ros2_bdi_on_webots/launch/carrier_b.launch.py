@@ -37,6 +37,15 @@ def generate_launch_description():
             {"init_sleep": 1}
         ])
 
+    # moving boxes sensor 
+    carrier_moving_boxes_sensor = AgentSensor(
+        package='ros2_bdi_on_webots',
+        executable='carrier_moving_boxes_sensor',
+        name=CARRIER_B_AGENT_ID+'_carrier_moving_boxes_sensor',
+        specific_params=[
+            {"init_sleep": 3}
+        ])
+
 
     carrier_b_agent_ld = AgentLaunchDescription(
         agent_id=CARRIER_B_AGENT_ID,
@@ -52,7 +61,7 @@ def generate_launch_description():
             'desire_pr': [0.6],
         },
         actions=[carrier_b_move],
-        sensors=[carrier_b_move_sensor],
+        sensors=[carrier_b_move_sensor, carrier_moving_boxes_sensor],
         run_only_psys2=False
     ) 
 
