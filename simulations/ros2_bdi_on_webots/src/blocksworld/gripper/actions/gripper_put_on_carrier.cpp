@@ -9,7 +9,7 @@ class GripperPutOnCarrier : public BDIActionExecutor
 {
     public:
         GripperPutOnCarrier()
-        : BDIActionExecutor("gripper_put_on_carrier", 3, false)
+        : BDIActionExecutor("gripper_put_on_carrier", 3)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
             gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());

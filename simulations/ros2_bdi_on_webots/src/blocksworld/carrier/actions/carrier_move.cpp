@@ -13,7 +13,7 @@ class CarrierMove : public BDIActionExecutor
 {
     public:
         CarrierMove()
-        : BDIActionExecutor("carrier_move", 2, false)
+        : BDIActionExecutor("carrier_move", 2)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
             move_carrier_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_target", 

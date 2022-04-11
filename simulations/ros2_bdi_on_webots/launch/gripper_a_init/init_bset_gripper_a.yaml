@@ -249,6 +249,12 @@
     - "base_c"
     - "base_c"
 -
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_3"
+    - "base_3"
+-
   name: "stacked"
   pddl_type: 3 
   params: 

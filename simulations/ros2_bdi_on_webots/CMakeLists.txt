@@ -43,6 +43,9 @@ ament_target_dependencies(carrier_moving_boxes_sensor ${bdi_sensor_dep} geometry
 add_executable(carrier_move src/blocksworld/carrier/actions/carrier_move.cpp)
 ament_target_dependencies(carrier_move ${bdi_act_client_dep} example_interfaces geometry_msgs webots_ros2_simulations_interfaces)
 
+add_executable(carrier_unload src/blocksworld/carrier/actions/carrier_unload.cpp)
+ament_target_dependencies(carrier_unload ${bdi_act_client_dep})
+
 add_executable(gripper_move src/blocksworld/gripper/actions/gripper_move.cpp)
 ament_target_dependencies(gripper_move ${bdi_act_client_dep} example_interfaces geometry_msgs webots_ros2_simulations_interfaces)
 
@@ -58,24 +61,25 @@ ament_target_dependencies(gripper_put_on_carrier ${bdi_act_client_dep} example_i
 add_executable(req_carrier_to_come src/blocksworld/gripper/actions/req_carrier_to_come.cpp)
 ament_target_dependencies(req_carrier_to_come ${bdi_act_client_dep})
 
-add_executable(req_carrier_to_go src/blocksworld/gripper/actions/req_carrier_to_go.cpp)
-ament_target_dependencies(req_carrier_to_go ${bdi_act_client_dep})
+# add_executable(req_carrier_to_go src/blocksworld/gripper/actions/req_carrier_to_go.cpp)
+# ament_target_dependencies(req_carrier_to_go ${bdi_act_client_dep})
 
-add_executable(req_carrier_to_unload src/blocksworld/gripper/actions/req_carrier_to_unload.cpp)
-ament_target_dependencies(req_carrier_to_unload ${bdi_act_client_dep})
+# add_executable(req_carrier_to_unload src/blocksworld/gripper/actions/req_carrier_to_unload.cpp)
+# ament_target_dependencies(req_carrier_to_unload ${bdi_act_client_dep})
 
 install(TARGETS
   carrier_move_sensor
   carrier_moving_boxes_sensor
   carrier_move
+  carrier_unload
   
   gripper_move
   gripper_pickup
   gripper_putdown
   gripper_put_on_carrier
-  req_carrier_to_go
   req_carrier_to_come
-  req_carrier_to_unload
+  # req_carrier_to_go
+  # req_carrier_to_unload
   DESTINATION lib/${PROJECT_NAME}
 )
 

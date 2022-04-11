@@ -80,15 +80,17 @@ def generate_launch_description():
         ))
 
     return LaunchDescription([
-        webots,
-        gripper_robot_driver,
-        carrier_a_robot_driver,
-        carrier_b_robot_driver,
-        carrier_c_robot_driver,
-        launch.actions.RegisterEventHandler(
-            event_handler=launch.event_handlers.OnProcessExit(
-                target_action=webots,
-                on_exit=[launch.actions.EmitEvent(event=launch.events.Shutdown())],
+            webots,
+            gripper_robot_driver,
+            carrier_a_robot_driver,
+            carrier_b_robot_driver,
+            carrier_c_robot_driver,
+            launch.actions.RegisterEventHandler(
+                event_handler=launch.event_handlers.OnProcessExit(
+                    target_action=webots,
+                    on_exit=[launch.actions.EmitEvent(event=launch.events.Shutdown())],
+                )
             )
-        )
-    ] + boxes_drivers)
+        ] 
+        + boxes_drivers
+    )

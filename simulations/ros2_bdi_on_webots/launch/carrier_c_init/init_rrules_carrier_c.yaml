@@ -1,0 +1,71 @@
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "EQ"
+            condition_to_check:
+              name: "moving_boxes"
+              pddl_type: 3
+              params:
+                - "carrier_c"
+              value: 0
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "fully_unloaded"
+        pddl_type: 2 
+        params: 
+          - "carrier_c"
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "GREQ"
+            condition_to_check:
+              name: "moving_boxes"
+              pddl_type: 3
+              params:
+                - "carrier_c"
+              value: 1
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "fully_unloaded"
+        pddl_type: 2 
+        params: 
+          - "carrier_c"
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "GREQ"
+            condition_to_check:
+              name: "moving_boxes"
+              pddl_type: 3
+              params:
+                - "carrier_c"
+              value: 2
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "fully_loaded"
+        pddl_type: 2 
+        params: 
+          - "carrier_c"
+    - set: desire
+      operation: ADD
+      value:
+        name: "go_unload"
+        priority: 0.8
+        deadline: 16
+        value:
+          - name: "fully_unloaded"
+            pddl_type: 2 
+            params: 
+              - "carrier_c"

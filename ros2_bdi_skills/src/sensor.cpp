@@ -28,7 +28,10 @@ Specifically:
     - proto_belief.pddl_type == 3 (FUNCTION) -> can sense exclusively function wrt. same instances, 
         i.e. name && params (size, but also individual instances) has to remain always the same, only value changes
 */
-Sensor::Sensor(const string& sensor_name, const Belief& proto_belief) : rclcpp::Node(sensor_name)
+Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool match_param_by_param) 
+    : rclcpp::Node(sensor_name),
+
+    match_param_by_param_(match_param_by_param)
 {
     proto_belief_ = Belief{};
     last_sensed_op_ = NOP;
@@ -181,10 +184,12 @@ bool Sensor::sensedFunction(const Belief& new_belief)
     bool do_upd = new_belief.pddl_type == Belief().FUNCTION_TYPE && new_belief.name == proto_belief_.name 
     && new_belief.params.size() == proto_belief_.params.size(); //same name -> same function -> same params
 
-    for(int i=0; do_upd && i<proto_belief_.params.size(); i++)//check match param by param
-        if(proto_belief_.params != new_belief.params)
-            do_upd = false;
-    
+    if(match_param_by_param_)
+    {
+        for(int i=0; do_upd && i<proto_belief_.params.size(); i++)//check match param by param
+            if(proto_belief_.params != new_belief.params)
+                do_upd = false;
+    }
     if(do_upd)
         last_sensed_ = new_belief;
     return do_upd;

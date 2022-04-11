@@ -91,34 +91,34 @@
         )
     )
 
-    (:durative-action req_carrier_to_go
-        :parameters (?c - carrier ?base - stackbase ?dep - deposit)
-        :duration (= ?duration 6)
-        :condition (and
-            (at start (carrier_in_base ?c ?base))
-            (over all (carrier_can_go ?c ?dep))
-        )
-        :effect (and
-            (at start (not (carrier_in_base ?c ?base)))
-            (at start (clear ?base))
-            (at end (carrier_in_deposit ?c ?dep))
-        )
-    )
+    ; (:durative-action req_carrier_to_go
+    ;     :parameters (?c - carrier ?base - stackbase ?dep - deposit)
+    ;     :duration (= ?duration 6)
+    ;     :condition (and
+    ;         (at start (carrier_in_base ?c ?base))
+    ;         (over all (carrier_can_go ?c ?dep))
+    ;     )
+    ;     :effect (and
+    ;         (at start (not (carrier_in_base ?c ?base)))
+    ;         (at start (clear ?base))
+    ;         (at end (carrier_in_deposit ?c ?dep))
+    ;     )
+    ; )
 
-    (:durative-action req_carrier_to_unload
-        :parameters (?c - carrier ?b - box ?dep - deposit)
-        :duration (= ?duration 1)
-        :condition (and
-            (at start(carrier_moving ?c ?b))
-            (at start(carrier_in_deposit ?c ?dep))
-            (over all(carrier_in_deposit ?c ?dep))
-        )
-        :effect (and
-            (at start (not (carrier_moving ?c ?b)))
-            (at end (decrease (moving_boxes ?c) 1))
-            (at end (stored ?b ?dep))
-        )
-    )
+    ; (:durative-action req_carrier_to_unload
+    ;     :parameters (?c - carrier ?b - box ?dep - deposit)
+    ;     :duration (= ?duration 1)
+    ;     :condition (and
+    ;         (at start(carrier_moving ?c ?b))
+    ;         (at start(carrier_in_deposit ?c ?dep))
+    ;         (over all(carrier_in_deposit ?c ?dep))
+    ;     )
+    ;     :effect (and
+    ;         (at start (not (carrier_moving ?c ?b)))
+    ;         (at end (decrease (moving_boxes ?c) 1))
+    ;         (at end (stored ?b ?dep))
+    ;     )
+    ; )
 
     (:durative-action gripper_put_on_carrier
         :parameters (?g - gripper ?b - box ?c - carrier ?base - stackbase)

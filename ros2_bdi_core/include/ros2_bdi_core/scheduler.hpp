@@ -239,6 +239,9 @@ private:
     bool psys2_problem_expert_active_;
     // plansys2 node status monitor subscription
     rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+    
+    // desire set has been init. (or at least the process to do so has been tried)
+    bool init_dset_;
 
     // belief set of the agent <agent_id_>
     std::set<BDIManaged::ManagedBelief> belief_set_;

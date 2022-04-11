@@ -7,54 +7,34 @@
       params: 
         - "gripper_a"
         - "start"
-    - name: "stored"
+    - name: "carrier_moving"
       pddl_type: 2
       params: 
+        - "carrier_a"
         - "box_a1"
-        - "deposit_a"
-    - name: "stored"
+    - name: "carrier_moving"
       pddl_type: 2
       params: 
+        - "carrier_a"
         - "box_a2"
-        - "deposit_a"
-    # - name: "stored"
+    # - name: "carrier_moving"
     #   pddl_type: 2
     #   params: 
-    #     - "box_c1"
-    #     - "deposit_c"
-    # - name: "stored"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_c2"
-    #     - "deposit_c"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_c2"
-    #     - "base_c"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_c1"
-    #     - "base_c"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_a2"
-    #     - "basea"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_a1"
-    #     - "basea"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
-    #     - "box_b2"
-    #     - "base_b"
-    # - name: "in"
-    #   pddl_type: 2
-    #   params: 
+    #     - "carrier_b"
     #     - "box_b1"
-    #     - "base_b"
+    # - name: "carrier_moving"
+    #   pddl_type: 2
+    #   params: 
+    #     - "carrier_b"
+    #     - "box_b2"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_c"
+        - "box_c1"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_c"
+        - "box_c2"
   

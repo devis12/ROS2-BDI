@@ -13,7 +13,7 @@ class GripperMove : public BDIActionExecutor
 {
     public:
         GripperMove()
-        : BDIActionExecutor("gripper_move", 2, false)
+        : BDIActionExecutor("gripper_move", 2)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
             move_gripper_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_motors_pose", 

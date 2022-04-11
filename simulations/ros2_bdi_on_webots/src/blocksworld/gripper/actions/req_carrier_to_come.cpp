@@ -49,7 +49,7 @@ class ReqCarrierToCome : public BDIActionExecutor
         Desire buildDesire(const std::string& agent_id, const std::string& target)
         {
             auto desire = Desire();
-            desire.name = robot_name_ + "_goto_dep";
+            desire.name = robot_name_ + "_cometo_base";
             desire.deadline = 6.0;//TODO develop API to retrieve duration from domain definition
             desire.priority = 0.6;
             auto value = Belief();

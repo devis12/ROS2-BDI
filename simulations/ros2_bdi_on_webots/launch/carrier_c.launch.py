@@ -28,13 +28,24 @@ def generate_launch_description():
         ]
     )
     
-     # waypoint sensor 
+    # carrier unload action
+    carrier_c_unload = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='carrier_unload',
+        name=CARRIER_C_AGENT_ID+'_carrier_unload',
+        specific_params=[
+            {"robot_name": CARRIER_C_AGENT_ID}
+        ]
+    )
+    
+    # waypoint sensor 
     carrier_c_move_sensor = AgentSensor(
         package='ros2_bdi_on_webots',
         executable='carrier_move_sensor',
         name=CARRIER_C_AGENT_ID+'_carrier_move_sensor',
         specific_params=[
-            {"init_sleep": 1}
+            {"init_sleep": 2},
+            {"sensing_freq": 2.0}
         ])
 
     # moving boxes sensor 
@@ -43,7 +54,8 @@ def generate_launch_description():
         executable='carrier_moving_boxes_sensor',
         name=CARRIER_C_AGENT_ID+'_carrier_moving_boxes_sensor',
         specific_params=[
-            {"init_sleep": 3}
+            {"init_sleep": 2},
+            {"sensing_freq": 1.0}
         ])
     
     carrier_c_agent_ld = AgentLaunchDescription(
@@ -53,13 +65,14 @@ def generate_launch_description():
             'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'carrier', 'carrier-domain.pddl'),
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_c_init', 'init_bset_carrier_c.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_c_init', 'init_dset_carrier_c.yaml'),
+            'init_reactive_rules_set': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_c_init', 'init_rrules_carrier_c.yaml'),
             'belief_ck': ['grippers'],   
             'belief_w':  ['grippers'],   
             'desire_ck': ['grippers'],   
             'desire_w':  ['grippers'],   
             'desire_pr': [0.6],
         },
-        actions=[carrier_c_move],
+        actions=[carrier_c_move, carrier_c_unload],
         sensors=[carrier_c_move_sensor, carrier_moving_boxes_sensor]
     ) 
 

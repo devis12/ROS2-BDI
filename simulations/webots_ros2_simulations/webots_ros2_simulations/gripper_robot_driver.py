@@ -73,7 +73,7 @@ GPS_POSES = {
     'start': Point(x=0.0, y=Y2, z=0.0),
     'base_1': Point(x=0.0, y=-Y1, z=0.02),
     'base_2': Point(x=-0.4, y=Y2, z=0.02),
-    'base_3': Point(x=-0.8, y=Y1, z=0.02),
+    'base_3': Point(x=-0.8, y=-Y3, z=0.02),
     'base_a': Point(x=2.0, y=-YA, z=0.02),
     'base_b': Point(x=-0.5, y=-YB, z=0.02),
     'base_c': Point(x=-3.0, y=-YC, z=0.02),

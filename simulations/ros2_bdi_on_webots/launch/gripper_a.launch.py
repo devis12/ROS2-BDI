@@ -54,18 +54,18 @@ def generate_launch_description():
     )
     
     # req carrier to go action istance 1
-    req_carrier_to_go1 = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='req_carrier_to_go',
-        name='req_carrier_to_go1'
-    )
+    # req_carrier_to_go1 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_go',
+    #     name='req_carrier_to_go1'
+    # )
 
-    # req carrier to unload action istance 1
-    req_carrier_to_unload1 = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='req_carrier_to_unload',
-        name='req_carrier_to_unload1'
-    )
+    # # req carrier to unload action istance 1
+    # req_carrier_to_unload1 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_unload',
+    #     name='req_carrier_to_unload1'
+    # )
 
     # req carrier to come action istance 2
     req_carrier_to_come2 = AgentAction(
@@ -75,18 +75,39 @@ def generate_launch_description():
     )
     
     # req carrier to go action istance 2
-    req_carrier_to_go2 = AgentAction(
-        package='ros2_bdi_on_webots',
-        executable='req_carrier_to_go',
-        name='req_carrier_to_go2'
-    )
+    # req_carrier_to_go2 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_go',
+    #     name='req_carrier_to_go2'
+    # )
 
-    # req carrier to unload action istance 2
-    req_carrier_to_unload2 = AgentAction(
+    # # req carrier to unload action istance 2
+    # req_carrier_to_unload2 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_unload',
+    #     name='req_carrier_to_unload2'
+    # )
+
+    # req carrier to come action istance 3
+    req_carrier_to_come3 = AgentAction(
         package='ros2_bdi_on_webots',
-        executable='req_carrier_to_unload',
-        name='req_carrier_to_unload2'
+        executable='req_carrier_to_come',
+        name='req_carrier_to_come3'
     )
+    
+    # req carrier to go action istance 3
+    # req_carrier_to_go3 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_go',
+    #     name='req_carrier_to_go3'
+    # )
+
+    # # req carrier to unload action istance 3
+    # req_carrier_to_unload3 = AgentAction(
+    #     package='ros2_bdi_on_webots',
+    #     executable='req_carrier_to_unload',
+    #     name='req_carrier_to_unload3'
+    # )
 
     gantry_agent_ld = AgentLaunchDescription(
         agent_id=GANTRY_AGENT_ID,
@@ -97,8 +118,9 @@ def generate_launch_description():
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_dset_gripper_a.yaml'),
         },
         actions=[move_gripper, gripper_pickup, gripper_putdown, gripper_put_on_carrier, 
-                req_carrier_to_come1, req_carrier_to_go1, req_carrier_to_unload1,
-                req_carrier_to_come2, req_carrier_to_go2, req_carrier_to_unload2,
+                req_carrier_to_come1, #req_carrier_to_go1, req_carrier_to_unload1,
+                req_carrier_to_come2, #req_carrier_to_go2, req_carrier_to_unload2,
+                req_carrier_to_come3, #req_carrier_to_go3, req_carrier_to_unload3,
         ],
         sensors=[],
         run_only_psys2=False

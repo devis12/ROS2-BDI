@@ -11,6 +11,7 @@ data_files.append(('share/' + package_name + '/resource', ['resource/my_simple_r
 
 data_files.append(('share/' + package_name + '/launch', ['launch/blocks_world.launch.py']))
 data_files.append(('share/' + package_name + '/worlds', ['worlds/blocksworld.wbt']))
+data_files.append(('share/' + package_name + '/worlds', ['worlds/blocksworld_no_box_gps.wbt']))
 data_files.append(('share/' + package_name + '/resource', ['resource/gripper_a_robot.urdf']))
 data_files.append(('share/' + package_name + '/resource', ['resource/carrier_a_robot.urdf']))
 data_files.append(('share/' + package_name + '/resource', ['resource/carrier_b_robot.urdf']))

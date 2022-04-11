@@ -27,7 +27,7 @@ public:
       - proto_belief.pddl_type == 3 (FUNCTION) -> can sense exclusively function wrt. same instances, 
           i.e. name && params (size, but also individual instances) has to remain always the same, only value changes
   */
-  Sensor(const std::string& sensor_name, const ros2_bdi_interfaces::msg::Belief& proto_belief);
+  Sensor(const std::string& sensor_name, const ros2_bdi_interfaces::msg::Belief& proto_belief, const bool match_param_by_param=true);
 
   /*  Get belief prototype for the sensor node*/
   ros2_bdi_interfaces::msg::Belief getBeliefPrototype() {return proto_belief_;}
@@ -89,6 +89,9 @@ private:
 
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+
+    // applicable with fluent: check param by param equivalence between belief proto and sensed belief
+    bool match_param_by_param_;
 
     // name of the sensor
     std::string sensor_name_;

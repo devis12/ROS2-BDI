@@ -35,7 +35,7 @@ class CarrierWPSensor : public Sensor
             current_wp_.pddl_type = proto_belief.pddl_type;
             current_wp_.params = proto_belief.params;
             current_wp_.params[0] = robot_name_;
-
+            current_wp_.params[1] = "deposit";
         }
 
         void performSensing()

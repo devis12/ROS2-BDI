@@ -3,7 +3,7 @@
 
 /* Parameters affecting internal logic (recompiling required) */
 #define TIMER_MIN 250
-#define TIMER_MAX 2000
+#define TIMER_MAX 20000
 
 #define PSYS2NODES 4
 #define PSYS2_CK_STATE_SRV "get_state"
