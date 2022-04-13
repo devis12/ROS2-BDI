@@ -28,10 +28,11 @@ Specifically:
     - proto_belief.pddl_type == 3 (FUNCTION) -> can sense exclusively function wrt. same instances, 
         i.e. name && params (size, but also individual instances) has to remain always the same, only value changes
 */
-Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool match_param_by_param) 
+Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool match_param_by_param, const bool enable_perform_sensing) 
     : rclcpp::Node(sensor_name),
 
-    match_param_by_param_(match_param_by_param)
+    match_param_by_param_(match_param_by_param),
+    enable_perform_sensing_(enable_perform_sensing)
 {
     proto_belief_ = Belief{};
     last_sensed_op_ = NOP;
@@ -50,7 +51,7 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
     this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
-    this->declare_parameter(PARAM_INIT_SLEEP, 0);//init node sleep (e.g. sensor activated later)
+    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) //TODO default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
 
     this->init();
 }
@@ -81,7 +82,7 @@ void Sensor::init()
             milliseconds((int) (1000/sensing_freq)),
             bind(&Sensor::performSensing, this));// loop to be called regularly to publish the sensing result (publish add_belief)
 
-    else// wait init sleep seconds before starting sensor_timer_
+    else if(enable_perform_sensing_)// wait init sleep seconds before starting sensor_timer_
         start_timer_ = this->create_wall_timer(
             seconds(init_sleep_sec),
             bind(&Sensor::startSensing, this));
@@ -100,10 +101,10 @@ void Sensor::startSensing()
 
     // retrieve from parameter frequency at which to perform sensing
     float sensing_freq = this->get_parameter(PARAM_SENSING_FREQ).as_double();
-    // loop to be called regularly to publish the sensing result (publish add_belief)
-    sensor_timer_ = this->create_wall_timer(
-        milliseconds((int) (1000/sensing_freq)),
-        bind(&Sensor::performSensing, this));
+    if(enable_perform_sensing_)
+        sensor_timer_ = this->create_wall_timer(    // loop to be called regularly to publish the sensing result (publish add_belief)
+            milliseconds((int) (1000/sensing_freq)),
+            bind(&Sensor::performSensing, this));
 }
 
 /*
@@ -123,7 +124,6 @@ void Sensor::sense(const Belief& belief, const UpdOperation& op)
         updated = sensedPredicate(belief);
     else if(proto_belief_.pddl_type == Belief().FUNCTION_TYPE)
         updated = sensedFunction(belief);
-
     if(updated)
         publishSensing(op);
 }

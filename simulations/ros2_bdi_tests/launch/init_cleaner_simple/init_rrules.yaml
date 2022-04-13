@@ -8,6 +8,26 @@
               pddl_type: 3
               params:
                 - "cleaner"
+              value: 100
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "full_recharged"
+        pddl_type: 2 
+        params: 
+          - "cleaner"
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "LE"
+            condition_to_check:
+              name: "battery_charge"
+              pddl_type: 3
+              params:
+                - "cleaner"
               value: 40
 
   reactive_rules:
@@ -18,8 +38,7 @@
         priority: 0.8
         deadline: 16.0
         value:
-          - name: "in"
+          - name: "full_recharged"
             pddl_type: 2 
             params: 
               - "cleaner"
-              - "dock"

@@ -135,7 +135,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<PlanSys2Monitor>();
-  std::this_thread::sleep_for(std::chrono::seconds(3));//WAIT PSYS2 TO BOOT
+  std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
 
   node->init();
   rclcpp::spin(node);

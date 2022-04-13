@@ -15,6 +15,7 @@
         (workfree ?r - robot)
         (recharging_station ?wp - waypoint)
         (cleaned ?wp - waypoint)
+        (full_recharged ?r - robot)
     )
 
     (:functions
@@ -27,7 +28,7 @@
         :condition (and
             (at start (in ?r ?wp_from))
             (at start (workfree ?r))
-            (at start (> (battery_charge ?r) 20))
+            (at start (> (battery_charge ?r) 15))
             (over all (> (battery_charge ?r) 10))
         )
         :effect (and
@@ -68,6 +69,7 @@
             (at start (not(workfree ?r)))
             (at end (workfree ?r))
             (at end (assign (battery_charge ?r) 100))
+            (at end (full_recharged ?r))
         )
     )
 

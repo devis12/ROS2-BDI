@@ -30,7 +30,7 @@
         :condition (and
             (at start (in ?r ?wp_from))
             (at start (workfree ?r))
-            (at start (> (battery_charge) 20))
+            (at start (> (battery_charge) 15))
             (over all (> (battery_charge) 10))
         )
         :effect (and
