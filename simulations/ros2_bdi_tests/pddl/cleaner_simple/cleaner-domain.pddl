@@ -8,6 +8,7 @@
     (:types
         waypoint
         robot
+        void
     );; end Types ;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (:predicates
@@ -16,6 +17,8 @@
         (recharging_station ?wp - waypoint)
         (cleaned ?wp - waypoint)
         (full_recharged ?r - robot)
+        (pred_a ?v - void)
+        (pred_b ?v - void)
     )
 
     (:functions
