@@ -72,8 +72,10 @@ void BeliefManager::init()
     // last pddl problem known at the moment init (just empty string)
     last_pddl_problem_ = "";
 
-    //Init belief set
+    //Declare empty belief set
     belief_set_ = set<ManagedBelief>();
+    //wait for it to be init
+    init_bset_ = false;
 
     //Belief set publisher
     belief_set_publisher_ = this->create_publisher<BeliefSet>(BELIEF_SET_TOPIC, 10);
@@ -131,8 +133,11 @@ void BeliefManager::step()
         {
             if(psys2_domain_expert_active_ && psys2_problem_expert_active_ ){
                 psys2_comm_errors_ = 0;
-                if(belief_set_.size() == 0)//belief set empty
+                if(!init_bset_)//hasn't been tried to init belief set yet
+                {    
                     tryInitBeliefSet();
+                    init_bset_ = true;
+                }
                 setState(SYNC);
             
             }else{
@@ -620,7 +625,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<BeliefManager>();
-
+  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
   node->init();
   rclcpp::spin(node);
   rclcpp::shutdown();

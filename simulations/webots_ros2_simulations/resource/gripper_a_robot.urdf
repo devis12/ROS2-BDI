@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<robot name="gripper_a">
+    <webots>
+        <device reference="bridge_motor_gps" type="GPS">
+            <ros>
+                <enabled>true</enabled>
+                <alwaysOn>true</alwaysOn>
+                <updateRate>4</updateRate>
+                <topicName>/gripper_a/bridge_motor_gps</topicName>
+            </ros>
+        </device>
+        <device reference="lift_motor_gps" type="GPS">
+            <ros>
+                <enabled>true</enabled>
+                <alwaysOn>true</alwaysOn>
+                <updateRate>4</updateRate>
+                <topicName>/gripper_a/lift_motor_gps</topicName>
+            </ros>
+        </device>
+        <plugin type="webots_ros2_simulations.gripper_robot_driver.GripperRobotDriver"  webots_robot_name="gripper_a"/>
+    </webots>
+</robot>

@@ -1,0 +1,79 @@
+set instance box_a1 box
+set instance box_a2 box
+set instance box_b1 box
+set instance box_b2 box
+set instance box_c1 box
+set instance box_c2 box
+
+set instance start stackbase
+set instance base_1 stackbase
+set instance base_2 stackbase
+set instance base_3 stackbase
+set instance base_a stackbase
+set instance base_b stackbase
+set instance base_c stackbase
+
+set instance deposit_a deposit
+set instance deposit_b deposit
+set instance deposit_c deposit
+
+set instance carrier_a carrier
+set instance carrier_b carrier
+set instance carrier_c carrier
+
+set instance gripper_a gripper
+set predicate (upon gripper_a start)
+set function (= (holding_boxes gripper_a) 0)
+
+set predicate (on box_a1 base_1 base_1)
+set predicate (on box_c2 box_a1 base_1)
+set predicate (on box_a2 box_c2 base_1)
+set predicate (in box_a1 base_1)
+set predicate (in box_c2 base_1)
+set predicate (in box_a2 base_1)
+set predicate (in base_1 base_1)
+set predicate (clear box_a2)
+
+set predicate (on box_b1 base_2 base_2)
+set predicate (on box_b2 box_b1 base_2)
+set predicate (on box_c1 box_b2 base_2)
+set predicate (in box_b1 base_2)
+set predicate (in box_b2 base_2)
+set predicate (in box_c1 base_2)
+set predicate (in base_2 base_2)
+set predicate (clear box_c1)
+
+set predicate (clear base_3)
+set predicate (clear base_a)
+set predicate (clear base_b)
+set predicate (clear base_c)
+set predicate (in base_a base_a)
+set predicate (in base_b base_b)
+set predicate (in base_c base_c)
+
+set function (= (stacked base_1) 3)
+set function (= (stacked base_2) 3)
+set function (= (stacked base_3) 0)
+set function (= (stacked base_a) 0)
+set function (= (stacked base_b) 0)
+set function (= (stacked base_c) 0)
+
+
+set predicate (carrier_in_deposit carrier_a deposit_a)
+set predicate (carrier_in_deposit carrier_b deposit_b)
+set predicate (carrier_in_deposit carrier_c deposit_c)
+
+set predicate (carrier_can_come carrier_a base_a)
+set predicate (carrier_can_come carrier_b base_b)
+set predicate (carrier_can_come carrier_c base_c)
+
+set predicate (carrier_can_go carrier_a deposit_a)
+set predicate (carrier_can_go carrier_b deposit_b)
+set predicate (carrier_can_go carrier_c deposit_c)
+
+set function (= (moving_boxes carrier_a) 0)
+set function (= (moving_boxes carrier_b) 0)
+set function (= (moving_boxes carrier_c) 0)
+
+set goal (and (in box_c2 base_c) (in box_c1 base_c) (in box_a2 base_a) (in box_a1 base_a) (in box_b2 base_b) (in box_b1 base_b))
+set goal (and (stored box_a2 deposit_a) (stored box_a1 deposit_a) (stored box_b2 deposit_b) (stored box_b1 deposit_b) (stored box_c2 deposit_c) (stored box_c1 deposit_c) )

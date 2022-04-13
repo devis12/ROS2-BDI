@@ -26,15 +26,21 @@ public:
       
       - proto_belief.pddl_type == 3 (FUNCTION) -> can sense exclusively function wrt. same instances, 
           i.e. name && params (size, but also individual instances) has to remain always the same, only value changes
+    
+    @match_param_by_param defines whether in a function/fluent sensing all params should match or not (default behaviour is set to true
+    to match the rule defined above, but you can override it so that fluent/function case is basically equivalent to the one of the predicate proto.)
+
+    @enable_perform_sensing -> enable periodic perform sensing, i.e. sense is called just within subscription callbacks (default is set to true)
   */
-  Sensor(const std::string& sensor_name, const ros2_bdi_interfaces::msg::Belief& proto_belief);
+  Sensor(const std::string& sensor_name, const ros2_bdi_interfaces::msg::Belief& proto_belief, 
+            const bool match_param_by_param=true, const bool enable_perform_sensing=true);
 
   /*  Get belief prototype for the sensor node*/
   ros2_bdi_interfaces::msg::Belief getBeliefPrototype() {return proto_belief_;}
 protected:
 
     /* Sensor logic to be implemented in the actual sensor classes written by the framework user */
-    virtual void performSensing() = 0;
+    virtual void performSensing() {};
     
     /*
         API offered to user so that he can just invoke it within the performSensing() implementation whenever the logic
@@ -89,6 +95,12 @@ private:
 
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+
+    // applicable with fluent: check param by param equivalence between belief proto and sensed belief
+    bool match_param_by_param_;
+
+    // enable performing of periodic sensing 
+    bool enable_perform_sensing_;
 
     // name of the sensor
     std::string sensor_name_;

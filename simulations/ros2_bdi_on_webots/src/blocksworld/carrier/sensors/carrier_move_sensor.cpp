@@ -11,7 +11,6 @@ using std::string;
 using std::shared_ptr;
 using std::bind;
 using std::placeholders::_1;
-using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;    
 using webots_ros2_simulations_interfaces::msg::MoveStatus;        
@@ -22,7 +21,7 @@ class CarrierWPSensor : public Sensor
 {
     public:
         CarrierWPSensor(const string& sensor_name, const Belief& proto_belief)
-        : Sensor(sensor_name, proto_belief)
+        : Sensor(sensor_name, proto_belief, true, false)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
 
@@ -35,14 +34,9 @@ class CarrierWPSensor : public Sensor
             current_wp_.pddl_type = proto_belief.pddl_type;
             current_wp_.params = proto_belief.params;
             current_wp_.params[0] = robot_name_;
-
+            current_wp_.params[1] = "deposit";
         }
-
-        void performSensing()
-        {
-            //sense(current_wp_, ADD);    
-        }
-
+        
     private:
         void carrierMoveStatusCallback(const MoveStatus::SharedPtr msg)
         {

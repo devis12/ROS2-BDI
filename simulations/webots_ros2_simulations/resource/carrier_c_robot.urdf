@@ -5,7 +5,7 @@
             <ros>
                 <enabled>true</enabled>
                 <alwaysOn>true</alwaysOn>
-                 <updateRate>8</updateRate>
+                 <updateRate>4</updateRate>
             </ros>
         </device>
         <plugin type="webots_ros2_simulations.carrier_robot_driver.CarrierRobotDriver"  webots_robot_name="carrier_c"/>

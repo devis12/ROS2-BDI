@@ -416,14 +416,14 @@ DEF GANTRY Robot {
       }
     }
   ]
-  name "gantry"
+  name "gripper_a"
   boundingObject USE PILLARS_GROUP
   physics Physics {
   }
   controller "<extern>"
 }
-DEF BOX_A1 Solid {
-  translation 0 -0.8 0.15
+DEF S_BOX_A1 Solid {
+  translation 0 -0.9 0.15
   children [
     DEF BOX_SHAPE Shape {
       appearance PBRAppearance {
@@ -440,35 +440,35 @@ DEF BOX_A1 Solid {
       }
     }
   ]
-  name "box A1"
+  name "s_box_a1"
   boundingObject USE BOX_SHAPE
   physics Physics {
   }
 }
-DEF BOX_A2 Solid {
-  translation 0 -0.8 0.55
-  children [
-    DEF BOX_SHAPE Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
-          ]
+DEF S_BOX_A2 Solid {
+    translation 0 -0.9 0.55
+    children [
+      DEF BOX_SHAPE Shape {
+        appearance PBRAppearance {
+          baseColorMap ImageTexture {
+            url [
+              "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/A.png"
+            ]
+          }
+          roughness 1
+          metalness 0
         }
-        roughness 1
-        metalness 0
+        geometry Box {
+          size 0.2 0.2 0.2
+        }
       }
-      geometry Box {
-        size 0.2 0.2 0.2
-      }
+    ]
+    name "s_box_a2"
+    boundingObject USE BOX_SHAPE
+    physics Physics {
     }
-  ]
-  name "box A2"
-  boundingObject USE BOX_SHAPE
-  physics Physics {
-  }
 }
-DEF BOX_B1 Solid {
+DEF S_BOX_B1 Solid {
   translation -0.4 0 0.15
   children [
     DEF BOX_SHAPE Shape {
@@ -486,12 +486,12 @@ DEF BOX_B1 Solid {
       }
     }
   ]
-  name "box B1"
+  name "s_box_b1"
   boundingObject USE BOX_SHAPE
   physics Physics {
   }
 }
-DEF BOX_B2 Solid {
+DEF S_BOX_B2 Solid {
   translation -0.4 0 0.35
   children [
     DEF BOX_SHAPE Shape {
@@ -509,12 +509,12 @@ DEF BOX_B2 Solid {
       }
     }
   ]
-  name "box B2"
+  name "s_box_b2"
   boundingObject USE BOX_SHAPE
   physics Physics {
   }
 }
-DEF BOX_C1 Solid {
+DEF S_BOX_C1 Solid {
   translation -0.4 0 0.55
   children [
     DEF BOX_SHAPE Shape {
@@ -532,13 +532,13 @@ DEF BOX_C1 Solid {
       }
     }
   ]
-  name "box C1"
+  name "s_box_c1"
   boundingObject USE BOX_SHAPE
   physics Physics {
   }
 }
-DEF BOX_C2 Solid {
-  translation 0 -0.8 0.35
+DEF S_BOX_C2 Solid {
+  translation 0 -0.9 0.35
   children [
     DEF BOX_SHAPE Shape {
       appearance PBRAppearance {
@@ -555,13 +555,13 @@ DEF BOX_C2 Solid {
       }
     }
   ]
-  name "box C2"
+  name "s_box_c2"
   boundingObject USE BOX_SHAPE
   physics Physics {
   }
 }
 DEF PLATFORM_1 Solid {
-  translation 0 -0.8 0.02
+  translation 0 -0.9 0.02
   rotation 0 0 1 -1.5707953071795862
   children [
     DEF PLATFORM1_SHAPE Shape {
@@ -602,6 +602,28 @@ DEF PLATFORM_2 Solid {
     }
   ]
   name "platform 2"
+  boundingObject USE PLATFORM2_SHAPE
+}
+DEF PLATFORM_3 Solid {
+  translation -0.8 -0.9 0.02
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    DEF PLATFORM2_SHAPE Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "https://raw.githubusercontent.com/devis12/ROS2-BDI/Webots_demo/simulations/webots_ros2_simulations/textures/3.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.4 0.4 0.04
+      }
+    }
+  ]
+  name "platform 3"
   boundingObject USE PLATFORM2_SHAPE
 }
 DEF PLATFORM_A Solid {
@@ -740,11 +762,9 @@ DEF DEPOSIT_C Solid {
   boundingObject USE DEPOSITC_SHAPE
 }
 Robot {
-  translation 2 4.48 0.1
-  rotation 0 0 1 3.1416
+  translation 2.0 4.34 0.1
+  rotation 0 0 1 1.5708
   children [
-    InertialUnit {
-    }
     GPS {
     }
     DEF BODY Shape {
@@ -766,7 +786,7 @@ Robot {
       device [
         RotationalMotor {
           name "ca_wheel1"
-          maxVelocity 36
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -800,7 +820,7 @@ Robot {
       device [
         RotationalMotor {
           name "ca_wheel2"
-          maxVelocity 36
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -824,7 +844,7 @@ Robot {
       device [
         RotationalMotor {
           name "ca_wheel3"
-          maxVelocity 36
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -848,7 +868,7 @@ Robot {
       device [
         RotationalMotor {
           name "ca_wheel4"
-          maxVelocity 36
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -873,7 +893,7 @@ Robot {
   controller "<extern>"
 }
 Robot {
-  translation -0.5 8.32 0.1
+  translation -0.5 4.34 0.1
   rotation 0 0 1 1.5708
   children [
     GPS {
@@ -896,7 +916,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel1"
+          name "cb_wheel1"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -929,7 +950,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel2"
+          name "cb_wheel2"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -952,7 +974,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel3"
+          name "cb_wheel3"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -975,7 +998,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel4"
+          name "cb_wheel4"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -997,9 +1021,11 @@ Robot {
     density -1
     mass 1
   }
+  controller "<extern>"
 }
+
 Robot {
-  translation -3 8.32 0.1
+  translation -3.0 4.34 0.1
   rotation 0 0 1 1.5708
   children [
     GPS {
@@ -1022,7 +1048,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel1"
+          name "cc_wheel1"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -1055,7 +1082,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel2"
+          name "cc_wheel2"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -1078,7 +1106,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel3"
+          name "cc_wheel3"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -1101,7 +1130,8 @@ Robot {
       }
       device [
         RotationalMotor {
-          name "ca_wheel4"
+          name "cc_wheel4"
+          maxVelocity 16
         }
       ]
       endPoint Solid {
@@ -1123,4 +1153,5 @@ Robot {
     density -1
     mass 1
   }
+  controller "<extern>"
 }

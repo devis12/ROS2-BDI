@@ -18,7 +18,7 @@ def generate_launch_description():
 
     bdi_onwebots_share_dir = get_package_share_directory('ros2_bdi_on_webots')
     
-    # move gripper action
+    # carrier move action
     carrier_a_move = AgentAction(
         package='ros2_bdi_on_webots',
         executable='carrier_move',
@@ -28,13 +28,34 @@ def generate_launch_description():
         ]
     )
     
-     # waypoint sensor 
+    # carrier unload action
+    carrier_a_unload = AgentAction(
+        package='ros2_bdi_on_webots',
+        executable='carrier_unload',
+        name=CARRIER_A_AGENT_ID+'_carrier_unload',
+        specific_params=[
+            {"robot_name": CARRIER_A_AGENT_ID}
+        ]
+    )
+    
+    # waypoint sensor 
     carrier_a_move_sensor = AgentSensor(
         package='ros2_bdi_on_webots',
         executable='carrier_move_sensor',
         name=CARRIER_A_AGENT_ID+'_carrier_move_sensor',
         specific_params=[
-            {"init_sleep": 1}
+            {"init_sleep": 1},
+            {"sensing_freq": 2.0}
+        ])
+
+    # moving boxes sensor 
+    carrier_moving_boxes_sensor = AgentSensor(
+        package='ros2_bdi_on_webots',
+        executable='carrier_moving_boxes_sensor',
+        name=CARRIER_A_AGENT_ID+'_carrier_moving_boxes_sensor',
+        specific_params=[
+            {"init_sleep": 2},
+            {"sensing_freq": 0.5}
         ])
 
     carrier_a_agent_ld = AgentLaunchDescription(
@@ -44,9 +65,15 @@ def generate_launch_description():
             'pddl_file': os.path.join(bdi_onwebots_share_dir, 'pddl', 'carrier', 'carrier-domain.pddl'),
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_a_init', 'init_bset_carrier_a.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_a_init', 'init_dset_carrier_a.yaml'),
+            'init_reactive_rules_set': os.path.join(bdi_onwebots_share_dir, 'launch', 'carrier_a_init', 'init_rrules_carrier_a.yaml'),
+            'belief_ck': ['grippers'],   
+            'belief_w':  ['grippers'],   
+            'desire_ck': ['grippers'],   
+            'desire_w':  ['grippers'],   
+            'desire_pr': [0.6],
         },
-        actions=[carrier_a_move],
-        sensors=[carrier_a_move_sensor],
+        actions=[carrier_a_move, carrier_a_unload],
+        sensors=[carrier_a_move_sensor, carrier_moving_boxes_sensor],
         run_only_psys2=False
     ) 
 

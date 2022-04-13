@@ -40,7 +40,7 @@ class WPSensor : public Sensor
             counter_ = 0;
         }
 
-        void performSensing()
+        void performSensing() override
         {
             if(counter_ < waypoints.size())
             {

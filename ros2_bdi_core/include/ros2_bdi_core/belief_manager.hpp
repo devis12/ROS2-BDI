@@ -178,6 +178,9 @@ class BeliefManager : public rclcpp::Node
         // plansys2 node status monitor subscription
         rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
         
+        // belief set has been init. (or at least the process to do so has been tried)
+        bool init_bset_;
+
         // belief set of the agent <agent_id_>
         std::set<BDIManaged::ManagedBelief> belief_set_;
 

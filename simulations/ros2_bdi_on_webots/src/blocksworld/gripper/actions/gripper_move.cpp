@@ -1,33 +1,35 @@
-#include "ros2_bdi_skills/bdi_action_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
-
-#include "cmath"
+#include "ros2_bdi_skills/bdi_action_executor.hpp"
 
 #include "example_interfaces/msg/string.hpp"
 #include "webots_ros2_simulations_interfaces/msg/move_status.hpp"
-#include "geometry_msgs/msg/point.hpp"
+
+using std::string;
+
+using example_interfaces::msg::String;
+using webots_ros2_simulations_interfaces::msg::MoveStatus;
 
 #define MEANINGFUL_DIFF 0.001
 
-class CarrierMove : public BDIActionExecutor
+class GripperMove : public BDIActionExecutor
 {
     public:
-        CarrierMove()
-        : BDIActionExecutor("carrier_move", 2, false)
+        GripperMove()
+        : BDIActionExecutor("gripper_move", 2)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
-            move_carrier_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_target", 
+            move_gripper_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_motors_pose", 
                 rclcpp::QoS(1).keep_all());
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             on_activate(const rclcpp_lifecycle::State & previous_state)
         {
-            move_carrier_cmd_publisher_->on_activate();
+            move_gripper_cmd_publisher_->on_activate();
             
-            carrier_move_status_subscriber_ = this->create_subscription<webots_ros2_simulations_interfaces::msg::MoveStatus>("/"+robot_name_+"/move_status", 
+            gripper_move_status_subscriber_ = this->create_subscription<MoveStatus>("/"+robot_name_+"/motors_move_status", 
                 rclcpp::QoS(5).best_effort(),
-                std::bind(&CarrierMove::carrierMoveStatusCallback, this, std::placeholders::_1));
+                std::bind(&GripperMove::gripperMoveStatusCallback, this, std::placeholders::_1));
 
             last_step_progress_info_ = 0.0f;
 
@@ -37,7 +39,7 @@ class CarrierMove : public BDIActionExecutor
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             on_deactivate(const rclcpp_lifecycle::State & previous_state)
         {
-            move_carrier_cmd_publisher_->on_deactivate();
+            move_gripper_cmd_publisher_->on_deactivate();
 
             return BDIActionExecutor::on_deactivate(previous_state);
         }
@@ -51,9 +53,9 @@ class CarrierMove : public BDIActionExecutor
             
             else if (last_step_progress_info_ == 0.0 && destination != move_status_.target_name)//move cmd to trigger action execution hasn't been given yet 
             {
-                auto msg = example_interfaces::msg::String();
+                auto msg = String();
                 msg.data = destination;
-                move_carrier_cmd_publisher_->publish(msg);
+                move_gripper_cmd_publisher_->publish(msg);
             }
             else if (destination == move_status_.target_name) 
             {
@@ -69,16 +71,16 @@ class CarrierMove : public BDIActionExecutor
 
     private:
 
-        void carrierMoveStatusCallback(const webots_ros2_simulations_interfaces::msg::MoveStatus::SharedPtr msg)
+        void gripperMoveStatusCallback(const MoveStatus::SharedPtr msg)
         {
             move_status_ = *msg;
         }
 
-        rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr move_carrier_cmd_publisher_;
-        rclcpp::Subscription<webots_ros2_simulations_interfaces::msg::MoveStatus>::SharedPtr carrier_move_status_subscriber_;
+        rclcpp_lifecycle::LifecyclePublisher<String>::SharedPtr move_gripper_cmd_publisher_;
+        rclcpp::Subscription<MoveStatus>::SharedPtr gripper_move_status_subscriber_;
         float last_step_progress_info_;
-        webots_ros2_simulations_interfaces::msg::MoveStatus move_status_;
-        std::string robot_name_;
+        MoveStatus move_status_;
+        string robot_name_;
 
 };
 
@@ -86,7 +88,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
-  auto actionNode = std::make_shared<CarrierMove>();
+  auto actionNode = std::make_shared<GripperMove>();
   rclcpp::spin(actionNode->get_node_base_interface());
 
   rclcpp::shutdown();

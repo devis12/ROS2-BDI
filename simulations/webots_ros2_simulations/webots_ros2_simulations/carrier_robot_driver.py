@@ -10,24 +10,26 @@ from webots_ros2_simulations_interfaces.msg import MoveStatus
 ROBOT_DEFAULT_NAME = 'carrier_x'
 
 ON_TARGET_HIGH_PREC_EPS = 0.06
-ON_TARGET_LOW_PREC_EPS = 0.2
+ON_TARGET_LOW_PREC_EPS = 0.36
 
-MAX_VEL = 4.2
-MIN_VEL = 0.6
+MAX_VEL = 12.0
+MIN_VEL = 2.0
 
 TARGETS = {
-    'base_y': 1.02,
-    'deposit_y': 4.32,
-    'moving_y' : 4.32 # updated at run time
+    'base_y': 1.08,
+    'deposit_y': 4.28,
+    'moving_y' : 4.28 # updated at run time
 }
 
 class CarrierRobotDriver:
     def init(self, webots_node, properties):
         self.__robot = webots_node.robot
         
+        id_robot = self.__robot.getName()[len(self.__robot.getName())-1]
+        
         self.__motors = [] 
         for i in range(1,5):    
-            self.__motors.append(self.__robot.getDevice('ca_wheel{}'.format(i)))
+            self.__motors.append(self.__robot.getDevice('c{}_wheel{}'.format(id_robot, i)))
             self.__motors[i-1].setPosition(float('inf'))
             self.__motors[i-1].setVelocity(0)
 
@@ -78,7 +80,7 @@ class CarrierRobotDriver:
                     forward_speed = MIN_VEL
                     
                 # different velocities based on the distance (if you're near slow down)
-                forward_speed *= 1.2 if abs(distance_from_target) > ON_TARGET_LOW_PREC_EPS else 0.8
+                forward_speed *= 1.2 if abs(distance_from_target) > ON_TARGET_LOW_PREC_EPS else 0.9
                 forward_speed = -abs(forward_speed) if distance_from_target > 0 else abs(forward_speed)
                 # don't go over vel. thresholds
                 if abs(forward_speed) > abs(MAX_VEL):

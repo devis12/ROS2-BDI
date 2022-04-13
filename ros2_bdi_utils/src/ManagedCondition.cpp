@@ -55,24 +55,59 @@ bool ManagedCondition::performCheckAgainstBelief(const ManagedBelief& mb)
 }
 bool ManagedCondition::performCheckAgainstBeliefs(const vector<ManagedBelief>& mbArray)
 {
+    Condition c = Condition();
+    uint8_t false_verified_count = 0;//to be used in case we need to check whether a predicate is false
+
     if(!validCheckRequest())
         return false;
+    
     for(ManagedBelief mb : mbArray)
-        if(performCheckAgainstBelief(mb))
+    {
+        bool check_res = performCheckAgainstBelief(mb);
+        if(check_res)
         {
-            std::cout << "HEYHEYHEY" << check_ << " verified against " << mb << std::endl; 
-            return true;
+            if(check_ != c.FALSE_CHECK)
+                return true;
+            else
+                false_verified_count++; // false needs to be tested against all current kb
         }
+
+        if(check_ == c.FALSE_CHECK && !check_res)
+            return false; // check false where found to be true
+    }
+
+    if (check_ == c.FALSE_CHECK && false_verified_count == mbArray.size())
+            return true; // check false has been successfully verified against all kb
+
     return false;
 }
 
 bool ManagedCondition::performCheckAgainstBeliefs(const set<ManagedBelief>& mbSet)
 {
+    Condition c = Condition();
+    uint8_t false_verified_count = 0;//to be used in case we need to check whether a predicate is false
+
     if(!validCheckRequest())
         return false;
+    
     for(ManagedBelief mb : mbSet)
-        if(performCheckAgainstBelief(mb))
-            return true;
+    {
+        bool check_res = performCheckAgainstBelief(mb);
+        if(check_res)
+        {
+            if(check_ != c.FALSE_CHECK)
+                return true;
+            else
+                false_verified_count++; // false needs to be tested against all current kb
+        }
+
+        if(check_ == c.FALSE_CHECK && !check_res)
+            return false; // check false where found to be true
+    }
+
+    if (check_ == c.FALSE_CHECK && false_verified_count == mbSet.size())
+            return true; // check false has been successfully verified against all kb
+
     return false;
 }
 

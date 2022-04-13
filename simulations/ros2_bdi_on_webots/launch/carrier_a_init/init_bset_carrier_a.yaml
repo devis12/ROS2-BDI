@@ -2,12 +2,12 @@
   name: "deposit"
   pddl_type: 1 
   params: 
-    - "waypoint"
+    - "deposit_wp"
 -
   name: "base"
   pddl_type: 1 
   params: 
-    - "waypoint"
+    - "base_wp"
 -
   name: "in"
   pddl_type: 2

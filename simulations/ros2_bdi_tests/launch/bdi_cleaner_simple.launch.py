@@ -40,7 +40,7 @@ def generate_launch_description():
         executable='wp_sensor',
         name='wp_sensor',
         specific_params=[
-            {"init_sleep": 2}
+            {"init_sleep": 3}
         ])
 
     ld = AgentLaunchDescription(

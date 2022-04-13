@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<robot name="box_b1">
+    <webots>
+        <device reference="gps" type="GPS">
+            <ros>
+                <enabled>true</enabled>
+                <alwaysOn>true</alwaysOn>
+                 <updateRate>1</updateRate>
+            </ros>
+        </device>
+    </webots>
+</robot>

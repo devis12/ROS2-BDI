@@ -93,8 +93,10 @@ void Scheduler::init()
     // initializing planner client
     planner_client_ = std::make_shared<plansys2::PlannerClient>();
 
-    //Init desire set
+    // Declare empty desire set
     desire_set_ = set<ManagedDesire>();
+    // wait for it to be init
+    init_dset_ = false;
 
     //Desire set publisher
     desire_set_publisher_ = this->create_publisher<DesireSet>(DESIRE_SET_TOPIC, 10);
@@ -160,8 +162,11 @@ void Scheduler::step()
         {
             if(psys2_planner_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_){
                 psys2_comm_errors_ = 0;
-                if(desire_set_.size() == 0)//desire set empty    
+                if(!init_dset_)//hasn't ben tried to init desire set yet    
+                {    
                     tryInitDesireSet();
+                    init_dset_ = true;
+                }
                 setState(SCHEDULING);
             }else{
                 
@@ -958,6 +963,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<Scheduler>();
+  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
 
   node->init();
   rclcpp::spin(node);

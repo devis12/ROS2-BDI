@@ -1,0 +1,40 @@
+- name: "sort_boxes"
+  priority: 0.2
+  deadline: 116.0
+  value:
+    - name: "upon"
+      pddl_type: 2
+      params: 
+        - "gripper_a"
+        - "start"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_a"
+        - "box_a1"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_a"
+        - "box_a2"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_b"
+        - "box_b1"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_b"
+        - "box_b2"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_c"
+        - "box_c1"
+    - name: "carrier_moving"
+      pddl_type: 2
+      params: 
+        - "carrier_c"
+        - "box_c2"
+  

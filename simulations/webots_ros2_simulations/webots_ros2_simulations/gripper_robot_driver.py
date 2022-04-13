@@ -28,9 +28,9 @@ XC = 37.8
 Y1 = 0.9
 Y2 = 0.0
 Y3 = Y1
-YA = -0.9
-YB = -0.9
-YC = -0.9
+YA = -1.08
+YB = -1.08
+YC = -1.08
 
 ALPHA1 = +1.5708
 ALPHA2 = +1.5708
@@ -61,22 +61,34 @@ MOTOR_NAMES = [
 
 MOTOR_POSES = {
     'start': [X1, X1, X1, X1, Y2, ALPHA1],
-    'base1': [X1, X1, X1, X1, Y1, ALPHA1],
-    'base2': [X2, X2, X2, X2, Y2, ALPHA2],
-    'base3': [X3, X3, X3, X3, Y3, ALPHA3],
-    'basea': [XA, XA, XA, XA, YA, ALPHAA],
-    'baseb': [XB, XB, XB, XB, YB, ALPHAB],
-    'basec': [XC, XC, XC, XC, YC, ALPHAC],
+    'base_1': [X1, X1, X1, X1, Y1, ALPHA1],
+    'base_2': [X2, X2, X2, X2, Y2, ALPHA2],
+    'base_3': [X3, X3, X3, X3, Y3, ALPHA3],
+    'base_a': [XA, XA, XA, XA, YA, ALPHAA],
+    'base_a1': [XA, XA, XA, XA, YA+0.16, ALPHAA],
+    'base_a2': [XA, XA, XA, XA, YA-0.16, ALPHAA],
+    'base_b': [XB, XB, XB, XB, YB, ALPHAB],
+    'base_b1': [XB, XB, XB, XB, YB+0.16, ALPHAB],
+    'base_b2': [XB, XB, XB, XB, YB-0.16, ALPHAB],
+    'base_c': [XC, XC, XC, XC, YC, ALPHAC],
+    'base_c1': [XC, XC, XC, XC, YC+0.16, ALPHAC],
+    'base_c2': [XC, XC, XC, XC, YC-0.16, ALPHAC],
 }
 
 GPS_POSES = {
     'start': Point(x=0.0, y=Y2, z=0.0),
-    'base1': Point(x=0.0, y=-Y1, z=0.02),
-    'base2': Point(x=-0.4, y=Y2, z=0.02),
-    'base3': Point(x=-0.8, y=Y1, z=0.02),
-    'basea': Point(x=2.0, y=-YA, z=0.02),
-    'baseb': Point(x=-0.5, y=-YB, z=0.02),
-    'basec': Point(x=-3.0, y=-YC, z=0.02),
+    'base_1': Point(x=0.0, y=-Y1, z=0.02),
+    'base_2': Point(x=-0.4, y=Y2, z=0.02),
+    'base_3': Point(x=-0.8, y=-Y3, z=0.02),
+    'base_a': Point(x=2.0, y=-YA, z=0.02),
+    'base_a1': Point(x=2.0, y=-(YA+0.16), z=0.02),
+    'base_a2': Point(x=2.0, y=-(YA-0.16), z=0.02),
+    'base_b': Point(x=-0.5, y=-YB, z=0.02),
+    'base_b1': Point(x=-0.5, y=-(YB+0.16), z=0.02),
+    'base_b2': Point(x=-0.5, y=-(YB-0.16), z=0.02),
+    'base_c': Point(x=-3.0, y=-YC, z=0.02),
+    'base_c1': Point(x=-3.0, y=-(YC+0.16), z=0.02),
+    'base_c2': Point(x=-3.0, y=-(YC-0.16), z=0.02),
     'moving': Point(x=0.0, y=Y2, z=0.0) # updated at run time
 }
 
@@ -90,10 +102,11 @@ GRIPPER_STATUS = {
     'close': CLOSE
 }
 
-class GantryRobotDriver:
+class GripperRobotDriver:
     def init(self, webots_node, properties):
         self.__robot = webots_node.robot
-
+        ROBOT_NAME = self.__robot.getName()
+        
         self.__motors = []
         for i in range(0, NUM_MOTORS):
             self.__motors.append(self.__robot.getDevice(MOTOR_NAMES[i]))
@@ -106,21 +119,31 @@ class GantryRobotDriver:
 
         self.__current_gps_pose = Point()
 
+        self.__current_move_status_msg = MoveStatus()
+
         if not rclpy.ok():
             rclpy.init(args=None)
         self.__node = rclpy.create_node('my_'+ROBOT_NAME+'_driver')
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_motors_pose', self.__cmd_motors_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_pose', self.__cmd_grippers_pose_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
         self.__node.create_subscription(String, '/'+ROBOT_NAME+'/cmd_gripper_status', self.__cmd_grippers_status_callback, rclpy.qos.QoSProfile(depth=1, reliability=1))
-        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'_driver/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
+        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'/bridge_motor_gps', self.__callback_bridge_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
+        self.__node.create_subscription(PointStamped, '/'+ROBOT_NAME+'/lift_motor_gps', self.__callback_lift_motor_gps, rclpy.qos.QoSProfile(depth=2, reliability=2))
 
         self.__move_status_publisher_ = self.__node.create_publisher(MoveStatus, '/'+ROBOT_NAME+'/motors_move_status', rclpy.qos.QoSProfile(depth=2, reliability=1))
 
         self.__node.get_logger().info(self.__robot.getName() + ' driver support node set up')
         
-    def __callback_bridge_motor_gps(self, new_gps_point):
+    def __callback_lift_motor_gps(self, new_l_gps_point):
+        self.__current_gps_pose.z = new_l_gps_point.point.z # z,y are updated in lift motor gps callback
+        self.__current_move_status_msg.current_pos = self.__current_gps_pose
+
+    def __callback_bridge_motor_gps(self, new_b_gps_point):
         #self.__node.get_logger().info("GPS bridge motor type={}: x={}, y={}, z={}".format(type(new_gps_point.point), new_gps_point.point.x, new_gps_point.point.y, new_gps_point.point.z))
-        self.__current_gps_pose = new_gps_point.point
+        
+        self.__current_gps_pose.x = new_b_gps_point.point.x # z is updated in lift motor gps callback
+        self.__current_gps_pose.y = new_b_gps_point.point.y # z is updated in lift motor gps callback
+
         if(self.__target_pose_name in GPS_POSES):
             msg_move_status = MoveStatus()
             msg_move_status.start_name = self.__start_pose_name
@@ -140,7 +163,7 @@ class GantryRobotDriver:
             else:
                 msg_move_status.progress = 1.0
             
-            self.__move_status_publisher_.publish(msg_move_status)
+            self.__current_move_status_msg = msg_move_status #self.__move_status_publisher_.publish(msg_move_status)
 
             if msg_move_status.progress >= 1.0:
                 self.__current_pose_name = self.__target_pose_name
@@ -177,6 +200,8 @@ class GantryRobotDriver:
             self.__current_pose_name = 'moving'
             self.move_to_target()
         
+        self.__move_status_publisher_.publish(self.__current_move_status_msg) # publish current move status
+
         #move gripper
         self.__motors[6].setPosition(self.__gripper_pose)
         self.__motors[7].setPosition(self.__gripper_status)

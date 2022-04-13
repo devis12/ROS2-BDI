@@ -19,14 +19,14 @@ def generate_launch_description():
             'launch',
             'blocks_world.launch.py')),
     )
-
+    
     # Launch description for gantry agent
-    gantry_agent_ld = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(
-            bdi_onwebots_share_dir,
-            'launch',
-            'gantry.launch.py')),
-    )
+    # gantry_agent_ld = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(
+    #         bdi_onwebots_share_dir,
+    #         'launch',
+    #         'gantry.launch.py')),
+    # )
     
     # # Launch description for carrier_a agent
     # carrier_a_agent_ld = IncludeLaunchDescription(

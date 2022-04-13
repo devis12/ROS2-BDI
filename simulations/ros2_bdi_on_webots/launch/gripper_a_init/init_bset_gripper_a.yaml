@@ -1,0 +1,364 @@
+-
+  name: "box_a1"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "box_a2"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "box_b1"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "box_b2"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "box_c1"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "box_c2"
+  pddl_type: 1 
+  params: 
+    - "box"
+-
+  name: "start"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_1"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_2"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_3"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_a"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_b"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "base_c"
+  pddl_type: 1 
+  params: 
+    - "stackbase"
+-
+  name: "carrier_a"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "deposit_a"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
+  name: "carrier_b"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "deposit_b"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
+  name: "carrier_c"
+  pddl_type: 1 
+  params: 
+    - "carrier"
+-
+  name: "deposit_c"
+  pddl_type: 1 
+  params: 
+    - "deposit"
+-
+  name: "gripper_a"
+  pddl_type: 1 
+  params: 
+    - "gripper"
+-
+  name: "upon"
+  pddl_type: 2
+  params: 
+    - "gripper_a"
+    - "start"
+-
+  name: "holding_boxes"
+  pddl_type: 3 
+  params: 
+    - "gripper_a"
+  value: 0
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_a1"
+    - "base_1"
+    - "base_1"
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_c2"
+    - "box_a1"
+    - "base_1"
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_a2"
+    - "box_c2"
+    - "base_1"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_a1"
+    - "base_1"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_c2"
+    - "base_1"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_a2"
+    - "base_1"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_1"
+    - "base_1"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "box_a2"
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_b1"
+    - "base_2"
+    - "base_2"
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_b2"
+    - "box_b1"
+    - "base_2"
+-
+  name: "on"
+  pddl_type: 2
+  params: 
+    - "box_c1"
+    - "box_b2"
+    - "base_2"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_b1"
+    - "base_2"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_b2"
+    - "base_2"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "box_c1"
+    - "base_2"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_2"
+    - "base_2"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "box_c1"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "base_3"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "base_c"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "base_b"
+-
+  name: "clear"
+  pddl_type: 2
+  params: 
+    - "base_a"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_a"
+    - "base_a"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_b"
+    - "base_b"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_c"
+    - "base_c"
+-
+  name: "in"
+  pddl_type: 2
+  params: 
+    - "base_3"
+    - "base_3"
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_1"
+  value: 3
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_2"
+  value: 3
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_3"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_a"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_b"
+  value: 0
+-
+  name: "stacked"
+  pddl_type: 3 
+  params: 
+    - "base_c"
+  value: 0
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "deposit_a"
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "deposit_b"
+-
+  name: "carrier_in_deposit"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "deposit_c"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "base_a"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "base_b"
+-
+  name: "carrier_can_come"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "base_c"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_a"
+    - "deposit_a"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_b"
+    - "deposit_b"
+-
+  name: "carrier_can_go"
+  pddl_type: 2
+  params: 
+    - "carrier_c"
+    - "deposit_c"
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_a"
+  value: 0
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_b"
+  value: 0
+-
+  name: "moving_boxes"
+  pddl_type: 3 
+  params: 
+    - "carrier_c"
+  value: 0
