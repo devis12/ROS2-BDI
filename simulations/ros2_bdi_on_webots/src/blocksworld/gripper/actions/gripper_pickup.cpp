@@ -1,7 +1,15 @@
+#include <string>
+
 #include "rclcpp/rclcpp.hpp"
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 
 #include "example_interfaces/msg/string.hpp"
+#include "webots_ros2_simulations_interfaces/msg/move_status.hpp"
+
+using std::string;
+
+using example_interfaces::msg::String;
+using webots_ros2_simulations_interfaces::msg::MoveStatus;
 
 typedef enum {LOW, CLOSE, HIGH} PickupStatus;
 
@@ -12,8 +20,8 @@ class GripperPickup : public BDIActionExecutor
         : BDIActionExecutor("gripper_pickup", 3)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
-            gripper_pose_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
-            gripper_status_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
+            gripper_pose_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
+            gripper_status_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -38,7 +46,7 @@ class GripperPickup : public BDIActionExecutor
 
         float advanceWork()
         {
-            auto msg = example_interfaces::msg::String();
+            auto msg = String();
             msg.data = (action_status_ == LOW)? "low"   : 
                         ( 
                             (action_status_ == CLOSE)? "close" :
@@ -68,9 +76,10 @@ class GripperPickup : public BDIActionExecutor
     private:
         PickupStatus action_status_;
         uint8_t repeat_;
-        rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_pose_cmd_publisher_;
-        rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr gripper_status_cmd_publisher_;
-        std::string robot_name_;
+        rclcpp_lifecycle::LifecyclePublisher<String>::SharedPtr gripper_pose_cmd_publisher_;
+        rclcpp_lifecycle::LifecyclePublisher<String>::SharedPtr gripper_status_cmd_publisher_;
+        rclcpp::Subscription<MoveStatus>::SharedPtr gripper_move_status_subscriber_;
+        string robot_name_;
 };
 
 int main(int argc, char ** argv)

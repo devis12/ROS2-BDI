@@ -4,8 +4,12 @@
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 
+using std::string;
+
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
+
+using BDICommunications::UpdDesireResult;
 
 class ReqCarrierToCome : public BDIActionExecutor
 {
@@ -28,7 +32,7 @@ class ReqCarrierToCome : public BDIActionExecutor
                 base_id = base_id.substr(0, base_id.size()-2);//remove last char id (does not need it -> every carrier knows just base/deposit it's attached to)
                 
                 requested_desire_ = buildDesire(carrier_id, base_id);
-                BDICommunications::UpdDesireResult result = sendUpdDesireRequest(carrier_id, requested_desire_, BDICommunications::ADD, true);
+                UpdDesireResult result = sendUpdDesireRequest(carrier_id, requested_desire_, BDICommunications::ADD, true);
                 if (result.desire.name == requested_desire_.name)
                     step_progress += (result.accepted && result.performed)? 0.15 : 0.0; //advance and wait for its completion 
             }
@@ -46,7 +50,7 @@ class ReqCarrierToCome : public BDIActionExecutor
         }
 
     private:
-        Desire buildDesire(const std::string& agent_id, const std::string& target)
+        Desire buildDesire(const string& agent_id, const string& target)
         {
             auto desire = Desire();
             desire.name = robot_name_ + "_cometo_base";
@@ -63,7 +67,7 @@ class ReqCarrierToCome : public BDIActionExecutor
             return desire;
         }
 
-        std::string robot_name_;
+        string robot_name_;
         Desire requested_desire_;
 };
 

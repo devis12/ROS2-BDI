@@ -44,7 +44,7 @@ def generate_launch_description():
         executable='carrier_move_sensor',
         name=CARRIER_C_AGENT_ID+'_carrier_move_sensor',
         specific_params=[
-            {"init_sleep": 2},
+            {"init_sleep": 1},
             {"sensing_freq": 2.0}
         ])
 
@@ -55,7 +55,7 @@ def generate_launch_description():
         name=CARRIER_C_AGENT_ID+'_carrier_moving_boxes_sensor',
         specific_params=[
             {"init_sleep": 2},
-            {"sensing_freq": 1.0}
+            {"sensing_freq": 0.5}
         ])
     
     carrier_c_agent_ld = AgentLaunchDescription(

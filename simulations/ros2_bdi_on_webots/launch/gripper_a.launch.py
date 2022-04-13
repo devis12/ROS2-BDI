@@ -52,20 +52,6 @@ def generate_launch_description():
         executable='req_carrier_to_come',
         name='req_carrier_to_come1'
     )
-    
-    # req carrier to go action istance 1
-    # req_carrier_to_go1 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_go',
-    #     name='req_carrier_to_go1'
-    # )
-
-    # # req carrier to unload action istance 1
-    # req_carrier_to_unload1 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_unload',
-    #     name='req_carrier_to_unload1'
-    # )
 
     # req carrier to come action istance 2
     req_carrier_to_come2 = AgentAction(
@@ -73,20 +59,6 @@ def generate_launch_description():
         executable='req_carrier_to_come',
         name='req_carrier_to_come2'
     )
-    
-    # req carrier to go action istance 2
-    # req_carrier_to_go2 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_go',
-    #     name='req_carrier_to_go2'
-    # )
-
-    # # req carrier to unload action istance 2
-    # req_carrier_to_unload2 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_unload',
-    #     name='req_carrier_to_unload2'
-    # )
 
     # req carrier to come action istance 3
     req_carrier_to_come3 = AgentAction(
@@ -94,20 +66,16 @@ def generate_launch_description():
         executable='req_carrier_to_come',
         name='req_carrier_to_come3'
     )
-    
-    # req carrier to go action istance 3
-    # req_carrier_to_go3 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_go',
-    #     name='req_carrier_to_go3'
-    # )
 
-    # # req carrier to unload action istance 3
-    # req_carrier_to_unload3 = AgentAction(
-    #     package='ros2_bdi_on_webots',
-    #     executable='req_carrier_to_unload',
-    #     name='req_carrier_to_unload3'
-    # )
+    # get carriers status sensor 
+    gripper_get_carriers_status = AgentSensor(
+        package='ros2_bdi_on_webots',
+        executable='gripper_get_carriers_status',
+        name=GANTRY_AGENT_ID+'_get_carriers_status',
+        specific_params=[
+            {"init_sleep": 2},
+            {"sensing_freq": 1.0}
+        ])
 
     gantry_agent_ld = AgentLaunchDescription(
         agent_id=GANTRY_AGENT_ID,
@@ -122,7 +90,7 @@ def generate_launch_description():
                 req_carrier_to_come2, #req_carrier_to_go2, req_carrier_to_unload2,
                 req_carrier_to_come3, #req_carrier_to_go3, req_carrier_to_unload3,
         ],
-        sensors=[],
+        sensors=[gripper_get_carriers_status],
         run_only_psys2=False
     ) 
 

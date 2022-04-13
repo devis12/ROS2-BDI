@@ -90,7 +90,7 @@ DEF GANTRY Robot {
                 metalness 0
               }
               geometry Box {
-                size 0.2 2.4 0.12
+                size 0.26 2.8 0.12
               }
             }
           ]
@@ -261,15 +261,15 @@ DEF GANTRY Robot {
     DEF BRIDGE_SLIDER_JOINT SliderJoint {
       jointParameters JointParameters {
         axis 0 -1 0
-        minStop -1.16
-        maxStop 1.16
+        minStop -1.34
+        maxStop 1.34
       }
       device [
         LinearMotor {
           name "bridge_motor"
           maxVelocity 1
-          minPosition -1.16
-          maxPosition 1.16
+          minPosition -1.34
+          maxPosition 1.34
           maxForce 100
         }
       ]
@@ -318,6 +318,9 @@ DEF GANTRY Robot {
                     translation 0 0 0.36
                     rotation 0 -1 0 1.5708
                     children [
+                      GPS {
+                        name "lift_motor_gps"
+                      }
                       DEF PISTON_GROUP Group {
                         children [
                           Transform {
@@ -834,7 +837,7 @@ DEF DEPOSIT_C Solid {
   boundingObject USE DEPOSITC_SHAPE
 }
 Robot {
-  translation 2.0 4.34 0.1
+  translation 2.0 4.28 0.1
   rotation 0 0 1 1.5708
   children [
     GPS {
@@ -846,7 +849,7 @@ Robot {
         metalness 0
       }
       geometry Box {
-        size 0.9 0.44 0.08
+        size 1.0 0.44 0.08
       }
     }
     DEF WHEEL1 HingeJoint {
@@ -965,7 +968,7 @@ Robot {
   controller "<extern>"
 }
 Robot {
-  translation -0.5 4.34 0.1
+  translation -0.5 4.28 0.1
   rotation 0 0 1 1.5708
   children [
     GPS {
@@ -977,7 +980,7 @@ Robot {
         metalness 0
       }
       geometry Box {
-        size 0.9 0.44 0.08
+        size 1.0 0.44 0.08
       }
     }
     DEF WHEEL1 HingeJoint {
@@ -1097,7 +1100,7 @@ Robot {
 }
 
 Robot {
-  translation -3.0 4.34 0.1
+  translation -3.0 4.28 0.1
   rotation 0 0 1 1.5708
   children [
     GPS {
@@ -1109,7 +1112,7 @@ Robot {
         metalness 0
       }
       geometry Box {
-        size 0.9 0.44 0.08
+        size 1.0 0.44 0.08
       }
     }
     DEF WHEEL1 HingeJoint {

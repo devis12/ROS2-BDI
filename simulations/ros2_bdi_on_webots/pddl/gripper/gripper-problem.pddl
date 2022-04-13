@@ -1,5 +1,5 @@
-( define (problem blocks-problem1)
- ( :domain blocks-domain )
+( define (problem gripper-problem1)
+ ( :domain gripper-domain )
  ( :objects
  	start base1 base2 baseA baseB baseC - stackbase
  	boxA1 boxA2	boxB1 boxB2	boxC1 boxC2 - box

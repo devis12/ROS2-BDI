@@ -16,6 +16,7 @@
         ; ( carrying ?c - carrier ?b - box )
         ( fully_loaded ?c - carrier)
         ( fully_unloaded ?c - carrier)
+        ( lb_load_completed ?c - carrier)
     )
 
     (:functions

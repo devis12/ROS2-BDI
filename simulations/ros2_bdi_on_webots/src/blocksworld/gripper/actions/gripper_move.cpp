@@ -1,11 +1,13 @@
-#include "cmath"
-
 #include "rclcpp/rclcpp.hpp"
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 
 #include "example_interfaces/msg/string.hpp"
 #include "webots_ros2_simulations_interfaces/msg/move_status.hpp"
-#include "geometry_msgs/msg/point.hpp"
+
+using std::string;
+
+using example_interfaces::msg::String;
+using webots_ros2_simulations_interfaces::msg::MoveStatus;
 
 #define MEANINGFUL_DIFF 0.001
 
@@ -16,7 +18,7 @@ class GripperMove : public BDIActionExecutor
         : BDIActionExecutor("gripper_move", 2)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
-            move_gripper_cmd_publisher_ = this->create_publisher<example_interfaces::msg::String>("/"+robot_name_+"/cmd_motors_pose", 
+            move_gripper_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_motors_pose", 
                 rclcpp::QoS(1).keep_all());
         }
 
@@ -25,9 +27,9 @@ class GripperMove : public BDIActionExecutor
         {
             move_gripper_cmd_publisher_->on_activate();
             
-            gantry_move_status_subscriber_ = this->create_subscription<webots_ros2_simulations_interfaces::msg::MoveStatus>("/"+robot_name_+"/motors_move_status", 
+            gripper_move_status_subscriber_ = this->create_subscription<MoveStatus>("/"+robot_name_+"/motors_move_status", 
                 rclcpp::QoS(5).best_effort(),
-                std::bind(&GripperMove::gantryMoveStatusCallback, this, std::placeholders::_1));
+                std::bind(&GripperMove::gripperMoveStatusCallback, this, std::placeholders::_1));
 
             last_step_progress_info_ = 0.0f;
 
@@ -51,7 +53,7 @@ class GripperMove : public BDIActionExecutor
             
             else if (last_step_progress_info_ == 0.0 && destination != move_status_.target_name)//move cmd to trigger action execution hasn't been given yet 
             {
-                auto msg = example_interfaces::msg::String();
+                auto msg = String();
                 msg.data = destination;
                 move_gripper_cmd_publisher_->publish(msg);
             }
@@ -69,16 +71,16 @@ class GripperMove : public BDIActionExecutor
 
     private:
 
-        void gantryMoveStatusCallback(const webots_ros2_simulations_interfaces::msg::MoveStatus::SharedPtr msg)
+        void gripperMoveStatusCallback(const MoveStatus::SharedPtr msg)
         {
             move_status_ = *msg;
         }
 
-        rclcpp_lifecycle::LifecyclePublisher<example_interfaces::msg::String>::SharedPtr move_gripper_cmd_publisher_;
-        rclcpp::Subscription<webots_ros2_simulations_interfaces::msg::MoveStatus>::SharedPtr gantry_move_status_subscriber_;
+        rclcpp_lifecycle::LifecyclePublisher<String>::SharedPtr move_gripper_cmd_publisher_;
+        rclcpp::Subscription<MoveStatus>::SharedPtr gripper_move_status_subscriber_;
         float last_step_progress_info_;
-        webots_ros2_simulations_interfaces::msg::MoveStatus move_status_;
-        std::string robot_name_;
+        MoveStatus move_status_;
+        string robot_name_;
 
 };
 

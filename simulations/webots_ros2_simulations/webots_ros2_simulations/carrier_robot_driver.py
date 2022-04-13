@@ -16,9 +16,9 @@ MAX_VEL = 12.0
 MIN_VEL = 2.0
 
 TARGETS = {
-    'base_y': 1.04,
-    'deposit_y': 4.36,
-    'moving_y' : 4.36 # updated at run time
+    'base_y': 1.08,
+    'deposit_y': 4.28,
+    'moving_y' : 4.28 # updated at run time
 }
 
 class CarrierRobotDriver:

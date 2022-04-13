@@ -6,7 +6,7 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#define CARRIER_L 0.9 
+#define CARRIER_L 1.0
 #define CARRIER_W 0.44
 
 #define BOX_H 0.2
@@ -20,7 +20,6 @@ using std::map;
 using std::shared_ptr;
 using std::bind;
 using std::placeholders::_1;
-using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;    
 using geometry_msgs::msg::Point;
@@ -93,7 +92,7 @@ class CarrierMovingBoxesSensor : public Sensor
         */
         bool boxWithinZBoundaries(const string& box)
         {
-            return boxes_positions_[box].z > current_position_.z && boxes_positions_[box].z < current_position_.z + BOX_H * 2.5;
+            return boxes_positions_[box].z > current_position_.z && boxes_positions_[box].z < current_position_.z + BOX_H * 1.5;
         }
 
         void carrierGPSCallback(const PointStamped::SharedPtr msg)

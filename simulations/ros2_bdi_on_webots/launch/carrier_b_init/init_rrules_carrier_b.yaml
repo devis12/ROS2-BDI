@@ -9,6 +9,12 @@
               params:
                 - "carrier_b"
               value: 0
+          - check: "T"
+            condition_to_check:
+              name: "lb_load_completed"
+              pddl_type: 2
+              params:
+                - "carrier_b"
 
   reactive_rules:
     - set: belief
@@ -49,6 +55,12 @@
               params:
                 - "carrier_b"
               value: 2
+          - check: "T"
+            condition_to_check:
+              name: "lb_load_completed" #last box loading completed
+              pddl_type: 2
+              params:
+                - "carrier_b"
 
   reactive_rules:
     - set: belief
@@ -69,3 +81,10 @@
             pddl_type: 2 
             params: 
               - "carrier_b"
+    - set: belief
+      operation: DEL
+      value:
+        name: "lb_load_completed"
+        pddl_type: 2 
+        params: 
+          - "carrier_b"
