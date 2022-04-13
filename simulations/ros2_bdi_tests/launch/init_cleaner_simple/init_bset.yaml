@@ -20,3 +20,8 @@
   params: 
     - "cleaner"
   value:  90
+-
+  name: "pred_a"
+  pddl_type: 2
+  params: 
+    - "pluto"

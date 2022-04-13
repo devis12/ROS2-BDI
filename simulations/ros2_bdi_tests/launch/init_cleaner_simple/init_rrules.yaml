@@ -2,6 +2,26 @@
   condition:
     clauses:
       - literals:
+          - check: "T"
+            condition_to_check:
+              name: "pred_a"
+              pddl_type: 2
+              params:
+                - "*"
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "pred_b"
+        pddl_type: 2 
+        params: 
+          - "pippo"
+
+- 
+  condition:
+    clauses:
+      - literals:
           - check: "LE"
             condition_to_check:
               name: "battery_charge"
