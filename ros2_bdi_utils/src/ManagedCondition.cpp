@@ -9,8 +9,78 @@ using std::set;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Condition;
-
+using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedCondition;
+
+/*
+    returns true if the wild_string potentially containing wild characters that are meant to be replaced by a single char (wild_single_char) or multiple ones (wild_multi_char)
+    mathes the text_string
+    Krauss algorithm https://en.wikipedia.org/wiki/Krauss_wildcard-matching_algorithm 
+*/
+bool krauss_wild_pattern_match(string wild_string, string text_string, 
+    const char& wild_single_char = '?', const char& wild_multi_char = '*')
+{
+    if(wild_string == text_string || wild_string == std::to_string(wild_multi_char))//trivial case
+        return true;
+
+    bool TRUE=true,FALSE=false;
+    bool check[wild_string.length()+1][text_string.length()+1];
+    check[0][0]=TRUE;
+    
+    for(int i=1;i<=text_string.length();i++)
+       check[0][i]=FALSE;
+    for(int i=1;i<=wild_string.length();i++)
+        if(wild_string[i-1] == wild_multi_char)//Checking for wild characters.
+            check[i][0]=check[i-1][0];
+    else
+        check[i][0]=FALSE;
+        
+    for(int i=1;i<=wild_string.length();i++)
+    {
+        for(int j=1;j<=text_string.length();j++)
+        {
+            if(wild_string[i-1] == text_string[j-1])
+                check[i][j]=check[i-1][j-1];
+            else if(wild_string[i-1] == wild_single_char)//Checking for wild character '?'.
+                check[i][j]=check[i-1][j-1];
+            else if(wild_string[i-1] == wild_multi_char)//Checking for wild character '*'.
+                check[i][j]=check[i-1][j]||check[i][j-1];
+                
+            else
+               check[i][j] =FALSE;
+        }
+    }
+
+    return check[wild_string.length()][text_string.length()];
+}
+
+/*
+    Returns true if the two mg beliefs are equivalent, taking into consideration wild pattern in the first
+    (e.g. params={"box_*"} will be considered equivalent to params={"box_a1"} ) when comparing names and params
+    (does not apply to value which are not a factor in order to consider the equivalence of two managed belief)
+*/
+bool wild_pattern_equal(const ManagedBelief& mgBeliefWildPattern, const ManagedBelief& mgBeliefToCheckAgainst)
+{
+    if(mgBeliefWildPattern.pddlType() != mgBeliefToCheckAgainst.pddlType()) // different pddl type... no reason to go further in the comparison
+        return false;
+        
+    if(!krauss_wild_pattern_match(mgBeliefWildPattern.getName(), mgBeliefToCheckAgainst.getName())) // names do not match (considering wild pattern chars)
+        return false;
+
+    vector<string> wild_params = mgBeliefWildPattern.getParams();
+    vector<string> text_params = mgBeliefToCheckAgainst.getParams();
+    if(wild_params.size() != mgBeliefToCheckAgainst.getParams().size())// params size differ
+        return false;
+    
+    //check equals param by param (at this point you know the two arrays are the same size)
+    for(uint8_t i = 0; i < wild_params.size(); i++)
+    {   
+        if(!krauss_wild_pattern_match(wild_params[i],text_params[i])) //params in pos i do not match
+            return false;
+    }
+    //otherwise equals
+    return true;
+}
 
 ManagedCondition::ManagedCondition(const ManagedBelief& managedBelief, const string& check):
     condition_to_check_(managedBelief),
@@ -30,13 +100,13 @@ bool ManagedCondition::performCheckAgainstBelief(const ManagedBelief& mb)
     Condition c = Condition();
 
     if(condition_to_check_.pddlType() == Belief().INSTANCE_TYPE)
-        return condition_to_check_ == mb;
+        return wild_pattern_equal(condition_to_check_, mb);
 
     else if (condition_to_check_.pddlType() == Belief().PREDICATE_TYPE)
         //true if (same predicate and TRUE CHECK requested) or (diff predicate and FALSE CHECK requested)
-        return (check_ == c.TRUE_CHECK)? condition_to_check_ == mb : !(condition_to_check_ == mb);
+        return (check_ == c.TRUE_CHECK)? wild_pattern_equal(condition_to_check_, mb) : !(wild_pattern_equal(condition_to_check_, mb));
 
-    else if (condition_to_check_.pddlType() == Belief().FUNCTION_TYPE && condition_to_check_ == mb)//has to be the same fluent
+    else if (condition_to_check_.pddlType() == Belief().FUNCTION_TYPE && wild_pattern_equal(condition_to_check_, mb))//has to be the same fluent
     {
         //now check the value wrt the given check request
         if(check_ == c.SMALLER_CHECK)

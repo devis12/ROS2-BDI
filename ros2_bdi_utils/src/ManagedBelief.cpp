@@ -136,15 +136,12 @@ bool BDIManaged::operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
     vector<string> mb2_params = mb2.getParams();
 
     //check for different name or different num of params
-    if(     (mb1.getName() != mb2.getName() && mb1.getName() != "*" && mb2.getName() != "*") //names differ and no wild pattern is used
-            || 
-            mb1_params.size() != mb2_params.size() //sizes differ
-        )
+    if(mb1.getName() != mb2.getName() || mb1_params.size() != mb2_params.size()) // names OR sizes differ
         return false;
 
     //check equals param by param (at this point you know the two arrays are the same size)
     for(int i=0;i<mb1_params.size();i++)
-        if(mb1_params[i] != mb2_params[i] && mb1_params[i] != "*" && mb2_params[i] != "*") //params in pos i are different and no wild pattern is used
+        if(mb1_params[i] != mb2_params[i]) //params in pos i are different
             return false;
 
     //otherwise equals

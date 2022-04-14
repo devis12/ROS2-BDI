@@ -1,0 +1,81 @@
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "F"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "box_*"
+                - "base_a"
+          - check: "F"
+            condition_to_check:
+              name: "carrier_in_base"
+              pddl_type: 2
+              params:
+                - "carrier_a"
+                - "base_a"
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "clear"
+        pddl_type: 2 
+        params: 
+          - "base_a"
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "F"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "box_*"
+                - "base_b"
+          - check: "F"
+            condition_to_check:
+              name: "carrier_in_base"
+              pddl_type: 2
+              params:
+                - "carrier_b"
+                - "base_b"
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "clear"
+        pddl_type: 2 
+        params: 
+          - "base_b"
+- 
+  condition:
+    clauses:
+      - literals:
+          - check: "F"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "box_*"
+                - "base_c"
+          - check: "F"
+            condition_to_check:
+              name: "carrier_in_base"
+              pddl_type: 2
+              params:
+                - "carrier_c"
+                - "base_c"
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "clear"
+        pddl_type: 2 
+        params: 
+          - "base_c"
