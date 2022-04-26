@@ -6,7 +6,10 @@ For **user's documentation** follow this [link](https://devis12.github.io/ROS2-B
 ## Requirements 
 In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/foxy/index.html#) and [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/) have been already installed and setup**. Use this [guide](https://github.com/devis12/ROS2-BDI/blob/main/ros2_psys2_setup.pdf) to walk you through this process in latest LTS Ubuntu distributions (e.g. 20.04 LTS). With other recent Ubuntu-based distributions (e.g. Mint 20+) you may encounter some issues in the installation of dependencies which can be easily overcome by specifying the option `--os="ubuntu:"` if using rosdep or installing them manually (e.g. `sudo apt install ros-foxy-popf`). 
 
-Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.6.0](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.6.0). It's suggested to compile both from source, even though Boost should offer a more accessible [script for the installation](https://www.boost.org/doc/libs/1_77_0/tools/build/doc/html/index.html#bbv2.installation). The documentation with the installation guide for building yaml-cpp can be found [here](https://yaml-cpp.docsforge.com/#how-to-build): it's really important to build it as a **shared library** (check the presence of the `-fPIC` option added in compilation in the CMakeLists.txt if the `BUILD_SHARED_LIBS` is set to `ON`).
+Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.6.0](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.6.0). It's suggested to compile both from source, even though Boost should offer a more accessible [script for the installation](https://www.boost.org/doc/libs/1_77_0/tools/build/doc/html/index.html#bbv2.installation). The documentation with the installation guide for building yaml-cpp can be found [here](https://yaml-cpp.docsforge.com/#how-to-build): it's really important to build it as a **shared library** (check the presence of the `-fPIC` option added in compilation in the CMakeLists.txt if the `BUILD_SHARED_LIBS` is set to `ON`). If you want to avoid any struggle, in Ubuntu 20.04 both can be installed via apt:
+```
+sudo apt install libboost-dev libyaml-cpp0.6
+```
 
 To avoid any further unpleasant interaction, it's highly recommended to disable Groot monitoring in PlanSys2. To do that, just go under the `plansys2_executor` package and within the script of the only launch file present ("*executor_launch.py*") add the configuration `'enable_groot_monitoring': False`  to the parameters of the `executor_cmd` **Node** (approximately line 55).
 
@@ -14,7 +17,7 @@ To avoid any further unpleasant interaction, it's highly recommended to disable 
 
 Once you download the current repository in your `<ros2 workspace>/src/` folder and installed the required libraries, move back to the root of your ROS2 workspace and give the standard `colcon build` command in order to compile all the packages, loading all the launch and additional files in the packages' shared folders. It's suggested to be more specific though (especially if you already have other packages in your workspace and you want to avoid to compile them all every time) building exclusively the packages of ROS2-BDI:
 ```
-colcon build --packages-select ros2_bdi_interfaces  ros2_bdi_utils  ros2_bdi_skills ros2_bdi_bringup ros2_bdi_core && colcon build --symlink-install --packages-select ros2_bdi_tests
+colcon build --packages-select ros2_bdi_interfaces  ros2_bdi_utils  ros2_bdi_skills ros2_bdi_bringup ros2_bdi_core && colcon build --symlink-install --packages-ignore ros2_bdi_tests
 ```
 The above command will allow you to compile just the packages of ROS2-BDI, linking all the demo launch files which you can find within `ros2_bdi_tests/launch`, so that you don't need to recompile everything after alterations to the python launch scripts.
 Remember to **source your ROS2 setup.bash**, before try to launch any executable (otherwise you won't be able to find them):
@@ -80,3 +83,28 @@ ros2 topic echo /cleaner/desire_set              # cleaner desire set echo
 ros2 topic echo /cleaner/plan_execution_info     # cleaner plan execution progress echo
 ```
 As for the case of the simpler demo above, launch files can be easily found and edited in `ros2_bdi_tests/launch/` folder for triggering different behaviours, as well as it's possible to publish in the respective belief/desire topics of the two agents to lead them through different execution paths. Same apply for belief and desire init. files which can be found in `ros2_bdi_tests/init_cleaner_sweeper/` and are then selected in the py. launch files.
+
+### Webots demo
+
+In order to launch and test out the webots demo, [Webots](https://www.cyberbotics.com/) needs to be installed alongside with the `webots_ros2_driver` too. You can install them via apt `sudo apt install ros-foxy-webots-ros2`. Then you can build the following packages supporting the demos which comes within this repo too.
+```
+colcon build --packages-select webots_ros2_simulations_interfaces webots_ros2_simulations ros2_bdi_on_webots --symlink-install
+```
+Once building is complete (note that ROS2-BDI core packages have to be already built and sourced!!), you can source again your local workspace and then you're ready to launch the simulation. First, you might want to start the setup scenario in webots with:
+```
+ros2 launch webots_ros2_simulations blocks_world.launch.py
+```
+Then, you can launch in **three different terminals** with the environment already sourced, the three carriers agents:
+```
+ros2 launch ros2_bdi_on_webots carrier_a.launch.py
+ros2 launch ros2_bdi_on_webots carrier_b.launch.py
+ros2 launch ros2_bdi_on_webots carrier_c.launch.py
+```
+Finally, you can launch in a new terminal (again with the environment already sourced), the gripper agent:
+```
+ros2 launch ros2_bdi_on_webots gripper_a.launch.py
+```
+Feel free to play with the init. sets and init. reactive rules to trigger new scenarios (e.g. you might want to change the `moving_boxes` fluent check from 2 to 1, to trigger the movement of a carrier before the loading of both 2 boxes is complete, causing the replanning of the gripper). 
+
+Examine the demos to get a better grasp on how the framework should be exploited: hope the materials will inspire you to do great things ;-)
+Feel free to contact us for further information
