@@ -3,6 +3,9 @@ A MAS (Multi Agent System) framework aiming to run on top of ROS2 Foxy, emulatin
 
 For **user's documentation** follow this [link](https://devis12.github.io/ROS2-BDI.github.io/).
 
+If you want to have a look at one of the provided **demo** example, **click on the image below**
+[![PAAMS22_ROS2xBDI_DEMO](https://raw.githubusercontent.com/devis12/ROS2-BDI.github.io/main/img/PAAMS_ROS2xBDI_sim.jpg)](https://www.youtube.com/watch?v=zB2HvCR5H9E)
+
 ## Requirements 
 In order to compile everything, **make sure [ROS2 Foxy](https://docs.ros.org/en/foxy/index.html#) and [PlanSys2](https://intelligentroboticslab.gsyc.urjc.es/ros2_planning_system.github.io/) have been already installed and setup**. Use this [guide](https://github.com/devis12/ROS2-BDI/blob/main/ros2_psys2_setup.pdf) to walk you through this process in latest LTS Ubuntu distributions (e.g. 20.04 LTS). With other recent Ubuntu-based distributions (e.g. Mint 20+) you may encounter some issues in the installation of dependencies which can be easily overcome by specifying the option `--os="ubuntu:"` if using rosdep or installing them manually (e.g. `sudo apt install ros-foxy-popf`). 
 
