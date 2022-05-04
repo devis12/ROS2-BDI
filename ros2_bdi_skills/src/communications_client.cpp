@@ -1,7 +1,7 @@
 #include "ros2_bdi_skills/communications_client.hpp"
 
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 communications nodes (get services' names)
-#include "ros2_bdi_core/params/communications_params.hpp"
+#include "ros2_bdi_core/params/ma_request_handler_params.hpp"
 
 //seconds to wait before giving up on performing any request (service does not appear to be up)
 #define WAIT_SRV_UP 1   

@@ -147,7 +147,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<EventListener>();
-  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
+  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
 
   if(node->init())//if False, no proper reactive rules defined -> hence no point in having the node booted up 
     rclcpp::spin(node);

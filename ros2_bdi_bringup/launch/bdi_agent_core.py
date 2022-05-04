@@ -28,45 +28,50 @@ def is_list_of(l, type):
 '''
     PlanSys2Monitor Node builder
 '''
-def build_PlanSys2Monitor(namespace, agent_id):
+def build_PlanSys2Monitor(namespace, agent_id, init_params):
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plansys2_monitor' in init_params[DEBUG_ACTIVE_NODES_PARAM])
     return Node(
         package='ros2_bdi_core',
         executable='plansys2_monitor',
         name='plansys2_monitor',
         namespace=namespace,
         output='screen',
-        parameters=[ {AGENT_ID_PARAM: agent_id} ])
+        parameters=[ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
 
 '''
     BeliefManager Node builder
 '''
-def build_BeliefManager(namespace, agent_id):
+def build_BeliefManager(namespace, agent_id, init_params):
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('belief_manager' in init_params[DEBUG_ACTIVE_NODES_PARAM])
     return Node(
         package='ros2_bdi_core',
         executable='belief_manager',
         name='belief_manager',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id} ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug}  ])
     
 
 '''
     Reactive Rules Event Listener Node builder
 '''
-def build_EventListener(namespace, agent_id):
+def build_EventListener(namespace, agent_id, init_params):
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('event_listener' in init_params[DEBUG_ACTIVE_NODES_PARAM])
     return Node(
         package='ros2_bdi_core',
         executable='event_listener',
         name='event_listener',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id} ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
 
 
 '''
     Scheduler Node builder, pass init_params to check, eval and set init parameters for the node
 '''
 def build_Scheduler(namespace, agent_id, init_params):
+    
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('scheduler' in init_params[DEBUG_ACTIVE_NODES_PARAM])
 
     # init. set default values for Scheduler parameters
     reschedule_policy = RESCHEDULE_POLICY_VAL_NO_IF_EXEC
@@ -115,7 +120,8 @@ def build_Scheduler(namespace, agent_id, init_params):
             {COMP_PLAN_TRIES_PARAM: comp_plan_tries},
             {EXEC_PLAN_TRIES_PARAM: exec_plan_tries},
             {AUTOSUBMIT_PREC_PARAM: autosubmit_prec},
-            {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}
+            {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}, 
+            {DEBUG_PARAM: debug}
         ])
 
 
@@ -123,6 +129,9 @@ def build_Scheduler(namespace, agent_id, init_params):
     PlanDirector Node builder, pass init_params to check, eval and set init parameters for the node
 '''
 def build_PlanDirector(namespace, agent_id, init_params):
+
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plan_director' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+
     #  Default init params for Plan Director Node
     abort_surpass_deadline = 2.0
 
@@ -140,20 +149,24 @@ def build_PlanDirector(namespace, agent_id, init_params):
         output='screen',
         parameters=[
             {AGENT_ID_PARAM: agent_id},
-            {ABORT_SURPASS_DEADLINE_DEADLINE_PARAM: abort_surpass_deadline}
+            {ABORT_SURPASS_DEADLINE_DEADLINE_PARAM: abort_surpass_deadline},
+            {DEBUG_PARAM: debug}
         ])
 
 
 '''
-    Communication Node builder, pass init_params to check, eval and set init parameters for the node
+    Communication MA Request Handler Node builder, pass init_params to check, eval and set init parameters for the node
     Agent group id is needed too
 '''
-def build_CommunicationsNode(namespace, agent_id, agent_group, init_params):
+def build_MARequestHandlerNode(namespace, agent_id, agent_group, init_params):
+
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('ma_request_handler' in init_params[DEBUG_ACTIVE_NODES_PARAM])
 
     # Default init params for Communication Node
     communication_node_params = [
         {AGENT_ID_PARAM: agent_id},
-        {AGENT_GROUP_ID_PARAM: agent_group}
+        {AGENT_GROUP_ID_PARAM: agent_group},
+        {DEBUG_PARAM: debug}
     ]
 
     for BDRW_PARAM in [ACCEPT_BELIEFS_R_PARAM, ACCEPT_BELIEFS_W_PARAM, ACCEPT_DESIRES_R_PARAM, ACCEPT_DESIRES_W_PARAM]:
@@ -166,7 +179,8 @@ def build_CommunicationsNode(namespace, agent_id, agent_group, init_params):
 
     return Node(
         package='ros2_bdi_core',
-        executable='communications',
+        executable='ma_request_handler',
+        name='ma_request_handler',
         namespace=namespace,
         output='screen',
         parameters=communication_node_params 

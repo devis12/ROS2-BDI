@@ -1,9 +1,9 @@
-// header file for Communications node
-#include "ros2_bdi_core/communications.hpp"
+// header file for Communications MA (Multi-Agent) Request Handler node
+#include "ros2_bdi_core/ma_request_handler.hpp"
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
 #include "ros2_bdi_core/params/core_common_params.hpp"
-// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Communications node
-#include "ros2_bdi_core/params/communications_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Communications (Multi-Agent) Request Handler node
+#include "ros2_bdi_core/params/ma_request_handler_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler node (for desire set topic)
 #include "ros2_bdi_core/params/scheduler_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
@@ -35,8 +35,8 @@ using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
 
 
-CommunicationManager::CommunicationManager()
-  : rclcpp::Node(COMMUNICATIONS_NODE_NAME)
+MARequestHandler::MARequestHandler()
+  : rclcpp::Node(MA_REQUEST_HANDLER_NODE_NAME)
 {
   this->declare_parameter(PARAM_AGENT_ID, "agent0");
   this->declare_parameter(PARAM_AGENT_GROUP_ID, "agent0_group");
@@ -51,14 +51,14 @@ CommunicationManager::CommunicationManager()
 /*
   Init to call at the start, after construction method, to get the node actually started
 */
-void CommunicationManager::init()
+void MARequestHandler::init()
 { 
   // agent's namespace
   agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
   // init server for handling is accepted group queries
   accepted_server_ = this->create_service<IsAcceptedOperation>(IS_ACCEPTED_OP_SRV, 
-      bind(&CommunicationManager::handleIsAcceptedGroup, this, _1, _2));
+      bind(&MARequestHandler::handleIsAcceptedGroup, this, _1, _2));
 
   rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
   qos_keep_all.keep_all();
@@ -71,24 +71,24 @@ void CommunicationManager::init()
   //register to belief set updates to have the mirroring of the last published version of it
   belief_set_subscriber_ = this->create_subscription<BeliefSet>(
               BELIEF_SET_TOPIC, qos_keep_all,
-              bind(&CommunicationManager::updatedBeliefSet, this, _1), sub_opt);
+              bind(&MARequestHandler::updatedBeliefSet, this, _1), sub_opt);
   
   //register to desire set updates to have the mirroring of the last published version of it
   desire_set_subscriber_ = this->create_subscription<DesireSet>(
               DESIRE_SET_TOPIC, qos_keep_all,
-              bind(&CommunicationManager::updatedDesireSet, this, _1), sub_opt);
+              bind(&MARequestHandler::updatedDesireSet, this, _1), sub_opt);
 
   // init server for handling check belief requests from other agents
   chk_belief_server_ = this->create_service<CheckBelief>(CK_BELIEF_SRV, 
-      bind(&CommunicationManager::handleCheckBeliefRequest, this, _1, _2));
+      bind(&MARequestHandler::handleCheckBeliefRequest, this, _1, _2));
   
   // init server for handling add belief requests from other agents
   add_belief_server_ = this->create_service<UpdBeliefSet>(ADD_BELIEF_SRV, 
-      bind(&CommunicationManager::handleAddBeliefRequest, this, _1, _2));
+      bind(&MARequestHandler::handleAddBeliefRequest, this, _1, _2));
     
   // init server for handling del belief requests from other agents
   del_belief_server_ = this->create_service<UpdBeliefSet>(DEL_BELIEF_SRV, 
-      bind(&CommunicationManager::handleDelBeliefRequest, this, _1, _2));
+      bind(&MARequestHandler::handleDelBeliefRequest, this, _1, _2));
   
   // add belief publisher -> to publish on the topic and alter the belief set when the request can go through
   add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, 10);
@@ -104,15 +104,15 @@ void CommunicationManager::init()
 
   // init server for handling check desire requests from other agents
   chk_desire_server_ = this->create_service<CheckDesire>(CK_DESIRE_SRV, 
-      bind(&CommunicationManager::handleCheckDesireRequest, this, _1, _2));
+      bind(&MARequestHandler::handleCheckDesireRequest, this, _1, _2));
 
   // init server for handling add belief requests from other agents
   add_desire_server_ = this->create_service<UpdDesireSet>(ADD_DESIRE_SRV, 
-      bind(&CommunicationManager::handleAddDesireRequest, this, _1, _2));
+      bind(&MARequestHandler::handleAddDesireRequest, this, _1, _2));
     
     // init server for handling del belief requests from other agents
   del_desire_server_ = this->create_service<UpdDesireSet>(DEL_DESIRE_SRV, 
-      bind(&CommunicationManager::handleDelDesireRequest, this, _1, _2));
+      bind(&MARequestHandler::handleDelDesireRequest, this, _1, _2));
 
   // add desire publisher -> to publish on the topic and alter the desire set when the request can go through
   add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, 10);
@@ -151,7 +151,7 @@ void CommunicationManager::init()
       acceptingDesiresMsg +=  (((i+1)==acceptingDesiresGroups.size()) ? "" : ", ");
     }
 
-  RCLCPP_INFO(this->get_logger(), "Communications Manager node initialized:\n" + 
+  RCLCPP_INFO(this->get_logger(), "Multi-Agent Request Handler node initialized:\n" + 
       acceptingBeliefsMsg + ";\n" + acceptingDesiresMsg);
 }
   
@@ -160,7 +160,7 @@ void CommunicationManager::init()
   Return true if the request agent's group name is among the accepted ones wrt.
   either belief or desire modify acceptance 
 */
-bool CommunicationManager::isAcceptableRequest(const string& requestingAgentGroup, 
+bool MARequestHandler::isAcceptableRequest(const string& requestingAgentGroup, 
   const RequestObjType& requestObjType, const RequestObjOp& requestObjOp)
 {
   vector<string> acceptedGroups;
@@ -202,7 +202,7 @@ bool CommunicationManager::isAcceptableRequest(const string& requestingAgentGrou
 /*  
     Accepted group service handler
 */
-void CommunicationManager::handleIsAcceptedGroup(const IsAcceptedOperation::Request::SharedPtr request,
+void MARequestHandler::handleIsAcceptedGroup(const IsAcceptedOperation::Request::SharedPtr request,
     const IsAcceptedOperation::Response::SharedPtr response)
 {
   bool validType = request->type == request->BELIEF_TYPE || request->type == request->DESIRE_TYPE;
@@ -228,7 +228,7 @@ void CommunicationManager::handleIsAcceptedGroup(const IsAcceptedOperation::Requ
   Return value of the max accepted priority for add desire requests coming from a requesting agent group
   Return negative value if not present
 */
-float CommunicationManager::getMaxAcceptedPriority(const string& requestingAgentGroup)
+float MARequestHandler::getMaxAcceptedPriority(const string& requestingAgentGroup)
 {
   int indexAccepted = -1;
   float maxAcceptedPriority = -1.0f;//init to negative value
@@ -260,7 +260,7 @@ float CommunicationManager::getMaxAcceptedPriority(const string& requestingAgent
 
   @countCheck in order to check if desire is present (ADD op) or not present (DEL op)
 */
-void CommunicationManager::checkDesireSetWaitingUpd(const int& updIndex, const int& countCheck)
+void MARequestHandler::checkDesireSetWaitingUpd(const int& updIndex, const int& countCheck)
 {
   if(updIndex > desire_set_upd_locks_.size() || countCheck < 0)//invalid params
     return;
@@ -284,7 +284,7 @@ void CommunicationManager::checkDesireSetWaitingUpd(const int& updIndex, const i
 /*
     The desire set has been updated
 */
-void CommunicationManager::updatedDesireSet(const DesireSet::SharedPtr msg)
+void MARequestHandler::updatedDesireSet(const DesireSet::SharedPtr msg)
 {
     desire_set_ = BDIFilter::extractMGDesires(msg->value);
 
@@ -300,7 +300,7 @@ void CommunicationManager::updatedDesireSet(const DesireSet::SharedPtr msg)
 
   @countCheck in order to check if belief is present (ADD op) or not present (DEL op)
 */
-void CommunicationManager::checkBeliefSetWaitingUpd(const int& updIndex, const int& countCheck)
+void MARequestHandler::checkBeliefSetWaitingUpd(const int& updIndex, const int& countCheck)
 {
   if(updIndex > belief_set_upd_locks_.size() || countCheck < 0)//invalid params
     return;
@@ -324,7 +324,7 @@ void CommunicationManager::checkBeliefSetWaitingUpd(const int& updIndex, const i
 /*
     The belief set has been updated
 */
-void CommunicationManager::updatedBeliefSet(const BeliefSet::SharedPtr msg)
+void MARequestHandler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 {
     belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
     
@@ -336,7 +336,7 @@ void CommunicationManager::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 /*  
     Read Belief Request service handler        
 */
-void CommunicationManager::handleCheckBeliefRequest(const CheckBelief::Request::SharedPtr request,
+void MARequestHandler::handleCheckBeliefRequest(const CheckBelief::Request::SharedPtr request,
     const CheckBelief::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -355,7 +355,7 @@ void CommunicationManager::handleCheckBeliefRequest(const CheckBelief::Request::
     Add Belief Request service handler
 
 */
-void CommunicationManager::handleAddBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
+void MARequestHandler::handleAddBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
     const UpdBeliefSet::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -381,7 +381,7 @@ void CommunicationManager::handleAddBeliefRequest(const UpdBeliefSet::Request::S
 /*  
     Del Belief Request service handler        
 */
-void CommunicationManager::handleDelBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
+void MARequestHandler::handleDelBeliefRequest(const UpdBeliefSet::Request::SharedPtr request,
     const UpdBeliefSet::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -406,7 +406,7 @@ void CommunicationManager::handleDelBeliefRequest(const UpdBeliefSet::Request::S
 /*  
     Read Desire Request service handler        
 */
-void CommunicationManager::handleCheckDesireRequest(const CheckDesire::Request::SharedPtr request,
+void MARequestHandler::handleCheckDesireRequest(const CheckDesire::Request::SharedPtr request,
     const CheckDesire::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -423,7 +423,7 @@ void CommunicationManager::handleCheckDesireRequest(const CheckDesire::Request::
 /*  
     Add Desire Request service handler        
 */
-void CommunicationManager::handleAddDesireRequest(const UpdDesireSet::Request::SharedPtr request,
+void MARequestHandler::handleAddDesireRequest(const UpdDesireSet::Request::SharedPtr request,
     const UpdDesireSet::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -458,7 +458,7 @@ void CommunicationManager::handleAddDesireRequest(const UpdDesireSet::Request::S
 /*  
       Del Desire Request service handler       
 */
-void CommunicationManager::handleDelDesireRequest(const UpdDesireSet::Request::SharedPtr request,
+void MARequestHandler::handleDelDesireRequest(const UpdDesireSet::Request::SharedPtr request,
     const UpdDesireSet::Response::SharedPtr response)
 {
   //see if the requesting agent belongs to a group which is entitled to this kind of requests
@@ -484,8 +484,8 @@ void CommunicationManager::handleDelDesireRequest(const UpdDesireSet::Request::S
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<CommunicationManager>();
-  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
+  auto node = std::make_shared<MARequestHandler>();
+  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
 
   node->init();
   rclcpp::executors::MultiThreadedExecutor executor;

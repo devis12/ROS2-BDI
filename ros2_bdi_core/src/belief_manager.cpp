@@ -120,7 +120,7 @@ void BeliefManager::init()
 void BeliefManager::step()
 {
     // all psys2 up -> no psys2 comm. errors
-    if(psys2_domain_expert_active_ && psys2_problem_expert_active_ )
+    if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
         psys2_comm_errors_ = 0;
 
     //if psys2 appears crashed, crash too
@@ -378,11 +378,11 @@ bool BeliefManager::removedPredicateBeliefs(const vector<Belief>& beliefs)
 void BeliefManager::addBeliefTopicCallBack(const Belief::SharedPtr msg)
 {
     ManagedBelief mb = ManagedBelief{*msg};
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
-                + mb.getParamsJoined() +  " (value = " + std::to_string(mb.getValue()) +")");
-    
-    addBeliefSyncPDDL(mb);
+    // if(this->get_parameter(PARAM_DEBUG).as_bool())
+    //     RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
+    //             + mb.getParamsJoined() +  " (value = " + std::to_string(mb.getValue()) +")");
+    if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+        addBeliefSyncPDDL(mb);
 }
 
 /*
@@ -537,11 +537,12 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
 void BeliefManager::delBeliefTopicCallBack(const Belief::SharedPtr msg)
 {
     ManagedBelief mb = ManagedBelief{*msg};
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
-                + mb.getParamsJoined() +  " (value = " + std::to_string(mb.getValue()) +")");
+    // if(this->get_parameter(PARAM_DEBUG).as_bool())
+    //     RCLCPP_INFO(this->get_logger(), "del_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
+    //             + mb.getParamsJoined() +  " (value = " + std::to_string(mb.getValue()) +")");
     
-    delBeliefSyncPDDL(mb);
+    if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+        delBeliefSyncPDDL(mb);
 }
 
 
@@ -625,7 +626,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<BeliefManager>();
-  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
+  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
   node->init();
   rclcpp::spin(node);
   rclcpp::shutdown();

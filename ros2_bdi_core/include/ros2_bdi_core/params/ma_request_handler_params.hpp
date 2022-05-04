@@ -1,8 +1,8 @@
-#ifndef COMMUNICATIONS_PARAMS_H_
-#define COMMUNICATIONS_PARAMS_H_
+#ifndef MA_REQUEST_HANDLER_PARAMS_H_
+#define MA_REQUEST_HANDLER_PARAMS_H_
 
 /* Parameters affecting internal logic (recompiling required) */
-#define COMMUNICATIONS_NODE_NAME "communication_manager"
+#define MA_REQUEST_HANDLER_NODE_NAME "ma_request_handler"
 
 #define IS_ACCEPTED_OP_SRV "is_accepted_operation"
 

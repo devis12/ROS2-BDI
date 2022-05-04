@@ -13,6 +13,10 @@
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
+
+#include "ros2_bdi_core/params/belief_manager_params.hpp"
+#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -39,6 +43,15 @@ class BeliefManager : public rclcpp::Node
             Main loop of work called regularly through a wall timer
         */
         void step();
+
+        /*
+            Wait for PlanSys2 to boot at best for max_wait
+        */
+        bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
+        {
+            psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"));
+            return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        }
 
     private:
         /*  
@@ -191,6 +204,9 @@ class BeliefManager : public rclcpp::Node
 
         // plansys2 problem expert notification for updates
         rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr updated_problem_subscriber_;
+
+        // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
+        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
 
 }; //BeliefManager class prototype
 

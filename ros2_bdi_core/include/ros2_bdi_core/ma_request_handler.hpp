@@ -1,5 +1,5 @@
-#ifndef COMMUNICATIONS_H_
-#define COMMUNICATIONS_H_
+#ifndef MA_REQUEST_HANDLER_H_
+#define MA_REQUEST_HANDLER_H_
 
 #include <mutex>
 #include <vector>
@@ -18,20 +18,32 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
+#include "ros2_bdi_core/params/ma_request_handler_params.hpp"
+#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 typedef enum {BELIEF, DESIRE} RequestObjType;  
 typedef enum {CHECK, WRITE} RequestObjOp;  
 
-class CommunicationManager : public rclcpp::Node
+class MARequestHandler : public rclcpp::Node
 {
 public:
-  CommunicationManager();
+  MARequestHandler();
 
-  /*
-    Init to call at the start, after construction method, to get the node actually started
-  */
-  void init();
+    /*
+        Init to call at the start, after construction method, to get the node actually started
+    */
+    void init();
+
+    /*
+        Wait for PlanSys2 to boot at best for max_wait
+    */
+    bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
+    {
+        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"));
+        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+    }
   
 
 private:
@@ -177,6 +189,9 @@ private:
     //del_desire publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;
 
+    // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
+    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+
 };
 
-#endif // COMMUNICATIONS_H_
+#endif // MA_REQUEST_HANDLER_H_

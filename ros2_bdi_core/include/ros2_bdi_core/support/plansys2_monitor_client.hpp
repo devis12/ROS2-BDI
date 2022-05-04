@@ -2,6 +2,7 @@
 #define PLANSYS2_MONITOR_CLIENT_H_
 
 #include <string>
+#include <chrono>
 #include <vector>
 #include <memory>
 
@@ -20,6 +21,9 @@ class PlanSys2MonitorClient
         
         /* Return true if {psys2NodeName}/get_state service called confirm that the node is active */
         bool isPsys2NodeActive(const std::string& psys2NodeName);
+
+        /* Return true if all {psys2NodeName}/get_state service called confirm that the nodes are active, wait max_wait in case they're not before returning false */
+        bool areAllPsysNodeActive(const std::chrono::seconds max_wait = std::chrono::seconds(0));
 
     private:
         /* Get the reference to the node caller instance for the PlanSys2 node @psys2NodeName */

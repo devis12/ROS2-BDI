@@ -54,6 +54,9 @@ from bdi_agent_core import *
 
             ** "reschedule_policy": string in {"NO_PREEMPT", "PREEMPT"}, otherwise "NO_PREEMPT"
                                     to specify the reschedule policy
+
+
+            ** "debug_log_active": array containing the nodes of which you want to activate the debug log
 '''
 def AgentLaunchDescription(
     agent_id='agent0',
@@ -131,13 +134,13 @@ def AgentLaunchDescription(
         '''
             [*] PLANSYS2 MONITOR NODE init.
         '''
-        plansys2_monitor = build_PlanSys2Monitor(namespace, agent_id)
+        plansys2_monitor = build_PlanSys2Monitor(namespace, agent_id, init_params)
 
 
         '''
             [*] BELIEF MANAGER NODE init.
         '''
-        belief_manager = build_BeliefManager(namespace, agent_id) 
+        belief_manager = build_BeliefManager(namespace, agent_id, init_params) 
         
         '''
             [*] SCHEDULER NODE init.
@@ -151,14 +154,14 @@ def AgentLaunchDescription(
         plan_director = build_PlanDirector(namespace, agent_id, init_params)
         
         '''
-            [*] COMMUNICATION NODE init.
+            [*] COMMUNICATION Multi Agent MA Request Handler NODE init.
         '''
-        communications_manager = build_CommunicationsNode(namespace, agent_id, agent_group, init_params)
+        ma_request_handler = build_MARequestHandlerNode(namespace, agent_id, agent_group, init_params)
         
         '''
             [*] EVENT LISTENER NODE init.
         '''
-        event_listener = build_EventListener(namespace, agent_id)
+        event_listener = build_EventListener(namespace, agent_id, init_params)
         
         '''
             [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
@@ -172,7 +175,7 @@ def AgentLaunchDescription(
         #Add plan director
         ld.add_action(plan_director)
         #Add communication manager node
-        ld.add_action(communications_manager)
+        ld.add_action(ma_request_handler)
         #Add event listener node
         ld.add_action(event_listener)
         

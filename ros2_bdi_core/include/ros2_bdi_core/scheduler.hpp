@@ -24,6 +24,9 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/params/scheduler_params.hpp"
+
+#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
 #include "ros2_bdi_core/support/trigger_plan_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -34,23 +37,32 @@ typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} Targ
 class Scheduler : public rclcpp::Node
 {
 public:
-  Scheduler();
+    Scheduler();
 
-  /*
-    Init to call at the start, after construction method, to get the node actually started
-    initialing planner client instance, 
-    retrieving agent_id_ (thus namespace)
-    defining work timer,
-    belief set subscriber callback,
-    desire set publisher,
-    add/del desire subscribers callback
-  */
-  void init();
-  
-  /*
-    Main loop of work called regularly through a wall timer
-  */
-  void step();
+    /*
+        Init to call at the start, after construction method, to get the node actually started
+        initialing planner client instance, 
+        retrieving agent_id_ (thus namespace)
+        defining work timer,
+        belief set subscriber callback,
+        desire set publisher,
+        add/del desire subscribers callback
+    */
+    void init();
+    
+    /*
+        Main loop of work called regularly through a wall timer
+    */
+    void step();
+
+    /*
+        Wait for PlanSys2 to boot at best for max_wait
+    */
+    bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
+    {
+        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"));
+        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+    }
 
 private:
     /*  
@@ -283,4 +295,7 @@ private:
 
     // plan executioninfo subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
+
+    // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
+    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
 };

@@ -24,6 +24,9 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/params/plan_director_params.hpp"
+#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 typedef enum {STARTING, READY, EXECUTING, PAUSE} StateType;                
@@ -47,6 +50,15 @@ public:
         Main loop of work called regularly through a wall timer
     */
     void step();
+
+    /*
+        Wait for PlanSys2 to boot at best for max_wait
+    */
+    bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
+    {
+        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(PLAN_DIRECTOR_NODE_NAME + std::string("_psys2caller_"));
+        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+    }
 
 private:
     /*  
@@ -201,6 +213,9 @@ private:
 
     // trigger plan execution/abortion service
     rclcpp::Service<ros2_bdi_interfaces::srv::BDIPlanExecution>::SharedPtr server_plan_exec_;
+
+    // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
+    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
 
 }; // PlanDirector class prototype
 

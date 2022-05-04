@@ -40,7 +40,8 @@ def generate_launch_description():
         executable='wp_sensor',
         name='wp_sensor',
         specific_params=[
-            {"init_sleep": 3}
+            {"init_sleep": 3},
+            {"debug": False}
         ])
 
     ld = AgentLaunchDescription(
@@ -53,10 +54,12 @@ def generate_launch_description():
             'init_reactive_rules_set': bdi_tests_share_dir + '/launch/init_cleaner_simple/init_rrules.yaml',
             'autosub_prec': True,
             'autosub_cont': True,
-            'reschedule_policy': 'NO_PREEMPT'
+            'reschedule_policy': 'NO_PREEMPT',
+            'debug_log_active': ['belief_manager', 'scheduler']
         },
         actions=[action_movetoward, action_doclean, action_recharge],
-        sensors=[wp_sensor]
+        sensors=[wp_sensor],
+        run_only_psys2=False
     ) 
 
     return ld

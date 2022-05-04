@@ -963,7 +963,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<Scheduler>();
-  std::this_thread::sleep_for(std::chrono::seconds(2));//WAIT PSYS2 TO BOOT
+  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
 
   node->init();
   rclcpp::spin(node);

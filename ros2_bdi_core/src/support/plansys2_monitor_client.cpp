@@ -3,6 +3,8 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node
 #include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
 
+#include <numeric>
+
 using std::string;
 using std::vector;
 
@@ -119,5 +121,32 @@ bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
         RCLCPP_ERROR(node->get_logger(), "Response error in while trying to call %s srv", client->get_service_name());
     }
 
+    return false;
+}
+
+
+/* Return true if all {psys2NodeName}/get_state service called confirm that the nodes are active, wait max_wait in case they're not before returning false */
+bool PlanSys2MonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_wait)
+{
+    std::vector<bool> active = std::vector<bool>(PSYS2NODES, false);
+
+    std::chrono::seconds waited_amount = std::chrono::seconds(0);
+
+    while(waited_amount >= max_wait)
+    {
+        active[PSYS2_DOM_EXPERT_I] = isPsys2NodeActive(PSYS2_DOM_EXPERT);
+        active[PSYS2_PROB_EXPERT_I] = isPsys2NodeActive(PSYS2_PROB_EXPERT);
+        active[PSYS2_PLANNER_I] = isPsys2NodeActive(PSYS2_PLANNER);
+        active[PSYS2_EXECUTOR_I] = isPsys2NodeActive(PSYS2_EXECUTOR);
+
+        if(std::accumulate(active.begin(), active.end(), 0) == PSYS2NODES)
+            return true;
+        
+        if(waited_amount < max_wait)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
+            waited_amount += std::chrono::seconds(1);
+        }
+    }
     return false;
 }

@@ -45,10 +45,12 @@ class WPSensor : public Sensor
             if(counter_ < waypoints.size())
             {
                 this->sense(waypoints[counter_], ADD);
-                RCLCPP_INFO(this->get_logger(), "WaypointSensor sensing for instance of type " + this->getBeliefPrototype().params[0] + 
-                    " has sensed: " + waypoints[counter_].name);
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "WaypointSensor sensing for instance of type " + this->getBeliefPrototype().params[0] +  " has sensed: " + waypoints[counter_].name);
                 counter_++;
             }
+            else
+                counter_ = 0;//restart when you're finishing (these are just static information... sensor built just for testing purposes)
             
         }
 
