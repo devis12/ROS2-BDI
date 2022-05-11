@@ -107,7 +107,7 @@ Finally, you can launch in a new terminal (again with the environment already so
 ```
 ros2 launch ros2_bdi_on_webots gripper_a.launch.py
 ```
-Feel free to play with the init. sets and init. reactive rules to trigger new scenarios (e.g. you might want to change the `moving_boxes` fluent check from 2 to 1, to trigger the movement of a carrier before the loading of both 2 boxes is complete, causing the replanning of the gripper). 
+Feel free to play with the init. sets and init. reactive rules to trigger new scenarios (e.g. you might want to change the `moving_boxes` fluent check from 2 to 1, to trigger the movement of a carrier before the loading of both 2 boxes is complete, causing the replanning of the gripper).  Another option is to update the init. desire set for the gripper agent (as suggested in the file comments), so that just `gripper_a` and `carrier_a` are involved (you can avoid start the other carriers): this is almost necessary in case your pc is not powerful enough to handle the expensive load of having all four agents and the simulator runnning.
 
 Examine the demos to get a better grasp on how the framework should be exploited: hope the materials will inspire you to do great things ;-)
 Feel free to contact us for further information

@@ -147,10 +147,19 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<EventListener>();
-  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
-
-  if(node->init())//if False, no proper reactive rules defined -> hence no point in having the node booted up 
-    rclcpp::spin(node);
+  bool psys2_booted = node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
+  
+  if(psys2_booted)
+  {
+    if(node->init())//if False, no proper reactive rules defined -> hence no point in having the node booted up 
+        rclcpp::spin(node);
+    else
+        std::cout << "Event Listener has provided with any rule to implement Belief Revision Function or Desire Generation Function, thus will be directly terminated" << std::endl;
+  }
+  else
+  {
+    std::cerr << "PlanSys2 failed to boot: node will not spin and process will terminate" << std::endl;
+  }
     
   rclcpp::shutdown();
 

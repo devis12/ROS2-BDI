@@ -963,10 +963,18 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<Scheduler>();
-  node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
-
-  node->init();
-  rclcpp::spin(node);
+    bool psys2_booted = node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
+  
+  if(psys2_booted)
+  {
+    node->init();
+    rclcpp::spin(node);
+  }
+  else
+  {
+    std::cerr << "PlanSys2 failed to boot: node will not spin and process will terminate" << std::endl;
+  }
+  
   rclcpp::shutdown();
 
   return 0;

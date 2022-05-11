@@ -132,7 +132,7 @@ bool PlanSys2MonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_
 
     std::chrono::seconds waited_amount = std::chrono::seconds(0);
 
-    while(waited_amount >= max_wait)
+    while(waited_amount <= max_wait)
     {
         active[PSYS2_DOM_EXPERT_I] = isPsys2NodeActive(PSYS2_DOM_EXPERT);
         active[PSYS2_PROB_EXPERT_I] = isPsys2NodeActive(PSYS2_PROB_EXPERT);
