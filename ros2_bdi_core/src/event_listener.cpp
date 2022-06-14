@@ -70,7 +70,7 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     set<ManagedReactiveRule> rules;
 
     try{
-        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath);//TODO test
+        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath);
 
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Reactive rules initialization performed through " + init_reactive_rules_filepath);

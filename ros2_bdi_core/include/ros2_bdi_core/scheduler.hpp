@@ -153,10 +153,9 @@ private:
 
     /*
         wrt the current plan execution...
-        return true iff currently executing last action
-        return false if otherwise or not executing any plan
+        return sum of progress status of all actions within a plan divided by the number of actions
     */
-    bool executingLastAction();
+    float computePlanProgressStatus();
 
     /*
         The belief set has been updated

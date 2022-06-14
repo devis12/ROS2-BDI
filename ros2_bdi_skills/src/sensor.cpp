@@ -51,7 +51,7 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
     this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
-    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) //TODO default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
+    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) // default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
 
     this->init();
 }

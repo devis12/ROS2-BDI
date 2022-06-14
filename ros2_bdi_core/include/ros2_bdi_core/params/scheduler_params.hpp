@@ -12,6 +12,12 @@
 
 #define INIT_DESIRE_SET_FILENAME "init_dset.yaml"
 
+/*  Consider the plan almost completed if this threshold is surpassed by its progress status
+    (useful to decide whether to abort the plan in case the target desire appears 
+        to be fulfilled before the notification of the plan execution termination)
+*/
+#define COMPLETED_THRESHOLD 0.75 //TODO check in the future for a better value
+
 //seconds to wait before giving up on performing a request (service does not appear to be up)
 #define WAIT_PLAN_EXEC_SRV_UP 1   
 

@@ -149,7 +149,7 @@ private:
     /*
     Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
     */
-    uint8_t getPlanExecutionStatus();
+    std::string getPlanExecutionStatus();
 
 
     /*
@@ -203,10 +203,10 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr belief_del_publisher_;
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
-    int first_ts_plan_sec;
-    unsigned int first_ts_plan_nanosec;
+    int first_ts_plan_sec_;
+    unsigned int first_ts_plan_nanosec_;
     // last recorded timestamp during plan execution
-    float last_ts_plan_exec;
+    float last_ts_plan_exec_;
 
     // notification about the current plan execution -> plan execution info publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;

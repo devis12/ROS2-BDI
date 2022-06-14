@@ -55,7 +55,7 @@ def generate_launch_description():
             'autosub_prec': True,
             'autosub_cont': True,
             'reschedule_policy': 'NO_PREEMPT',
-            'debug_log_active': ['belief_manager', 'scheduler']
+            'debug_log_active': ['belief_manager', 'scheduler', 'plan_director']
         },
         actions=[action_movetoward, action_doclean, action_recharge],
         sensors=[wp_sensor],

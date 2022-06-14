@@ -1,5 +1,7 @@
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
 
+#include "ros2_bdi_utils/PDDLUtils.hpp"
+
 #include <boost/algorithm/string.hpp>
 
 using std::string;
@@ -133,11 +135,11 @@ namespace PDDLBDIConverter
     const int& start_sec_ts, const unsigned int& start_nanosec_ts)
   { 
     int rel_sec = (current_sec_ts >= start_sec_ts)? current_sec_ts - start_sec_ts : 0;
-
+    
     unsigned int rel_nanosec = (current_nanosec_ts >= start_nanosec_ts)? 
       current_nanosec_ts - start_nanosec_ts : 
       start_nanosec_ts - current_nanosec_ts;
-
+      
     if(current_nanosec_ts >= start_nanosec_ts)
       return fromTimeToFloat(rel_sec, rel_nanosec, ADD_NANO_SEC);
     else
@@ -146,38 +148,66 @@ namespace PDDLBDIConverter
 
   /*
     get index of action with given action_name & args in the vector<PlanItem> in current_plan_.body 
+    action_full_name is in the form "(a1 p1 p2 p3):timex1000"
   */
-  int getActionIndex(const vector<PlanItem>& current_plan_body, const string& action_name, const vector<string>& args)
+  int getActionIndex(const vector<PlanItem>& current_plan_body, const string& action_full_name)
   {
-      int foundIndex = -1;
-
+      float timex1000 = std::stof(action_full_name.substr(action_full_name.find_last_of(":")+1));
+      string action_full_no_time = action_full_name.substr(0, action_full_name.find_first_of(":"));// (action_name param1 param2 ...)
+      
       for(int i = 0; i < current_plan_body.size(); i++)
       {   
-          string full_name_i = current_plan_body[i].action;// (action_name param1 param2 ...)
-          if(full_name_i.length() > 0)
-          {    
-              if(full_name_i[0] == '(')
-                  full_name_i = full_name_i.substr(1);//remove start parenthesis from action name
+          float plannedStartTimex1000 = current_plan_body[i].time * 1000;
 
-              if(full_name_i[full_name_i.length()-1] == ')')
-                  full_name_i = full_name_i.substr(0, full_name_i.length()-1);//remove end parenthesis from action name
-          }   
-
-          vector<string> action_params_i;
-          boost::split(action_params_i, full_name_i, [](char c){return c == ' ';});//split string
-          if(action_params_i[0] == action_name && action_params_i.size()-1 == args.size())//same name && same num of args 
-          {
-              bool matchingParams = true; //true if all the arg of the action match
-              for(int j = 1; matchingParams && j < action_params_i.size(); j++)
-                  if(action_params_i[j] != args[j-1])
-                      matchingParams = false;
-              
-              if(matchingParams)// this is the correct action we were looking for -> return i
-                  return i;
-          }
+          if(timex1000 == plannedStartTimex1000 && action_full_no_time == current_plan_body[i].action)//same time of start
+            return i;
               
       }
-      return foundIndex;
+      return -1;
+  }
+
+  /*
+    get index of action with given action_name & args in the vector<ActionExecutionInfo> in psys2_plan_exec_info
+    action_full_name is in the form "(a1 p1 p2 p3):timex1000"
+  */
+  int getActionIndex(const vector<ActionExecutionInfo>& psys2_plan_exec_info, const string& action_full_name)
+  {   
+      for(int i = 0; i < psys2_plan_exec_info.size(); i++)
+      {   
+          if(psys2_plan_exec_info[i].action_full_name == action_full_name)//same name, args and time of start (all wrapped in string action_full_name)
+            return i;
+      }
+      return -1;
+  }
+
+  /*
+    Get from plansys2 action feedback BDIActionExecutionInfo status
+  */
+  std::string getBDIActionExecutionStatus(const ActionExecutionInfo& psys2_action_feed)
+  {
+    BDIActionExecutionInfo bdi_ai = BDIActionExecutionInfo();
+    std::string res = bdi_ai.UNKNOWN;
+    //switch(psys2_action_feed.status)
+    //{
+      if(psys2_action_feed.status == psys2_action_feed.CANCELLED) 
+        res = bdi_ai.FAILED;
+        //break;
+      else if(psys2_action_feed.status == psys2_action_feed.EXECUTING) 
+        res = bdi_ai.RUNNING;
+        //break;
+      else if(psys2_action_feed.status == psys2_action_feed.FAILED) 
+        res = bdi_ai.FAILED;
+        //break;
+      else if(psys2_action_feed.status == psys2_action_feed.NOT_EXECUTED) 
+        res = bdi_ai.WAITING;
+        //break;
+      else if(psys2_action_feed.status == psys2_action_feed.SUCCEEDED) 
+        res = bdi_ai.SUCCESSFUL;
+        //break;
+      else
+        res = bdi_ai.UNKNOWN;
+    //}
+    return res;
   }
 
   /*
@@ -186,36 +216,62 @@ namespace PDDLBDIConverter
   */
   BDIActionExecutionInfo buildBDIActionExecutionInfo(
 
-    const ActionExecutionInfo& psys2_action_feed, 
+    const std::optional<ActionExecutionInfo>& psys2_action_feed_opt, 
     const vector<PlanItem>& current_plan_body,
+    const int& action_index, 
     const int& first_ts_plan_sec, const unsigned int& first_ts_plan_nanosec)
   {
+    ActionExecutionInfo psys2_action_feed = psys2_action_feed_opt.has_value()? psys2_action_feed_opt.value() : ActionExecutionInfo();
+    
     BDIActionExecutionInfo bdiActionExecutionInfo = BDIActionExecutionInfo();
-    bdiActionExecutionInfo.args = psys2_action_feed.arguments;
-    bdiActionExecutionInfo.index = getActionIndex(current_plan_body, psys2_action_feed.action, psys2_action_feed.arguments);//retrieve action index within plan body (NOT i :-/)
-    bdiActionExecutionInfo.name = psys2_action_feed.action;
+    vector<string> plan_item_elems = PDDLUtils::extractPlanItemActionElements(current_plan_body[action_index].action);
 
-    // compute start time of this action with respect first timestamp of first action start timestamp
-    float start_time_s = computeRelativeTime(psys2_action_feed.start_stamp.sec, psys2_action_feed.start_stamp.nanosec,
-                            first_ts_plan_sec, first_ts_plan_nanosec);
+    //assign index
+    bdiActionExecutionInfo.index = action_index;
+    //assign action's name
+    bdiActionExecutionInfo.name = plan_item_elems[0];
+    //assign action's args
+    for(int i = 1; i<plan_item_elems.size(); i++)
+      bdiActionExecutionInfo.args.push_back(plan_item_elems[i]);
+
+    bdiActionExecutionInfo.wait_action_indexes = std::vector<short int>();
+    if(psys2_action_feed_opt.has_value())
+    {
+      for(auto waitAction : psys2_action_feed.waiting_actions)
+        bdiActionExecutionInfo.wait_action_indexes.push_back(getActionIndex(current_plan_body, waitAction));
+    }
+
+    if(psys2_action_feed_opt.has_value() && first_ts_plan_sec >= 0 && psys2_action_feed.status != psys2_action_feed.NOT_EXECUTED)
+    {
+      // compute start time of this action with respect first timestamp of first action start timestamp
+      float start_time_s = computeRelativeTime(psys2_action_feed.start_stamp.sec, psys2_action_feed.start_stamp.nanosec,
+                              first_ts_plan_sec, first_ts_plan_nanosec);
+      // actual start time of this action
+      bdiActionExecutionInfo.actual_start = start_time_s;
+
+      // compute status time of this action with respect first timestamp of first action start timestamp
+      float status_time_s = computeRelativeTime(psys2_action_feed.status_stamp.sec, psys2_action_feed.status_stamp.nanosec,
+                                first_ts_plan_sec, first_ts_plan_nanosec); 
+      
+      // retrieve execution time as (status_timestamp - start_timestamp)
+      bdiActionExecutionInfo.exec_time = status_time_s - start_time_s; 
+    }
+    else
+    { 
+      // still having no info
+      bdiActionExecutionInfo.actual_start = 0.0f;
+      bdiActionExecutionInfo.exec_time = 0.0f;
+    }
 
     // planned start time for this action
-    bdiActionExecutionInfo.planned_start = current_plan_body[bdiActionExecutionInfo.index].time;
-
-    // actual start time of this action
-    bdiActionExecutionInfo.actual_start = start_time_s;
-    
-    // compute status time of this action with respect first timestamp of first action start timestamp
-    float status_time_s = computeRelativeTime(psys2_action_feed.status_stamp.sec, psys2_action_feed.status_stamp.nanosec,
-                              first_ts_plan_sec, first_ts_plan_nanosec); 
-    
-    // retrieve execution time as (status_timestamp - start_timestamp)
-    bdiActionExecutionInfo.exec_time = status_time_s - start_time_s; 
+    bdiActionExecutionInfo.planned_start = current_plan_body[action_index].time;
 
     //retrieve estimated duration for action from pddl domain
-    bdiActionExecutionInfo.duration = fromTimeToFloat(psys2_action_feed.duration.sec, psys2_action_feed.duration.nanosec);
+    bdiActionExecutionInfo.duration = current_plan_body[action_index].duration;
 
-    bdiActionExecutionInfo.progress = psys2_action_feed.completion;
+    bdiActionExecutionInfo.progress = psys2_action_feed_opt.has_value()? psys2_action_feed.completion : 0.0f;
+
+    bdiActionExecutionInfo.status = psys2_action_feed_opt.has_value()? getBDIActionExecutionStatus(psys2_action_feed) : bdiActionExecutionInfo.UNKNOWN;
 
     return bdiActionExecutionInfo;
   }

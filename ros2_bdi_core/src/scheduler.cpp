@@ -337,7 +337,7 @@ optional<Plan> Scheduler::computePlan(const ManagedDesire& md)
 */
 bool Scheduler::noPlanSelected()
 {
-    return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getBody().size() == 0;
+    return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
 }
 
 /*
@@ -393,21 +393,21 @@ void Scheduler::reschedule()
 
                 ManagedPlan mp = ManagedPlan{md, opt_p.value().items, md.getPrecondition(), md.getContext()};
                 // does computed deadline for this plan respect desire deadline?
-                if(mp.getPlanDeadline() <= md.getDeadline()) 
+                if(mp.getPlannedDeadline() <= md.getDeadline()) 
                 {
                     // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
                     // or equal priority, but smaller deadline
-                    if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlanDeadline() < selectedDeadline)
+                    if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlannedDeadline() < selectedDeadline)
                     {    
-                        selectedDeadline = mp.getPlanDeadline();
+                        selectedDeadline = mp.getPlannedDeadline();
                         highestPriority = md.getPriority();
                         selectedPlan = mp;
                     
-                    }else if(md.getPriority() <= highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
+                    }else if(md.getPriority() < highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
                         RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+ 
                             "it it's not the desire (among which a plan can be selected) with highest priority right now");
 
-                    }else if(mp.getPlanDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
+                    }else if(mp.getPlannedDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
                         RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+
                             "it it's not the desire (among which a plan can be selected) with highest priority and earliest deadline right now");
                     }
@@ -500,7 +500,7 @@ void Scheduler::reschedule()
     for(ManagedDesire md : discarded_desires)
         delDesire(md);
 
-    if(selectedPlan.getBody().size() > 0)
+    if(selectedPlan.getActionsExecInfo().size() > 0)
     {
         bool triggered = tryTriggerPlanExecution(selectedPlan);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
@@ -516,7 +516,7 @@ void Scheduler::reschedule()
     return true if successful
 */
 bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
-{
+{   
     //trigger plan execution
     bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
     if(triggered)
@@ -580,7 +580,7 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
     
     //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
-    if(selectedPlan.getBody().size() <= 0 || !desireInDesireSet)
+    if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)
         return false;
     
 
@@ -602,7 +602,6 @@ void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
             mtx_iter_dset_.lock();
-
             bool desireAchieved = isDesireSatisfied(targetDesire);
             if(desireAchieved)
                 delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
@@ -633,7 +632,7 @@ void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
                 {
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
                         RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
-                    delDesire(targetDesire);
+                    delDesire(targetDesire, true);
                 
                 }else if(!targetDesire.getContext().isSatisfied(belief_set_) && this->get_parameter(PARAM_AUTOSUBMIT_CONTEXT).as_bool()){
                     // check for context condition failed 
@@ -697,27 +696,26 @@ void Scheduler::checkForSatisfiedDesires()
         if(isDesireSatisfied(md))//desire already achieved, remove it
         {
             if(!noPlanSelected() && current_plan_.getDesire() == md && 
-                current_plan_exec_info_.status == current_plan_exec_info_.RUNNING && 
-                current_plan_exec_info_.executing.size() > 0 && !executingLastAction())
+                current_plan_exec_info_.status == current_plan_exec_info_.RUNNING)  
             {
-                int lastActionIndex = current_plan_exec_info_.actions.size() -1;
-                int executingActionIndex = -1;
-                for(auto exec_action : current_plan_exec_info_.executing)
-                    executingActionIndex = std::max((int)exec_action.index, executingActionIndex);
+                float plan_progress_status = computePlanProgressStatus();
+                
+                if(plan_progress_status < COMPLETED_THRESHOLD)
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Current plan execution fulfilling desire \"" + md.getName() + 
+                            "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
+                            "(progress status = %f)", plan_progress_status);
 
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Current plan execution fulfilling desire \"" + md.getName() + 
-                        "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
-                        "(executing %d out of %d)", lastActionIndex, executingActionIndex);
-
-                //abort current_plan_ plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
-                abortCurrentPlanExecution();
+                    //abort current_plan_ plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
+                    abortCurrentPlanExecution();   
+                }
             }
             else
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
-                    "target appears to be already fulfilled given the current belief set");
+                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
+                        "target appears to be already fulfilled given the current belief set");
             
                 satisfiedDesires.push_back(md);//delete desire just if not executing one, otherwise will be deleted when aborted feedback comes and desire is satisfied
             }
@@ -733,21 +731,19 @@ void Scheduler::checkForSatisfiedDesires()
 
 /*
     wrt the current plan execution...
-    return true iff currently executing last action
-    return false if otherwise or not executing any plan
+    return sum of progress status of all actions within a plan divided by the number of actions
 */
-bool Scheduler::executingLastAction()
+float Scheduler::computePlanProgressStatus()
 {   
     // not exeuting any plan or last update not related to currently triggered plan
     if(noPlanSelected() || current_plan_exec_info_.target.name != current_plan_.getDesire().getName())
-        return false;
+        return 0.0f;
 
-    bool executingLast = false;
-    for(auto currentExecutingAction : current_plan_exec_info_.executing)
-        if(currentExecutingAction.index == current_plan_exec_info_.actions.size() - 1)//currentlyExecutingLast action
-            executingLast = true;
+    float progress_sum = 0.0f;
+    for(auto currentExecutingAction : current_plan_exec_info_.actions_exec_info)
+        progress_sum += currentExecutingAction.progress;
 
-    return executingLast;
+    return progress_sum/(current_plan_exec_info_.actions_exec_info.size());
 }
 
 /*
@@ -933,7 +929,7 @@ bool Scheduler::delDesireCS(const ManagedDesire mdDel, const bool& wipeSameGroup
         desire_set_.erase(desire_set_.find(mdDel));
         computed_plan_desire_map_.erase(mdDel.getName());
         deleted = true;
-        //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");//TODO remove when assured there is no bug in deletion
+        //RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" removed!");
     }/*else
         RCLCPP_INFO(this->get_logger(), "Desire \"" + mdDel.getName() + "\" to be removed NOT found!");*/
     
