@@ -137,7 +137,7 @@ float ManagedPlan::computeUpdatedEndTime(const BDIActionExecutionInfo& bdi_ai)
     else if (bdi_ai.status == bdi_ai.SUCCESSFUL || bdi_ai.status == bdi_ai.FAILED)//I know exactly how much they took
         return bdi_ai.actual_start + bdi_ai.exec_time;
         
-    else if(bdi_ai.wait_action_indexes.size() == 0)//waiting or unknown status, but in both cases non waiting anyone -> just return the planned end
+    else if(bdi_ai.status == bdi_ai.UNKNOWN || bdi_ai.status == bdi_ai.WAITING && bdi_ai.wait_action_indexes.size() == 0)//waiting or unknown status, but in both cases non waiting anyone -> just return the planned end
         return bdi_ai.planned_start + bdi_ai.duration;
 
     else
@@ -154,42 +154,14 @@ float ManagedPlan::computeUpdatedEndTime(const BDIActionExecutionInfo& bdi_ai)
 
 float ManagedPlan::getUpdatedEstimatedDeadline()
 {
-    //TODO you have to fix this!!!!
-
-    //[0]A[4] -> [4]B[6]                    at time 0 it gets 6: CORRECT!
-
-    //[0]A[2] -> [2]B[4]                    at time 2,3 it gets 4: CORRECT!
-
-    //[0]A[6] -> [6]B[8] -> [8]C[12]       at time 2,3 it still gets 6: WRONG! missing causal links
     float deadline = 0.0f;
     
     // you cannot compute the sum of all duration, because not all plans are 
     // linear sequence of actions (i.e. actions can start in group and/or actions
     // can start when other actions during plan exec. has not finished yet)
     for(BDIActionExecutionInfo bdi_ai : actions_exec_info_)
-    {   
+        deadline = std::max(deadline, computeUpdatedEndTime(bdi_ai)); 
 
-        if(bdi_ai.status == bdi_ai.RUNNING)//action still running
-        {
-            float updated_exec_time_lp = bdi_ai.exec_time / bdi_ai.progress;//TODO this assume linear progress, but one can specify its own policy: design this better in future iteration
-            deadline = std::max(deadline, bdi_ai.actual_start + updated_exec_time_lp);
-        }
-
-        else if(bdi_ai.status != bdi_ai.WAITING || bdi_ai.status == bdi_ai.WAITING && bdi_ai.wait_action_indexes.size() == 0)
-            deadline = std::max(deadline, bdi_ai.planned_start + bdi_ai.duration);
-
-        else //WAITING status and waiting for someone
-        {
-            for(int i = 0; i < bdi_ai.wait_action_indexes.size(); i++)
-            {
-                BDIActionExecutionInfo bdi_ai_to_be_waited = actions_exec_info_[bdi_ai.wait_action_indexes[i]];
-                deadline = std::max(deadline, computeUpdatedEndTime(bdi_ai_to_be_waited) + bdi_ai.duration); 
-            }
-        }
-
-    }
-
-    // std::cout << "\n\n\n" << std::flush;
     return deadline;
 }
 
