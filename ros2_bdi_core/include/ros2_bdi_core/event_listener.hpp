@@ -20,7 +20,7 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
 #include "ros2_bdi_core/params/event_listener_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -52,8 +52,8 @@ class EventListener : public rclcpp::Node
         */
         bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
         {
-            psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(EVENT_LISTENER_NODE_NAME + std::string("_psys2caller_"));
-            return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(EVENT_LISTENER_NODE_NAME + std::string("_psys2caller_"));
+            return psys_monitor_client_->areAllPsysNodeActive(max_wait);
         }
 
     private:
@@ -92,7 +92,7 @@ class EventListener : public rclcpp::Node
         rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscription_;//belief set subscription
 
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+        std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 }; //BeliefManager class prototype
 

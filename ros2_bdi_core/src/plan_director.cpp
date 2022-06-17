@@ -6,8 +6,10 @@
 #include "ros2_bdi_core/params/plan_director_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for topics' names)
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler 
+#include "ros2_bdi_core/params/scheduler_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <boost/algorithm/string.hpp>
 
@@ -42,7 +44,7 @@ using plansys2_msgs::msg::DurativeAction;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 
@@ -60,6 +62,7 @@ PlanDirector::PlanDirector()
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_CANCEL_AFTER_DEADLINE, DEFAULT_VAL_CANCEL_AFTER_DEADLINE);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
 
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
@@ -69,6 +72,9 @@ PlanDirector::PlanDirector()
     no_plan_msg_.actions_exec_info = vector<BDIActionExecutionInfo>();
     no_plan_msg_.current_time = 0.0f;
     no_plan_msg_.estimated_deadline = 0.0f;
+
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 /*
@@ -97,7 +103,7 @@ void PlanDirector::init()
     psys2_problem_expert_active_ = false;
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
                 PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
 
@@ -207,7 +213,7 @@ void PlanDirector::publishNoPlanExec()
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void PlanDirector::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void PlanDirector::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_domain_expert_active_ = msg->domain_expert_active;
     psys2_problem_expert_active_ = msg->problem_expert_active;

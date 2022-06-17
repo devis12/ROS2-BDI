@@ -15,7 +15,7 @@
 #include "ros2_bdi_interfaces/msg/condition.hpp"
 #include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
 #include "ros2_bdi_interfaces/msg/conditions_dnf.hpp"
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
@@ -26,12 +26,13 @@
 
 #include "ros2_bdi_core/params/scheduler_params.hpp"
 
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/trigger_plan_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
-typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
+typedef enum {STARTING, SCHEDULING, PAUSE} StateType;          
 typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} TargetBeliefAcceptance;
 
 class Scheduler : public rclcpp::Node
@@ -60,8 +61,8 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"));
-        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"));
+        return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 
 private:
@@ -78,7 +79,7 @@ private:
     /*
        Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
+    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
 
     /*
         Expect to find yaml file to init the desire set in "/tmp/{agent_id}/init_dset.yaml"
@@ -227,6 +228,9 @@ private:
 
     // internal state of the node
     StateType state_;
+
+    // Selected planning mode
+    PlanningMode sel_planning_mode_;
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
@@ -242,6 +246,9 @@ private:
     // planner expert instance to call the plansys2 planner api
     std::shared_ptr<plansys2::PlannerClient> planner_client_;
     
+    // flag to denote if the javaff online planner is up and active
+    bool javaff_planner_active_;
+
     // flag to denote if the plansys2 planner is up and active
     bool psys2_planner_active_;
     // flag to denote if the plansys2 domain expert is up and active
@@ -249,7 +256,7 @@ private:
     // flag to denote if the plansys2 problem expert planner is up and active
     bool psys2_problem_expert_active_;
     // plansys2 node status monitor subscription
-    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr plansys2_status_subscriber_;
     
     // desire set has been init. (or at least the process to do so has been tried)
     bool init_dset_;
@@ -296,5 +303,5 @@ private:
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
 
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+    std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 };

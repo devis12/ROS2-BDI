@@ -19,7 +19,7 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
 #include "ros2_bdi_core/params/ma_request_handler_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -41,8 +41,8 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"));
-        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"));
+        return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
   
 
@@ -190,7 +190,7 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;
 
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+    std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 };
 

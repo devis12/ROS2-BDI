@@ -11,11 +11,11 @@
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -49,8 +49,8 @@ class BeliefManager : public rclcpp::Node
         */
         bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
         {
-            psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"));
-            return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"));
+            return psys_monitor_client_->areAllPsysNodeActive(max_wait);
         }
 
     private:
@@ -62,7 +62,7 @@ class BeliefManager : public rclcpp::Node
         /*
             Received notification about PlanSys2 nodes state by plansys2 monitor node
         */
-        void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
+        void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
 
         /*
             Publish the current belief set of the agent in agent_id_/belief_set topic
@@ -189,7 +189,7 @@ class BeliefManager : public rclcpp::Node
         // flag to denote if the domain expert node seems to be up and active
         bool psys2_domain_expert_active_;
         // plansys2 node status monitor subscription
-        rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr plansys2_status_subscriber_;
         
         // belief set has been init. (or at least the process to do so has been tried)
         bool init_bset_;
@@ -206,7 +206,7 @@ class BeliefManager : public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr updated_problem_subscriber_;
 
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+        std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 }; //BeliefManager class prototype
 

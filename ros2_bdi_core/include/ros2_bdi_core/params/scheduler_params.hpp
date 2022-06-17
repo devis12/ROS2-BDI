@@ -30,5 +30,9 @@
 #define PARAM_RESCHEDULE_POLICY "reschedule_policy"
 #define PARAM_AUTOSUBMIT_PREC "autosub_prec"
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
+#define PARAM_PLANNING_MODE "planning_mode"
+
+#define PLANNING_MODE_OFFLINE "offline"
+#define PLANNING_MODE_ONLINE "online"
 
 #endif

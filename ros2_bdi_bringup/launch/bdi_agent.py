@@ -30,6 +30,8 @@ from bdi_agent_core import *
             
             ** "init_bset": string file path to YAML file to init the belief set of the agent
             ** "init_dset": string file path to YAML file to init the desire set of the agent
+
+            ** "planning_mode": {"offline", "online"}, default: "offline"
             
             ** "belief_ck": string array of agent groups accepts beliefs CHECK request from
             ** "belief_w": string array of agent groups accepts beliefs WRITE request from
@@ -98,6 +100,27 @@ def AgentLaunchDescription(
     ld.add_action(log_level_cmd)
 
     '''
+        PLANNING MODE
+    '''
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
+    if planning_mode == 'online': # psys2 won't start its planner (by launch args passed)
+        javaff_nodes = Node(
+            package='javaff',
+            executable='javaff_nodes',
+            name='javaff_nodes',
+            namespace=namespace,
+            output='screen',
+            parameters= [
+                {"ns": agent_id}
+            ]
+        )
+        
+        ld.add_action(javaff_nodes)
+
+    '''
         [*] PLANSYS2 Bringup
     '''
     #Launch PlanSys2 4 core nodes with distributed launch
@@ -109,11 +132,14 @@ def AgentLaunchDescription(
 
         launch_arguments={
             'model_file': init_params[PDDL_FILE_PARAM],
-            'namespace': namespace
+            'namespace': namespace,
+            'planning_mode': planning_mode
             }.items()
     )
     # Declare the launch options
     ld.add_action(plansys2_cmd)
+
+    
 
     if(not run_only_psys2):
 
@@ -132,9 +158,9 @@ def AgentLaunchDescription(
             load_init_file(init_params[INIT_RRULESSET_PARAM], 'init_reactive_rules.yaml', agent_id)   
     
         '''
-            [*] PLANSYS2 MONITOR NODE init.
+            [*] PLANSYS MONITOR NODE init.
         '''
-        plansys2_monitor = build_PlanSys2Monitor(namespace, agent_id, init_params)
+        plansys_monitor = build_PlanSysMonitor(namespace, agent_id, init_params)
 
 
         '''
@@ -167,7 +193,7 @@ def AgentLaunchDescription(
             [*] ADD ROS2_BDI CORE nodes + action(s) & sensor(s) node(s)
         '''
         # Declare plansys2 monitor node
-        ld.add_action(plansys2_monitor)
+        ld.add_action(plansys_monitor)
         #Add belief manager
         ld.add_action(belief_manager)
         #Add BDI scheduler

@@ -1,21 +1,22 @@
-#ifndef PLANSYS2_MONITOR_H_
-#define PLANSYS2_MONITOR_H_
+#ifndef PLANSYS_MONITOR_H_
+#define PLANSYS_MONITOR_H_
 
 #include <string>
 #include <memory>
 
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
-class PlanSys2Monitor : public rclcpp::Node
+class PlanSysMonitor : public rclcpp::Node
 {
     public:
 
         /* Constructor method */
-        PlanSys2Monitor();
+        PlanSysMonitor();
 
         /*
             Init to call at the start, after construction method, to get the node actually started
@@ -26,7 +27,7 @@ class PlanSys2Monitor : public rclcpp::Node
         /*
             Main loop of work called regularly through a wall timer
         */
-        void checkPlanSys2State();
+        void checkPlanningSystemState();
 
     private:
 
@@ -43,9 +44,10 @@ class PlanSys2Monitor : public rclcpp::Node
         /*
             Activate thread to check active state of plansys2 node (planner, domain_expert, problem_expert)
         */
-        void checkPsys2NodeActive(const std::string& psys2NodeName);
+        void checkPsysNodeActive(const std::string& psysNodeName);
 
-        
+        // Selected planning mode
+        PlanningMode sel_planning_mode_;
         // agent id that defines the namespace in which the node operates
         std::string agent_id_;
         // callback to perform main loop of work regularly
@@ -54,17 +56,17 @@ class PlanSys2Monitor : public rclcpp::Node
         int work_timer_interval_;
 
         // psys2 nodes active flags
-        ros2_bdi_interfaces::msg::PlanSys2State psys2_active_;
+        ros2_bdi_interfaces::msg::PlanningSystemState psys_active_;
 
         // comm errors psys2
         int psys2_comm_errors_;
         
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+        std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
         
         // PlanSys2 state publisher
-        rclcpp::Publisher<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr psys2_state_publisher_;
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr psys_state_publisher_;
 
 }; // PlanSys2Monitor class prototype
 
-#endif // PLANSYS2_MONITOR_H_
+#endif // PLANSYS_MONITOR_H_

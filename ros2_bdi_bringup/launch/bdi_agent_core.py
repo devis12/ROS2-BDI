@@ -28,15 +28,19 @@ def is_list_of(l, type):
 '''
     PlanSys2Monitor Node builder
 '''
-def build_PlanSys2Monitor(namespace, agent_id, init_params):
-    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plansys2_monitor' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+def build_PlanSysMonitor(namespace, agent_id, init_params):
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plansys_monitor' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+    
     return Node(
         package='ros2_bdi_core',
-        executable='plansys2_monitor',
-        name='plansys2_monitor',
+        executable='plansys_monitor',
+        name='plansys_monitor',
         namespace=namespace,
         output='screen',
-        parameters=[ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
+        parameters=[ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug}, {PLANNING_MODE_PARAM: planning_mode}])
 
 '''
     BeliefManager Node builder
@@ -108,6 +112,10 @@ def build_Scheduler(namespace, agent_id, init_params):
     else:
         log_automatic_set(AUTOSUBMIT_CONTEXT_PARAM, autosubmit_context)
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='scheduler',
@@ -121,6 +129,7 @@ def build_Scheduler(namespace, agent_id, init_params):
             {EXEC_PLAN_TRIES_PARAM: exec_plan_tries},
             {AUTOSUBMIT_PREC_PARAM: autosubmit_prec},
             {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}, 
+            {PLANNING_MODE_PARAM: planning_mode},
             {DEBUG_PARAM: debug}
         ])
 
@@ -141,6 +150,10 @@ def build_PlanDirector(namespace, agent_id, init_params):
     else:
         log_automatic_set(ABORT_SURPASS_DEADLINE_DEADLINE_PARAM, abort_surpass_deadline)
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='plan_director',
@@ -150,6 +163,7 @@ def build_PlanDirector(namespace, agent_id, init_params):
         parameters=[
             {AGENT_ID_PARAM: agent_id},
             {ABORT_SURPASS_DEADLINE_DEADLINE_PARAM: abort_surpass_deadline},
+            {PLANNING_MODE_PARAM: planning_mode},
             {DEBUG_PARAM: debug}
         ])
 

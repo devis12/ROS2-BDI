@@ -1,9 +1,11 @@
 // header file for PlanSys2 Monitor node
-#include "ros2_bdi_core/plansys2_monitor.hpp"
+#include "ros2_bdi_core/plansys_monitor.hpp"
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
 #include "ros2_bdi_core/params/core_common_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
+// Scheduler params
+#include "ros2_bdi_core/params/scheduler_params.hpp"
 
 using std::string;
 using std::shared_ptr;
@@ -11,28 +13,32 @@ using std::chrono::milliseconds;
 using std::bind;
 using std::placeholders::_1;
 
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 
 
-PlanSys2Monitor::PlanSys2Monitor() : rclcpp::Node(PSYS2_MONITOR_NODE_NAME)
+PlanSysMonitor::PlanSysMonitor() : rclcpp::Node(PSYS2_MONITOR_NODE_NAME)
 {
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
 
-    psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(PSYS2_MONITOR_NODE_NAME + string("_caller_"));
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
+
+    psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PSYS2_MONITOR_NODE_NAME + string("_caller_"), sel_planning_mode_);
 }
 
 /*
     Init to call at the start, after construction method, to get the node actually started
     init timer to regularly check plansys2 node state
 */
-void PlanSys2Monitor::init()
+void PlanSysMonitor::init()
 { 
     // agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     // PlanSys2 state monitor publisher
-    psys2_state_publisher_ = this->create_publisher<PlanSys2State>(PSYS2_STATE_TOPIC, 10);
+    psys_state_publisher_ = this->create_publisher<PlanningSystemState>(PSYS2_STATE_TOPIC, 10);
 
     // set at start work timer interval at minimum (so it checks very frequently)
     // if all up & active, it'll grow, checking the services less frequently
@@ -40,16 +46,18 @@ void PlanSys2Monitor::init()
     //loop to be called regularly to perform work (check plansys2 node states)
     do_work_timer_ = this->create_wall_timer(
             milliseconds(work_timer_interval_),
-            bind(&PlanSys2Monitor::checkPlanSys2State, this));
+            bind(&PlanSysMonitor::checkPlanningSystemState, this));
 
     psys2_comm_errors_ = 0;
 
     // init flag values to false
-    psys2_active_ = PlanSys2State{};
-    psys2_active_.domain_expert_active = false;
-    psys2_active_.problem_expert_active = false;
-    psys2_active_.planner_active = false;
-    psys2_active_.executor_active = false;
+    psys_active_ = PlanningSystemState{};
+    psys_active_.domain_expert_active = false;
+    psys_active_.problem_expert_active = false;
+    psys_active_.offline_planner_active = false;
+    psys_active_.online_planner_active = false;
+    psys_active_.executor_active = false;
+
 
     RCLCPP_INFO(this->get_logger(), "PlanSys2 Monitor node initialized");
 }
@@ -57,7 +65,7 @@ void PlanSys2Monitor::init()
 /*
 Main loop of work called regularly through a wall timer
 */
-void PlanSys2Monitor::checkPlanSys2State()
+void PlanSysMonitor::checkPlanningSystemState()
 {
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
@@ -79,35 +87,40 @@ void PlanSys2Monitor::checkPlanSys2State()
         resetWorkTimer();
     }
 
-    checkPsys2NodeActive(PSYS2_DOM_EXPERT);// check if domain expert is up & active
-    checkPsys2NodeActive(PSYS2_PROB_EXPERT);// check if problem expert is up & active
-    checkPsys2NodeActive(PSYS2_PLANNER);// check if problem expert is up & active
-    checkPsys2NodeActive(PSYS2_EXECUTOR);// check if problem expert is up & active
+    checkPsysNodeActive(PSYS2_DOM_EXPERT);// check if domain expert is up & active
+    checkPsysNodeActive(PSYS2_PROB_EXPERT);// check if problem expert is up & active
+
+    if(sel_planning_mode_ == OFFLINE)
+        checkPsysNodeActive(PSYS2_PLANNER);// check if psys2 planner is up & active
+    else if(sel_planning_mode_ == ONLINE)
+        checkPsysNodeActive(JAVAFF_PLANNER);// check if javaff online planner is up & active
+
+    checkPsysNodeActive(PSYS2_EXECUTOR);// check if problem expert is up & active
 
     //publish current state
-    psys2_state_publisher_->publish(psys2_active_);
+    psys_state_publisher_->publish(psys_active_);
 }
 
 /*
     Init work timer with current timer interval (which can change over time)
 */
-void PlanSys2Monitor::resetWorkTimer()
+void PlanSysMonitor::resetWorkTimer()
 {
     if(!do_work_timer_->is_canceled())
         do_work_timer_->cancel();
 
     do_work_timer_ = this->create_wall_timer(
         milliseconds(work_timer_interval_),
-        bind(&PlanSys2Monitor::checkPlanSys2State, this));
+        bind(&PlanSysMonitor::checkPlanningSystemState, this));
 }
 
 /*
     returns true iff the flags notifying all psys2 nodes are active
 */
-bool PlanSys2Monitor::allActive()
+bool PlanSysMonitor::allActive()
 {
-    return psys2_active_.domain_expert_active && psys2_active_.problem_expert_active &&
-            psys2_active_.executor_active && psys2_active_.planner_active;        
+    return psys_active_.domain_expert_active && psys_active_.problem_expert_active &&
+            psys_active_.executor_active && (psys_active_.offline_planner_active || psys_active_.online_planner_active);        
 }
 
 /*
@@ -115,26 +128,28 @@ bool PlanSys2Monitor::allActive()
 
     Use result to update corresponding flag
 */
-void PlanSys2Monitor::checkPsys2NodeActive(const string& psys2NodeName)
+void PlanSysMonitor::checkPsysNodeActive(const string& psysNodeName)
 {
-    bool activeResult = psys2_monitor_client_->isPsys2NodeActive(psys2NodeName);
+    bool activeResult = psys_monitor_client_->isPsysNodeActive(psysNodeName);
 
     //assign active flag to respective boolean value representing the active state of the PlanSys2 node
-    if(psys2NodeName == PSYS2_DOM_EXPERT)
-        psys2_active_.domain_expert_active = activeResult;
-    else if(psys2NodeName == PSYS2_PROB_EXPERT)
-        psys2_active_.problem_expert_active = activeResult;
-    else if(psys2NodeName == PSYS2_PLANNER)
-        psys2_active_.planner_active = activeResult;
-    else if(psys2NodeName == PSYS2_EXECUTOR)
-        psys2_active_.executor_active = activeResult;
+    if(psysNodeName == PSYS2_DOM_EXPERT)
+        psys_active_.domain_expert_active = activeResult;
+    else if(psysNodeName == PSYS2_PROB_EXPERT)
+        psys_active_.problem_expert_active = activeResult;
+    else if(psysNodeName == PSYS2_PLANNER)
+        psys_active_.offline_planner_active = activeResult;
+    else if(psysNodeName == JAVAFF_PLANNER)
+        psys_active_.online_planner_active = activeResult;
+    else if(psysNodeName == PSYS2_EXECUTOR)
+        psys_active_.executor_active = activeResult;
 }
 
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<PlanSys2Monitor>();
+  auto node = std::make_shared<PlanSysMonitor>();
   std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
 
   node->init();

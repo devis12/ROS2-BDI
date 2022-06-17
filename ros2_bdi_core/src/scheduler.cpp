@@ -9,7 +9,7 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for plan exec srv & topic)
 #include "ros2_bdi_core/params/plan_director_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <yaml-cpp/exceptions.h>
 
@@ -48,7 +48,7 @@ using ros2_bdi_interfaces::msg::DesireSet;
 using ros2_bdi_interfaces::msg::Condition;
 using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
@@ -68,7 +68,10 @@ Scheduler::Scheduler()
     this->declare_parameter(PARAM_RESCHEDULE_POLICY, VAL_RESCHEDULE_POLICY_NO_IF_EXEC);
     this->declare_parameter(PARAM_AUTOSUBMIT_PREC, false);
     this->declare_parameter(PARAM_AUTOSUBMIT_CONTEXT, false);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
 
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 /*
@@ -109,7 +112,7 @@ void Scheduler::init()
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
                 PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&Scheduler::callbackPsys2State, this, _1));
 
@@ -160,17 +163,22 @@ void Scheduler::step()
         
         case STARTING:
         {
-            if(psys2_planner_active_ && psys2_domain_expert_active_ && psys2_problem_expert_active_){
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_){
                 psys2_comm_errors_ = 0;
                 if(!init_dset_)//hasn't ben tried to init desire set yet    
                 {    
                     tryInitDesireSet();
                     init_dset_ = true;
                 }
-                setState(SCHEDULING);
+
+                if  ( (sel_planning_mode_ == OFFLINE && psys2_planner_active_)
+                        ||
+                      (sel_planning_mode_ == ONLINE && javaff_planner_active_)
+                    )
+                    setState(SCHEDULING);
             }else{
                 
-                if(!psys2_planner_active_)
+                if(sel_planning_mode_ == OFFLINE && !psys2_planner_active_)
                     RCLCPP_ERROR(this->get_logger(), "PlanSys2 Planner still not active");
 
                 if(!psys2_domain_expert_active_)
@@ -233,11 +241,12 @@ void Scheduler::publishDesireSet()
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void Scheduler::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void Scheduler::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_problem_expert_active_ = msg->problem_expert_active;
     psys2_domain_expert_active_ = msg->domain_expert_active;
-    psys2_planner_active_ = msg->planner_active;
+    psys2_planner_active_ = msg->offline_planner_active;
+    javaff_planner_active_ = msg->online_planner_active;
 }
 
 /*

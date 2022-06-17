@@ -23,7 +23,7 @@ find_library(yaml-cpp REQUIRED)
 include_directories(include)
 
 set(CORE-SUPPORT-SOURCES
-  src/support/plansys2_monitor_client.cpp
+  src/support/plansys_monitor_client.cpp
   src/support/trigger_plan_client.cpp
 )
 
@@ -55,6 +55,15 @@ set(pddl_experts
   plansys2_problem_expert 
 )
 
+add_executable(plansys_monitor src/plansys_monitor.cpp)
+ament_target_dependencies(plansys_monitor 
+  ${common_dependencies}
+)
+#link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
+target_link_libraries(plansys_monitor
+    ${PROJECT_NAME}
+)
+
 add_executable(belief_manager src/belief_manager.cpp)
 target_link_libraries(belief_manager
   yaml-cpp  
@@ -65,7 +74,7 @@ ament_target_dependencies(belief_manager
   ${pddl_experts}
   std_msgs 
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(belief_manager
   ${PROJECT_NAME}
 )
@@ -91,17 +100,8 @@ ament_target_dependencies(plan_director
   ${pddl_experts}
   plansys2_executor
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(plan_director
-    ${PROJECT_NAME}
-)
-
-add_executable(plansys2_monitor src/plansys2_monitor.cpp)
-ament_target_dependencies(plansys2_monitor 
-  ${common_dependencies}
-)
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
-target_link_libraries(plansys2_monitor
     ${PROJECT_NAME}
 )
 
@@ -109,7 +109,7 @@ add_executable(ma_request_handler src/ma_request_handler.cpp)
 ament_target_dependencies(ma_request_handler 
   ${common_dependencies}
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(ma_request_handler
     ${PROJECT_NAME}
 )
@@ -121,17 +121,17 @@ target_link_libraries(event_listener
 ament_target_dependencies(event_listener 
   ${common_dependencies}
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(event_listener
     ${PROJECT_NAME}
 )
 
 
 install(TARGETS
+  plansys_monitor
   belief_manager
   scheduler
   plan_director
-  plansys2_monitor
   ma_request_handler
   event_listener
   DESTINATION lib/${PROJECT_NAME}

@@ -1,5 +1,5 @@
-#ifndef PLANSYS2_MONITOR_PARAMS_H_
-#define PLANSYS2_MONITOR_PARAMS_H_
+#ifndef PLANSYS_MONITOR_PARAMS_H_
+#define PLANSYS_MONITOR_PARAMS_H_
 
 /* Parameters affecting internal logic (recompiling required) */
 #define TIMER_MIN 250
@@ -8,13 +8,14 @@
 #define PSYS2NODES 4
 #define PSYS2_CK_STATE_SRV "get_state"
 
-#define PSYS2_MONITOR_NODE_NAME "plansys2_monitor"
-#define PSYS2_STATE_TOPIC "plansys2_state"
+#define PSYS2_MONITOR_NODE_NAME "plansys_monitor"
+#define PSYS2_STATE_TOPIC "plansys_state"
 
 // psys2 nodes' names
 #define PSYS2_DOM_EXPERT "domain_expert"
 #define PSYS2_PROB_EXPERT "problem_expert"
 #define PSYS2_PLANNER "planner"
+#define JAVAFF_PLANNER "javaff_server"
 #define PSYS2_EXECUTOR "executor"
 
 // index for the node and client callers

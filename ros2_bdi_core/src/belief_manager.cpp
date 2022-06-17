@@ -5,7 +5,7 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <yaml-cpp/exceptions.h>
 
@@ -35,7 +35,7 @@ using std_msgs::msg::Empty;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 
 using BDIManaged::ManagedBelief;
 
@@ -88,7 +88,7 @@ void BeliefManager::init()
     psys2_problem_expert_active_ = false;
 
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
                 PSYS2_STATE_TOPIC, qos_keep_all,
                 bind(&BeliefManager::callbackPsys2State, this, _1));
 
@@ -169,7 +169,7 @@ void BeliefManager::step()
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void BeliefManager::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void BeliefManager::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_problem_expert_active_ = msg->problem_expert_active;
     psys2_domain_expert_active_ = msg->domain_expert_active;
