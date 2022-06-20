@@ -20,6 +20,7 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
 #include "ros2_bdi_core/params/event_listener_params.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -52,7 +53,7 @@ class EventListener : public rclcpp::Node
         */
         bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
         {
-            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(EVENT_LISTENER_NODE_NAME + std::string("_psys2caller_"));
+            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(EVENT_LISTENER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
             return psys_monitor_client_->areAllPsysNodeActive(max_wait);
         }
 
@@ -75,6 +76,9 @@ class EventListener : public rclcpp::Node
                
         // agent id that defines the namespace in which the node operates
         std::string agent_id_;
+
+        // Selected planning mode
+        PlanningMode sel_planning_mode_;
 
         //policy rules set
         std::set<BDIManaged::ManagedReactiveRule> reactive_rules_;

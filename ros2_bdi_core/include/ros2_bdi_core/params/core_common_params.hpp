@@ -7,4 +7,9 @@
 #define PARAM_AGENT_GROUP_ID "agent_group"
 #define MAX_COMM_ERRORS 16
 
+#define PARAM_PLANNING_MODE "planning_mode"
+
+#define PLANNING_MODE_OFFLINE "offline"
+#define PLANNING_MODE_ONLINE "online"
+
 #endif

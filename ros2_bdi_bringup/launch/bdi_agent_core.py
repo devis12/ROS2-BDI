@@ -47,13 +47,17 @@ def build_PlanSysMonitor(namespace, agent_id, init_params):
 '''
 def build_BeliefManager(namespace, agent_id, init_params):
     debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('belief_manager' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='belief_manager',
         name='belief_manager',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug}  ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug},{PLANNING_MODE_PARAM: planning_mode},  ])
     
 
 '''
@@ -61,13 +65,17 @@ def build_BeliefManager(namespace, agent_id, init_params):
 '''
 def build_EventListener(namespace, agent_id, init_params):
     debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('event_listener' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='event_listener',
         name='event_listener',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug},{PLANNING_MODE_PARAM: planning_mode}, ])
 
 
 '''
@@ -191,11 +199,15 @@ def build_MARequestHandlerNode(namespace, agent_id, agent_group, init_params):
     if ACCEPT_DESIRES_MAX_PR_PARAM in init_params and is_list_of(init_params[ACCEPT_DESIRES_MAX_PR_PARAM], float) and len(init_params[ACCEPT_DESIRES_MAX_PR_PARAM]) > 0:
         communication_node_params += [{ACCEPT_DESIRES_MAX_PR_PARAM: init_params[ACCEPT_DESIRES_MAX_PR_PARAM]}] 
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='ma_request_handler',
         name='ma_request_handler',
         namespace=namespace,
         output='screen',
-        parameters=communication_node_params 
+        parameters=communication_node_params + [{PLANNING_MODE_PARAM: planning_mode},]
     )

@@ -113,9 +113,7 @@ def AgentLaunchDescription(
             name='javaff_nodes',
             namespace=namespace,
             output='screen',
-            parameters= [
-                {"ns": agent_id}
-            ]
+            parameters= []
         )
         
         ld.add_action(javaff_nodes)

@@ -19,6 +19,7 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
 #include "ros2_bdi_core/params/ma_request_handler_params.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -41,7 +42,7 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"));
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
         return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
   
@@ -135,6 +136,9 @@ private:
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+
+    // Selected planning mode
+    PlanningMode sel_planning_mode_;
 
     // handle accepted group queries by other agents
     rclcpp::Service<ros2_bdi_interfaces::srv::IsAcceptedOperation>::SharedPtr accepted_server_;

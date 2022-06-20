@@ -1,3 +1,5 @@
+#include <iostream>
+
 // header file for PlanSys2 Monitor Support clients node
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node
@@ -136,21 +138,26 @@ bool PlanSysMonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_w
 
     std::string planner_name = sel_planning_mode == OFFLINE? PSYS2_PLANNER : JAVAFF_PLANNER;
 
-    while(waited_amount <= max_wait)
+    while(waited_amount.count() <= max_wait.count())
     {
         active[PSYS2_DOM_EXPERT_I] = isPsysNodeActive(PSYS2_DOM_EXPERT);
         active[PSYS2_PROB_EXPERT_I] = isPsysNodeActive(PSYS2_PROB_EXPERT);
         active[PSYS2_PLANNER_I] = isPsysNodeActive(planner_name);
         active[PSYS2_EXECUTOR_I] = isPsysNodeActive(PSYS2_EXECUTOR);
 
+        std::cout << "active dom_expert = " << active[PSYS2_DOM_EXPERT_I]
+                    << "active prob_expert = " << active[PSYS2_PROB_EXPERT_I]
+                    << "active planner = " << active[PSYS2_PLANNER_I]
+                    << "active executor = " << active[PSYS2_EXECUTOR_I]
+                    << std::flush << std::endl;
+                    
+                    
+
         if(std::accumulate(active.begin(), active.end(), 0) == PSYS2NODES)
             return true;
         
-        if(waited_amount < max_wait)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
-            waited_amount += std::chrono::seconds(1);
-        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
+        waited_amount += std::chrono::seconds(1);
     }
     return false;
 }

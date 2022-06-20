@@ -46,6 +46,11 @@ MARequestHandler::MARequestHandler()
   this->declare_parameter(PARAM_DESIRE_CHECK, vector<string>());
   this->declare_parameter(PARAM_DESIRE_WRITE, vector<string>());
   this->declare_parameter(PARAM_DESIRE_MAX_PRIORITIES, vector<double>());
+  
+  this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
+
+  sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+  this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 /*

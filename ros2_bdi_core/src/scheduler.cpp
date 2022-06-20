@@ -200,20 +200,25 @@ void Scheduler::step()
             string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
             bool noPlan = noPlanSelected();
 
-            /*
-                Either the reschedule policy is no if a plan is executing AND there is no plan currently in exec
-                or the reschedule policy allows rescheduling while plan is in exec
-            */
-            if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && noPlan 
-                || reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC)
+            if(sel_planning_mode_ == OFFLINE)
             {
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
+                /*
+                    Either the reschedule policy is no if a plan is executing AND there is no plan currently in exec
+                    or the reschedule policy allows rescheduling while plan is in exec
+                */
+                if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && noPlan 
+                    || reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC)
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
 
-                reschedule();
+                    rescheduleOffline();
 
-            }else{
-                //already selected a plan currently in exec
+                }
+            }
+            else if (sel_planning_mode_ == ONLINE)
+            {
+                RCLCPP_INFO(this->get_logger(), "Rescheduling for online planning bitches!!!");
             }
         }
 
@@ -346,13 +351,14 @@ optional<Plan> Scheduler::computePlan(const ManagedDesire& md)
 */
 bool Scheduler::noPlanSelected()
 {
-    return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
+    BDIManaged::ManagedPlan current_plan = waiting_plans_.size() > 0? waiting_plans_.front() : BDIManaged::ManagedPlan{};
+    return current_plan.getDesire().getPriority() == 0.0f && current_plan.getActionsExecInfo().size() == 0;
 }
 
 /*
     Select plan execution based on precondition, deadline
 */
-void Scheduler::reschedule()
+void Scheduler::rescheduleOffline()
 {   
     string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
     bool noPlan = noPlanSelected();
@@ -375,17 +381,19 @@ void Scheduler::reschedule()
 
     set<ManagedDesire> skip_desires;
 
+    BDIManaged::ManagedPlan current_plan = waiting_plans_.size() > 0? waiting_plans_.front() : BDIManaged::ManagedPlan{};
+
     for(ManagedDesire md : desire_set_)
     {
         if(skip_desires.count(md) == 1)
             continue;
 
         //desire currently fulfilling
-        if(current_plan_.getDesire() == md)
+        if(current_plan.getDesire() == md)
             continue;
         
         //plan in exec has higher priority than this one, skip this desire
-        if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
+        if(planinExec && current_plan.getDesire().getPriority() > md.getPriority())
             continue;
         
         bool computedPlan = false;//flag to mark plan for desire as computable
@@ -521,7 +529,7 @@ void Scheduler::reschedule()
 }
 
 /*
-    Launch execution of selectedPlan; if successful current_plan_ gets value of selectedPlan
+    Launch execution of selectedPlan; if successful current plan is pushed into waiting plans for execution gets value of selectedPlan
     return true if successful
 */
 bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
@@ -529,11 +537,11 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
     //trigger plan execution
     bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
     if(triggered)
-        current_plan_ = selectedPlan;// selectedPlan can now be set as currently executing plan
+        waiting_plans_.push(selectedPlan);// selectedPlan can now be set as currently executing plan
 
     if(this->get_parameter(PARAM_DEBUG).as_bool())
     {
-        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getDesire().getName() + "\" success");
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + waiting_plans_.front().getDesire().getName() + "\" success");
         else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getDesire().getName() + "\" failed");
     }
 
@@ -541,18 +549,18 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
 }
 
 /*
-    Abort execution of current_plan_; if successful current_plan_ becomes empty
+    Abort execution of current plan; if successful waiting plans is popped empty
     return true if successful
 */
 bool Scheduler::abortCurrentPlanExecution()
 {
-    bool aborted = plan_exec_srv_client_->abortPlanExecution(current_plan_.toPlan());
+    bool aborted = waiting_plans_.size() > 0 && plan_exec_srv_client_->abortPlanExecution(waiting_plans_.front().toPlan());
     if(aborted)
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getDesire().getName());
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", waiting_plans_.front().getDesire().getName());
         
-        current_plan_ = ManagedPlan{}; //notifying you're not executing any plan right now
+        waiting_plans_.pop(); //removing plan from waiting list for execution
     }  
     return aborted;
 }
@@ -577,7 +585,7 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     {
         //before triggering new plan, abort the one currently in exec
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
+                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + waiting_plans_.front().getDesire().getName() + "\"" + 
                             " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
             
         //trigger plan abortion
@@ -604,9 +612,11 @@ void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
     auto planExecInfo = (*msg);
     ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
 
-    if(!noPlanSelected() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
+    if(!noPlanSelected() && planExecInfo.target.name == waiting_plans_.front().getDesire().getName())//current plan selected in execution update
     {
         current_plan_exec_info_ = planExecInfo;
+        waiting_plans_.front().setUpdatedInfo(planExecInfo);
+
         string targetDesireName = targetDesire.getName();
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
@@ -676,9 +686,10 @@ void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
             }
 
             mtx_iter_dset_.unlock();
-            current_plan_ = ManagedPlan{};//no current plan in execution
-            reschedule();
-            //next reschedule(); will select a new plan if computable for a desire in desire set
+            waiting_plans_.pop();//pop plan from waiting queue, since its execution has been terminated
+            if(sel_planning_mode_ == OFFLINE)
+                rescheduleOffline();
+            //next reschedule() will select a new plan if computable for a desire in desire set
         }
     }
 }
@@ -704,7 +715,7 @@ void Scheduler::checkForSatisfiedDesires()
     {   
         if(isDesireSatisfied(md))//desire already achieved, remove it
         {
-            if(!noPlanSelected() && current_plan_.getDesire() == md && 
+            if(!noPlanSelected() && waiting_plans_.front().getDesire() == md && 
                 current_plan_exec_info_.status == current_plan_exec_info_.RUNNING)  
             {
                 float plan_progress_status = computePlanProgressStatus();
@@ -716,7 +727,7 @@ void Scheduler::checkForSatisfiedDesires()
                             "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
                             "(progress status = %f)", plan_progress_status);
 
-                    //abort current_plan_ plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
+                    //abort current plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
                     abortCurrentPlanExecution();   
                 }
             }
@@ -745,7 +756,7 @@ void Scheduler::checkForSatisfiedDesires()
 float Scheduler::computePlanProgressStatus()
 {   
     // not exeuting any plan or last update not related to currently triggered plan
-    if(noPlanSelected() || current_plan_exec_info_.target.name != current_plan_.getDesire().getName())
+    if(noPlanSelected() || current_plan_exec_info_.target.name != waiting_plans_.front().getDesire().getName())
         return 0.0f;
 
     float progress_sum = 0.0f;
@@ -783,7 +794,8 @@ void Scheduler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
         belief_set_ = newBeliefSet;//update current mirroring of the belief set
         
         checkForSatisfiedDesires();//check for satisfied desires
-        reschedule();//do a rescheduling
+        if(sel_planning_mode_ == OFFLINE)
+            rescheduleOffline();//do a rescheduling
     }
     
 }
@@ -801,7 +813,10 @@ void Scheduler::addDesireTopicCallBack(const Desire::SharedPtr msg)
         checkForSatisfiedDesires();// check for desire to be already fulfilled
 
         if(desire_set_.size() > 0 && noPlanSelected())// still there to be satisfied && no plan selected, rescheduled immediately
-            reschedule();
+        {   
+            if(sel_planning_mode_ == OFFLINE) 
+                rescheduleOffline();
+        }
     }
 }
 
@@ -817,7 +832,7 @@ void Scheduler::delDesireTopicCallBack(const Desire::SharedPtr msg)
     {
         publishDesireSet();
         
-        if(ManagedDesire{(*msg)} == current_plan_.getDesire())//deleted desire of current executing plan)
+        if(waiting_plans_.size() > 0 && ManagedDesire{(*msg)} == waiting_plans_.front().getDesire())//deleted desire of current executing plan)
             abortCurrentPlanExecution();//abort current plan execution
     }
 }

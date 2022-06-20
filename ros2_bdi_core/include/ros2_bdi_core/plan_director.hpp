@@ -57,7 +57,7 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PLAN_DIRECTOR_NODE_NAME + std::string("_psys2caller_"));
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PLAN_DIRECTOR_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
         return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 

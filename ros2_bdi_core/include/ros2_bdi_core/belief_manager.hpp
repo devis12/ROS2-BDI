@@ -15,6 +15,7 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "std_msgs/msg/empty.hpp"
@@ -49,7 +50,7 @@ class BeliefManager : public rclcpp::Node
         */
         bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
         {
-            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"));
+            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
             return psys_monitor_client_->areAllPsysNodeActive(max_wait);
         }
 
@@ -165,6 +166,9 @@ class BeliefManager : public rclcpp::Node
 
         // internal state of the node
         StateType state_;
+
+        // Selected planning mode
+        PlanningMode sel_planning_mode_;
         
         //mutex for deciding in which direction we're sync (PDDL->belief_set_ or belief_set_->PDDL)
         std::mutex mtx_sync;        

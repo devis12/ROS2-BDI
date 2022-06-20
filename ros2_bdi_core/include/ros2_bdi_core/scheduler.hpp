@@ -1,6 +1,7 @@
 #include <optional>
 #include <mutex>
 #include <vector>
+#include <queue>
 #include <set>   
 #include <map>   
 
@@ -61,7 +62,7 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"));
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
         return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 
@@ -115,7 +116,7 @@ private:
     /*
         Select plan execution based on precondition, deadline
     */
-    void reschedule();
+    void rescheduleOffline();
 
 
     /*
@@ -125,13 +126,13 @@ private:
     bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
 
     /*
-        Launch execution of selectedPlan; if successful current_plan_ gets value of selectedPlan
+        Launch execution of selectedPlan; if successful waiting_plans_.access() gets value of selectedPlan
         return true if successful
     */
     bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
     
     /*
-        Abort execution of current_plan_; if successful current_plan_ becomes empty
+        Abort execution of first waiting_plans_; if successful waiting_plans_ first element is popped
         return true if successful
     */
     bool abortCurrentPlanExecution();
@@ -272,8 +273,9 @@ private:
     // hashmap for aborted plan desire map (plan aborted for that desire)
     std::map<std::string, int> aborted_plan_desire_map_;
 
-    // current_plan_ in execution (could be none if the agent isn't doing anything)
-    BDIManaged::ManagedPlan current_plan_;
+    // waiting_plans_ in execution + waiting plans for execution (could be none if the agent isn't doing anything)
+    std::queue<BDIManaged::ManagedPlan> waiting_plans_;
+
     // last plan execution info
     ros2_bdi_interfaces::msg::BDIPlanExecutionInfo current_plan_exec_info_;
     // Plan Execution Service manager for client operations
