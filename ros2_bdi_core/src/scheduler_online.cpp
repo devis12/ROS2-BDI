@@ -12,6 +12,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::queue;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
@@ -32,6 +33,8 @@ using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
+using javaff_interfaces::msg::PartialPlans;
+
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
 
@@ -39,6 +42,15 @@ using BDIManaged::ManagedPlan;
 void SchedulerOnline::init()
 {
     Scheduler::init();
+
+    //init SchedulerOffline specific props
+    fulfilling_desire_ = ManagedDesire{};
+    waiting_plans_ = queue<ManagedPlan>();
+
+    javaff_pplans_subscriber_ = this->create_subscription<PartialPlans>(
+        JAVAFF_PPLANS_TOPIC, 10,
+            bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
+
 }
 
 /*
@@ -46,7 +58,7 @@ void SchedulerOnline::init()
 */
 bool SchedulerOnline::noPlanExecuting()
 {
-    return waiting_plans_.size() == 0;
+    return fulfilling_desire_.getValue().size() == 0 && waiting_plans_.size() == 0;
 }
 
 /*
@@ -54,7 +66,32 @@ bool SchedulerOnline::noPlanExecuting()
 */
 void SchedulerOnline::reschedule()
 {   
+    string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
+    bool noPlan = noPlanExecuting();
+    if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)//rescheduling not ammitted
+        return;
+
+
     RCLCPP_INFO(this->get_logger(), "Online rescheduling");
+    
+    BDIManaged::ManagedDesire selDesire;
+
+    mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
+
+
+    for(ManagedDesire md : desire_set_)
+    {   
+        // FIRST BASIC RESCHEDULING selects highest priority desire which passes acceptance check, precondition check && has the highest priority atm
+        if(Scheduler::desireAcceptanceCheck(md) == ACCEPTED && 
+            md.getPrecondition().isSatisfied(belief_set_) && 
+            md.getPriority() > selDesire.getPriority())
+            selDesire = md;
+    }
+
+    mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
+
+    if(selDesire.getValue().size() > 0 && launchPlanSearch(selDesire))//a desire has effectively been selected && a search for it has been launched
+        fulfilling_desire_ = selDesire; 
 }
 
 /*
@@ -63,6 +100,14 @@ void SchedulerOnline::reschedule()
 void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
 {
     
+}
+
+/*
+    Received update on current plan search
+*/
+void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg)
+{
+
 }
 
 /*

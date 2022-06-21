@@ -292,7 +292,7 @@ TargetBeliefAcceptance Scheduler::targetBeliefAcceptanceCheck(const ManagedBelie
     Predicate predDef = optPredDef.value();
     if(predDef.parameters.size() != mb.getParams().size())
         return SYNTAX_ERROR;
-    
+        
     vector<string> params = mb.getParams();
     for(int i=0; i<params.size(); i++)
     {

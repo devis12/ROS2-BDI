@@ -39,6 +39,9 @@ using BDIManaged::ManagedPlan;
 void SchedulerOffline::init()
 {
     Scheduler::init();
+
+    //init SchedulerOffline specific props
+    current_plan_ = ManagedPlan{};
 }
 
 /*
@@ -178,7 +181,8 @@ void SchedulerOffline::reschedule()
                 invalidDesire = true;
             
         }
-
+        
+        
         if(invalidDesire || (!computedPlan && explicitPreconditionSatisfied))
         {
             int invCounter = ++computed_plan_desire_map_[md.getName()]; //increment invalid counter for this desire

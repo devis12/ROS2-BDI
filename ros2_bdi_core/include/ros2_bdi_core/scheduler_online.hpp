@@ -51,8 +51,16 @@ private:
     */
     void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg);
 
+    /*
+        Received update on current plan search
+    */
+    void updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg);
+
     // waiting_plans for execution
     std::queue<BDIManaged::ManagedPlan> waiting_plans_;
+
+    // fulfilling desire 
+    BDIManaged::ManagedDesire fulfilling_desire_;
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::PartialPlans>::SharedPtr javaff_pplans_subscriber_;//javaff pplans sub.
