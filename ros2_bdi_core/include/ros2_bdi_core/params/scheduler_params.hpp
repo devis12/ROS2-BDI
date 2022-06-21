@@ -31,4 +31,6 @@
 #define PARAM_AUTOSUBMIT_PREC "autosub_prec"
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
+#define JAVAFF_PPLANS_TOPIC "javaff_search/plan"
+
 #endif

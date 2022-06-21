@@ -126,8 +126,8 @@ def build_Scheduler(namespace, agent_id, init_params):
 
     return Node(
         package='ros2_bdi_core',
-        executable='scheduler',
-        name='scheduler',
+        executable='scheduler_'+planning_mode,
+        name='scheduler_'+planning_mode,
         namespace=namespace,
         output='screen',
         parameters=[

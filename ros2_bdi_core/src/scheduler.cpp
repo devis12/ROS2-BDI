@@ -11,6 +11,7 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
 #include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
+
 #include <yaml-cpp/exceptions.h>
 
 #include "ros2_bdi_utils/BDIFilter.hpp"
@@ -52,6 +53,8 @@ using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
+
+//using javaff_interfaces::msg::PartialPlans;
 
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
@@ -135,7 +138,7 @@ void Scheduler::init()
 
     plan_exec_info_subscriber_ = this->create_subscription<BDIPlanExecutionInfo>(
         PLAN_EXECUTION_TOPIC, 10,
-            bind(&Scheduler::updatePlanExecution, this, _1)
+        bind(&Scheduler::updatePlanExecution, this, _1)
     );
 
     //loop to be called regularly to perform work (publish belief_set_, sync with plansys2 problem_expert node...)
@@ -181,6 +184,9 @@ void Scheduler::step()
                 if(sel_planning_mode_ == OFFLINE && !psys2_planner_active_)
                     RCLCPP_ERROR(this->get_logger(), "PlanSys2 Planner still not active");
 
+                if(sel_planning_mode_ == ONLINE && !javaff_planner_active_)
+                    RCLCPP_ERROR(this->get_logger(), "JavaFF Online Planner still not active");
+
                 if(!psys2_domain_expert_active_)
                     RCLCPP_ERROR(this->get_logger(), "PlanSys2 Domain Expert still not active");
 
@@ -197,28 +203,19 @@ void Scheduler::step()
         case SCHEDULING:
         {   
             publishDesireSet();
-            string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
-            bool noPlan = noPlanSelected();
 
-            if(sel_planning_mode_ == OFFLINE)
+            auto reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
+            /*
+                Either the reschedule policy is no if a plan is executing AND there is no plan currently in exec
+                or the reschedule policy allows rescheduling while plan is in exec
+            */
+            if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && noPlanExecuting() 
+                || reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC)
             {
-                /*
-                    Either the reschedule policy is no if a plan is executing AND there is no plan currently in exec
-                    or the reschedule policy allows rescheduling while plan is in exec
-                */
-                if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && noPlan 
-                    || reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
 
-                    rescheduleOffline();
-
-                }
-            }
-            else if (sel_planning_mode_ == ONLINE)
-            {
-                RCLCPP_INFO(this->get_logger(), "Rescheduling for online planning bitches!!!");
+                reschedule();
             }
         }
 
@@ -330,440 +327,12 @@ TargetBeliefAcceptance Scheduler::desireAcceptanceCheck(const ManagedDesire& md)
 }
 
 /*
-    Compute plan from managed desire, setting its belief array representing the desirable state to reach
-    as the goal of the PDDL problem 
-*/
-optional<Plan> Scheduler::computePlan(const ManagedDesire& md)
-{   
-    //set desire as goal of the pddl_problem
-    if(!problem_expert_->setGoal(Goal{BDIPDDLConverter::desireToGoal(md.toDesire())})){
-        psys2_comm_errors_++;//plansys2 comm. errors
-        return std::nullopt;
-    }
-
-    string pddl_domain = domain_expert_->getDomain();//get domain string
-    string pddl_problem = problem_expert_->getProblem();//get problem string
-    return planner_client_->getPlan(pddl_domain, pddl_problem);//compute plan (n.b. goal unfeasible -> plan not computed)
-}
-
-/*
-    Check if there is a current valid plan selected
-*/
-bool Scheduler::noPlanSelected()
-{
-    BDIManaged::ManagedPlan current_plan = waiting_plans_.size() > 0? waiting_plans_.front() : BDIManaged::ManagedPlan{};
-    return current_plan.getDesire().getPriority() == 0.0f && current_plan.getActionsExecInfo().size() == 0;
-}
-
-/*
-    Select plan execution based on precondition, deadline
-*/
-void Scheduler::rescheduleOffline()
-{   
-    string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
-    bool noPlan = noPlanSelected();
-    if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)//rescheduling not ammitted
-        return;
-    
-    //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
-    bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
-
-    // priority of selected plan
-    float highestPriority = -1.0f;
-    // deadline of selected plan
-    float selectedDeadline = -1.0f;//  init to negative value
-    
-    ManagedPlan selectedPlan;
-    
-    vector<ManagedDesire> discarded_desires;
-    
-    mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
-
-    set<ManagedDesire> skip_desires;
-
-    BDIManaged::ManagedPlan current_plan = waiting_plans_.size() > 0? waiting_plans_.front() : BDIManaged::ManagedPlan{};
-
-    for(ManagedDesire md : desire_set_)
-    {
-        if(skip_desires.count(md) == 1)
-            continue;
-
-        //desire currently fulfilling
-        if(current_plan.getDesire() == md)
-            continue;
-        
-        //plan in exec has higher priority than this one, skip this desire
-        if(planinExec && current_plan.getDesire().getPriority() > md.getPriority())
-            continue;
-        
-        bool computedPlan = false;//flag to mark plan for desire as computable
-        bool invalidDesire = false;//flag to mark invalid desire
-        
-        // select just desires with satisyfing precondition and 
-        // with higher or equal priority with respect to the one currently selected
-        bool explicitPreconditionSatisfied = md.getPrecondition().isSatisfied(belief_set_);
-        if(explicitPreconditionSatisfied && md.getPriority() >= highestPriority){
-            optional<Plan> opt_p = computePlan(md);
-            if(opt_p.has_value())
-            {
-                computedPlan = true;
-
-                ManagedPlan mp = ManagedPlan{md, opt_p.value().items, md.getPrecondition(), md.getContext()};
-                // does computed deadline for this plan respect desire deadline?
-                if(mp.getPlannedDeadline() <= md.getDeadline()) 
-                {
-                    // pick it as selected plan iff: no plan selected yet || desire has higher priority than the one selected
-                    // or equal priority, but smaller deadline
-                    if(selectedDeadline < 0 || md.getPriority() > highestPriority || mp.getPlannedDeadline() < selectedDeadline)
-                    {    
-                        selectedDeadline = mp.getPlannedDeadline();
-                        highestPriority = md.getPriority();
-                        selectedPlan = mp;
-                    
-                    }else if(md.getPriority() < highestPriority && this->get_parameter(PARAM_DEBUG).as_bool()){
-                        RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+ 
-                            "it it's not the desire (among which a plan can be selected) with highest priority right now");
-
-                    }else if(mp.getPlannedDeadline() >= selectedDeadline && this->get_parameter(PARAM_DEBUG).as_bool()){
-                        RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but "+
-                            "it it's not the desire (among which a plan can be selected) with highest priority and earliest deadline right now");
-                    }
-
-                }else if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "There is a plan to fulfill desire \"" + md.getName() + "\", but it does not respect the deadline constraint");
-
-            }   
-            else if(desireAcceptanceCheck(md) != ACCEPTED) //check if the problem is the goal not being valid          
-            {
-                invalidDesire = true;
-            }   
-            else 
-            {
-                if(!this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" presents a valid goal, but planner cannot compute any plan for it at the moment");
-            }
-        }
-        else if(!explicitPreconditionSatisfied && this->get_parameter(PARAM_AUTOSUBMIT_PREC).as_bool())
-        {
-            int pushed = 0;
-            if(desireAcceptanceCheck(md) == ACCEPTED)
-            {
-                // explicit preconditions are not satisfied... see if it's feasible to compute a plan to reach them
-                // (just if not already done... that's why you look into the invalid map)
-                // if it is the case submit desire to itself with higher priority than the one just considered 
-                string fulfillPreconditionDesireName = md.getName() + "_fulfill_precondition";
-
-                //put slightly lower priority because these would be desires for satisfy the pre precondition
-                vector<ManagedDesire> fulfillPreconditionDesires = BDIFilter::conditionsToMGDesire(md.getPrecondition(), 
-                    fulfillPreconditionDesireName, 
-                    std::min(md.getPriority()-0.01f, 1.0f), md.getDeadline());
-                
-                for(ManagedDesire fulfillPreconditionD : fulfillPreconditionDesires)
-                {   
-                    auto precAcceptanceCheck = desireAcceptanceCheck(fulfillPreconditionD);
-                    if(desire_set_.count(fulfillPreconditionD) == 0 &&  precAcceptanceCheck == ACCEPTED)//fulfill precondition not inserted yet
-                    {   
-                        if(this->get_parameter(PARAM_DEBUG).as_bool())
-                            RCLCPP_INFO(this->get_logger(), "Precondition are not satisfied for desire \"" + md.getName() + "\" but could be satisfied: " +  
-                                +  " auto-submission desire \"" + fulfillPreconditionD.getName() + "\"");
-                        fulfillPreconditionD.setParent(md);//set md as its parent desire
-                        if(addDesire(fulfillPreconditionD, md, "_preconditions"))
-                            pushed++;
-                    }
-                }
-            }
-
-            if(pushed == 0)
-                invalidDesire = true;
-            
-        }
-
-        if(invalidDesire || (!computedPlan && explicitPreconditionSatisfied))
-        {
-            int invCounter = ++computed_plan_desire_map_[md.getName()]; //increment invalid counter for this desire
-            int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
-
-            TargetBeliefAcceptance desAcceptance = desireAcceptanceCheck(md);
-            string desireProblem = (desAcceptance != ACCEPTED)? "invalid goal" : "plan not computable";
-            string desireOperation = (invCounter < maxTries && (desAcceptance == ACCEPTED || desAcceptance == UNKNOWN_INSTANCES))? 
-                "desire will be rescheduled later" : "desire will be deleted from desire set";
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions):" +  desireProblem + " ; " +
-                    desireOperation + " (invalid counter = %d/%d). " + std::to_string(desAcceptance), invCounter, maxTries);
-            
-            if(invCounter >= maxTries || (desAcceptance != ACCEPTED &&  desAcceptance != UNKNOWN_INSTANCES))//desire now has to be discarded
-            {    
-                discarded_desires.push_back(md);// plan to delete desire from desire_set (not doing here because we're cycling on desire)
-                
-                // check if this is trying to satisfy precondition and/or context condition of another desire
-                // and there are no other desires within the same group -> delete that desire too
-                int groupCounter = 0;
-                for(ManagedDesire mdCheck : desire_set_)
-                    if(mdCheck.getDesireGroup() == md.getDesireGroup())
-                        groupCounter ++;
-                if(md.hasParent() && groupCounter == 0)//invalid desire has remained the last one in the group
-                {
-                    discarded_desires.push_back(md.getParent());//parent cannot be satisfied either
-                    skip_desires.insert(md.getParent());//avoid to evaluate it later
-                }
-            }
-        }
-        
-    }
-
-    mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
-
-    //removed discarded desires
-    for(ManagedDesire md : discarded_desires)
-        delDesire(md);
-
-    if(selectedPlan.getActionsExecInfo().size() > 0)
-    {
-        bool triggered = tryTriggerPlanExecution(selectedPlan);
-        if(this->get_parameter(PARAM_DEBUG).as_bool())
-        {
-            if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-            else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-        }
-    }
-}
-
-/*
-    Launch execution of selectedPlan; if successful current plan is pushed into waiting plans for execution gets value of selectedPlan
-    return true if successful
-*/
-bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
-{   
-    //trigger plan execution
-    bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
-    if(triggered)
-        waiting_plans_.push(selectedPlan);// selectedPlan can now be set as currently executing plan
-
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-    {
-        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + waiting_plans_.front().getDesire().getName() + "\" success");
-        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getDesire().getName() + "\" failed");
-    }
-
-    return triggered;
-}
-
-/*
-    Abort execution of current plan; if successful waiting plans is popped empty
-    return true if successful
-*/
-bool Scheduler::abortCurrentPlanExecution()
-{
-    bool aborted = waiting_plans_.size() > 0 && plan_exec_srv_client_->abortPlanExecution(waiting_plans_.front().toPlan());
-    if(aborted)
-    {
-        if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", waiting_plans_.front().getDesire().getName());
-        
-        waiting_plans_.pop(); //removing plan from waiting list for execution
-    }  
-    return aborted;
-}
-
-
-/*
-    If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
-    try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution) by exploiting the TriggerPlanClient
-
-*/
-bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
-{      
-    string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
-    bool noPlan = noPlanSelected();
-    //rescheduling not ammitted -> a plan already executing and policy not admit any switch with higher priority plans
-    if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)
-        return false;
-
-    //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
-    bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
-    if(planinExec)
-    {
-        //before triggering new plan, abort the one currently in exec
-        if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + waiting_plans_.front().getDesire().getName() + "\"" + 
-                            " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
-            
-        //trigger plan abortion
-        if(!abortCurrentPlanExecution())
-            return false;//current plan abortion failed
-    }
-    
-    //desire still in desire set
-    bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
-    
-    //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
-    if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)
-        return false;
-    
-
-    return launchPlanExecution(selectedPlan);
-}
-
-/*
-    Received update on current plan execution
-*/
-void Scheduler::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
-{
-    auto planExecInfo = (*msg);
-    ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
-
-    if(!noPlanSelected() && planExecInfo.target.name == waiting_plans_.front().getDesire().getName())//current plan selected in execution update
-    {
-        current_plan_exec_info_ = planExecInfo;
-        waiting_plans_.front().setUpdatedInfo(planExecInfo);
-
-        string targetDesireName = targetDesire.getName();
-        if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
-        {
-            mtx_iter_dset_.lock();
-            bool desireAchieved = isDesireSatisfied(targetDesire);
-            if(desireAchieved)
-                delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
-            
-            if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
-            {
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                {   
-                    string addNote = desireAchieved? 
-                        "desire \"" + targetDesireName + "\" achieved will be removed from desire set" : 
-                        "desire \"" + targetDesireName + "\" still not achieved! It'll not removed from the desire set yet";
-                    
-                    RCLCPP_INFO(this->get_logger(), "Plan successfully executed: " + addNote);
-                }
-            }
-
-            else if(planExecInfo.status == planExecInfo.ABORT && !desireAchieved)// plan exec aborted and desire not achieved
-            {
-
-                int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
-                aborted_plan_desire_map_[targetDesireName]++;
-                
-                RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
-                    "\" has been aborted for the %d time (max attempts: %d)", 
-                        aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
-                
-                if(aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
-                    delDesire(targetDesire, true);
-                
-                }else if(!targetDesire.getContext().isSatisfied(belief_set_) && this->get_parameter(PARAM_AUTOSUBMIT_CONTEXT).as_bool()){
-                    // check for context condition failed 
-                    // (just if not already done... that's why you look into the invalid map)
-                    // plan exec could have failed cause of them: evaluate if they can be reached and submit the desire to yourself
-                    string fulfillContextDesireName = targetDesire.getName() + "_fulfill_context";
-                    
-                    // extract a desire (if possible) for each clause in the context conditions
-                    vector<ManagedDesire> fulfillContextDesires = BDIFilter::conditionsToMGDesire(targetDesire.getContext(), 
-                        fulfillContextDesireName, 
-                        std::min(targetDesire.getPriority()+0.01f, 1.0f), targetDesire.getDeadline());
-                    
-                    for(ManagedDesire fulfillContextD : fulfillContextDesires)
-                    {
-                        if(desire_set_.count(fulfillContextD) == 0 && desireAcceptanceCheck(fulfillContextD) == ACCEPTED)
-                        {
-                            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                                RCLCPP_INFO(this->get_logger(), "Context conditions are not satisfied for desire \"" + targetDesire.getName() + "\" but could be satisfied: " +  
-                                    +  " auto-submission desire \"" + fulfillContextD.getName() + "\"");
-                            fulfillContextD.setParent(targetDesire);//set md as its parent desire
-                            addDesire(fulfillContextD, targetDesire, "_context");
-                        }
-                    }
-                    
-                }
-
-                //  if not reached max exec attempt, for now mantain the desire
-                //  if not valid anymore, it'll be eventually removed in next reschedulings, 
-                //  otherwise the plan will be commissioned again until reaching maxPlanExecAttempts
-
-                    
-            }
-
-            mtx_iter_dset_.unlock();
-            waiting_plans_.pop();//pop plan from waiting queue, since its execution has been terminated
-            if(sel_planning_mode_ == OFFLINE)
-                rescheduleOffline();
-            //next reschedule() will select a new plan if computable for a desire in desire set
-        }
-    }
-}
-
-/*
     Given the current knowledge of the belief set, decide if a given desire
     is already fulfilled
 */
 bool Scheduler::isDesireSatisfied(ManagedDesire& md)
 {
     return md.isFulfilled(belief_set_);
-}
-
-/*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
-    beliefs which shows they're already fulfilled
-*/
-void Scheduler::checkForSatisfiedDesires()
-{
-    mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
-
-    vector<ManagedDesire> satisfiedDesires;
-    for(ManagedDesire md : desire_set_)
-    {   
-        if(isDesireSatisfied(md))//desire already achieved, remove it
-        {
-            if(!noPlanSelected() && waiting_plans_.front().getDesire() == md && 
-                current_plan_exec_info_.status == current_plan_exec_info_.RUNNING)  
-            {
-                float plan_progress_status = computePlanProgressStatus();
-                
-                if(plan_progress_status < COMPLETED_THRESHOLD)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Current plan execution fulfilling desire \"" + md.getName() + 
-                            "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
-                            "(progress status = %f)", plan_progress_status);
-
-                    //abort current plan execution since current target desire is already achieved and you're far from completing the plan (missing more than last action)
-                    abortCurrentPlanExecution();   
-                }
-            }
-            else
-            {
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" will be removed from the desire set since its "+
-                        "target appears to be already fulfilled given the current belief set");
-            
-                satisfiedDesires.push_back(md);//delete desire just if not executing one, otherwise will be deleted when aborted feedback comes and desire is satisfied
-            }
-
-        }
-    }
-
-    for(ManagedDesire md : satisfiedDesires)//delete all satisfied desires from desire set
-        delDesire(md, true);//you're deleting satisfied desires -> delete all the ones in the same group
-
-    mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires() && reschedule()
-}
-
-/*
-    wrt the current plan execution...
-    return sum of progress status of all actions within a plan divided by the number of actions
-*/
-float Scheduler::computePlanProgressStatus()
-{   
-    // not exeuting any plan or last update not related to currently triggered plan
-    if(noPlanSelected() || current_plan_exec_info_.target.name != waiting_plans_.front().getDesire().getName())
-        return 0.0f;
-
-    float progress_sum = 0.0f;
-    for(auto currentExecutingAction : current_plan_exec_info_.actions_exec_info)
-        progress_sum += currentExecutingAction.progress;
-
-    return progress_sum/(current_plan_exec_info_.actions_exec_info.size());
 }
 
 /*
@@ -794,8 +363,7 @@ void Scheduler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
         belief_set_ = newBeliefSet;//update current mirroring of the belief set
         
         checkForSatisfiedDesires();//check for satisfied desires
-        if(sel_planning_mode_ == OFFLINE)
-            rescheduleOffline();//do a rescheduling
+        reschedule();//do a rescheduling
     }
     
 }
@@ -805,18 +373,15 @@ void Scheduler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 */
 void Scheduler::addDesireTopicCallBack(const Desire::SharedPtr msg)
 {   
-    bool added = addDesire(ManagedDesire{(*msg)});
+    ManagedDesire mdAdd = ManagedDesire{(*msg)};
+    bool added = addDesire(mdAdd);
 
     if(added)//addition done
     {   
         publishDesireSet();
-        checkForSatisfiedDesires();// check for desire to be already fulfilled
 
-        if(desire_set_.size() > 0 && noPlanSelected())// still there to be satisfied && no plan selected, rescheduled immediately
-        {   
-            if(sel_planning_mode_ == OFFLINE) 
-                rescheduleOffline();
-        }
+        //call specific methods of SchedulerOffline/SchedulerOnline
+        postAddDesireSuccess(mdAdd);
     }
 }
 
@@ -826,45 +391,16 @@ void Scheduler::addDesireTopicCallBack(const Desire::SharedPtr msg)
 */
 void Scheduler::delDesireTopicCallBack(const Desire::SharedPtr msg)
 {
-    bool deleted = delDesire(ManagedDesire{(*msg)});
+    ManagedDesire mdDel = ManagedDesire{(*msg)};
+    bool deleted = delDesire(mdDel);
 
     if(deleted)
     {
         publishDesireSet();
         
-        if(waiting_plans_.size() > 0 && ManagedDesire{(*msg)} == waiting_plans_.front().getDesire())//deleted desire of current executing plan)
-            abortCurrentPlanExecution();//abort current plan execution
+         //call specific methods of SchedulerOffline/SchedulerOnline
+        postDelDesireSuccess(mdDel);
     }
-}
-
-/*
-    Wrapper for calling addDesire with just desire to added (where not linked to any other desires)
-    N.B see addDesire(const ManagedDesire mdAdd, const optional<ManagedDesire> necessaryForMd)
-    for further explanations
-*/
-bool Scheduler::addDesire(const ManagedDesire mdAdd)
-{
-    return addDesire(mdAdd, std::nullopt, "");
-}
-
-/*
-    Add desire @mdAdd to desire_set_ (if there is not yet)
-    add counters for invalid desire and aborted plan in respective maps (both init to zero)
-    @necessaryForMd is another ManagedDesire which can be present if @mdAdd is necessary 
-    for the fulfillment of it (e.g. @mdAdd is derived from preconditions or context)
-    @necessaryForMd value (if exists) has to be already in the desire_set_
-*/
-bool Scheduler::addDesire(ManagedDesire mdAdd, optional<ManagedDesire> necessaryForMD, const string& suffixDesireGroup)
-{   
-    auto acceptance = desireAcceptanceCheck(mdAdd);
-    if(acceptance != ACCEPTED && acceptance != UNKNOWN_INSTANCES)//unknown predicates values / syntax_errors within target beliefs
-        return false;
-
-    bool added = false;
-    mtx_add_del_.lock();
-        added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
-    mtx_add_del_.unlock();
-    return added;
 }
 
 /*
@@ -904,27 +440,6 @@ bool Scheduler::addDesireCS(ManagedDesire mdAdd, optional<ManagedDesire> necessa
     }
 
     return added;
-}
-
-/*
-    Wrapper for delDesire with two args
-*/
-bool Scheduler::delDesire(const ManagedDesire mdDel)
-{
-    return delDesire(mdDel, false);//do not delete desires within the same group of mdDel
-}
-
-/*
-    Del desire from desire_set if present (Access through lock!)
-*/
-bool Scheduler::delDesire(const ManagedDesire mdDel, const bool& wipeSameGroup)
-{
-    bool deleted = false;
-    mtx_add_del_.lock();
-        deleted = delDesireCS(mdDel, wipeSameGroup);
-    mtx_add_del_.unlock();
-
-    return deleted;
 }
 
 /*
@@ -979,23 +494,34 @@ void Scheduler::delDesireInGroupCS(const string& desireGroup)
         delDesireCS(md, false);//you're already iterating over all the desires within the same group
 }
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<Scheduler>();
-    bool psys2_booted = node->wait_psys2_boot(std::chrono::seconds(8));//Wait max 8 seconds for plansys2 to boot
-  
-  if(psys2_booted)
-  {
-    node->init();
-    rclcpp::spin(node);
-  }
-  else
-  {
-    std::cerr << "PlanSys2 failed to boot: node will not spin and process will terminate" << std::endl;
-  }
-  
-  rclcpp::shutdown();
 
-  return 0;
-}
+
+
+/*--------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------[ ONLINE PLANNING ]-------------------------------------------*/
+/*--------------------------------------------------------------------------------------------------------*/
+
+
+// void Scheduler::reschedulingOnline()
+// {
+
+// }
+
+// /*
+//     Received update on current online plan search
+// */
+// void Scheduler::updateComputedPartialPlans(const javaff_interfaces::msg::PartialPlans::SharedPtr msg)
+// {
+//     //TODO
+// }
+
+
+// int main(int argc, char ** argv)
+// {
+//   rclcpp::init(argc, argv);
+
+//   std::cerr << "You need to instantiate a specific Scheduler among SchedulerOffline and SchedulerOnline" << std::endl;
+//   rclcpp::shutdown();
+
+//   return 0;
+// }

@@ -1,7 +1,6 @@
 #include <optional>
 #include <mutex>
 #include <vector>
-#include <queue>
 #include <set>   
 #include <map>   
 
@@ -20,6 +19,8 @@
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
+
+//#include "javaff_interfaces/msg/partial_plans.hpp"
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
@@ -50,7 +51,7 @@ public:
         desire set publisher,
         add/del desire subscribers callback
     */
-    void init();
+    virtual void init();
     
     /*
         Main loop of work called regularly through a wall timer
@@ -66,7 +67,38 @@ public:
         return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 
-private:
+protected:
+    /*
+        Specific behaviour of scheduler after desire successful addition, based on its selected mode    
+    */
+    virtual void postAddDesireSuccess(const BDIManaged::ManagedDesire& md) = 0;
+
+    /*
+        Specific behaviour of scheduler after desire successful deletion, based on its selected mode    
+    */
+    virtual void postDelDesireSuccess(const BDIManaged::ManagedDesire& md) = 0;
+
+    /*
+        Operations related to the selection of the next active desire and Intentions to be enforced
+    */
+    virtual void reschedule() = 0;
+
+    /*
+        Check whether a plan is executing
+    */
+    virtual bool noPlanExecuting() = 0;
+
+    /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
+        beliefs which shows they're already fulfilled
+    */
+    virtual void checkForSatisfiedDesires() = 0;
+
+    /*
+        Received update on current plan execution
+    */
+    virtual void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg) = 0;
+
+
     /*  
         Change internal state of the node
     */
@@ -103,61 +135,15 @@ private:
     TargetBeliefAcceptance desireAcceptanceCheck(const BDIManaged::ManagedDesire& md);
 
     /*
-        Compute plan from managed desire, setting its belief array representing the desirable state to reach
-        as the goal of the PDDL problem 
+        Received update on current online plan search
     */
-    std::optional<plansys2_msgs::msg::Plan> computePlan(const BDIManaged::ManagedDesire& md);
-
-    /*
-        Check if there is a current valid plan selected
-    */
-    bool noPlanSelected();
-
-    /*
-        Select plan execution based on precondition, deadline
-    */
-    void rescheduleOffline();
-
-
-    /*
-        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
-        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
-    */
-    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-
-    /*
-        Launch execution of selectedPlan; if successful waiting_plans_.access() gets value of selectedPlan
-        return true if successful
-    */
-    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-    
-    /*
-        Abort execution of first waiting_plans_; if successful waiting_plans_ first element is popped
-        return true if successful
-    */
-    bool abortCurrentPlanExecution();
-
-    /*
-        Received update on current plan execution
-    */
-    void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg);
+    //void updateComputedPartialPlans(const javaff_interfaces::msg::PartialPlans::SharedPtr msg);
 
     /*
         Given the current knowledge of the belief set, decide if a given desire
         is already fulfilled
     */
     bool isDesireSatisfied(BDIManaged::ManagedDesire& md);
-
-    /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
-        beliefs which shows they're already fulfilled
-    */
-    void checkForSatisfiedDesires();
-
-    /*
-        wrt the current plan execution...
-        return sum of progress status of all actions within a plan divided by the number of actions
-    */
-    float computePlanProgressStatus();
 
     /*
         The belief set has been updated
@@ -180,7 +166,10 @@ private:
         N.B see addDesire(const ManagedDesire mdAdd, const optional<ManagedDesire> necessaryForMd)
         for further explanations
     */
-    bool addDesire(const BDIManaged::ManagedDesire mdAdd);
+    bool addDesire(const BDIManaged::ManagedDesire mdAdd)
+    {
+        return addDesire(mdAdd, std::nullopt, "");
+    }
 
     /*
         Add desire @mdAdd to desire_set_ (if there is not yet)
@@ -190,7 +179,18 @@ private:
         @necessaryForMd value (if exists) has to be already in the desire_set_
     */
     bool addDesire(BDIManaged::ManagedDesire mdAdd, std::optional<BDIManaged::ManagedDesire> necessaryForMD, 
-        const std::string& suffixDesireGroup);
+        const std::string& suffixDesireGroup)
+    {   
+        auto acceptance = desireAcceptanceCheck(mdAdd);
+        if(acceptance != ACCEPTED && acceptance != UNKNOWN_INSTANCES)//unknown predicates values / syntax_errors within target beliefs
+            return false;
+
+        bool added = false;
+        mtx_add_del_.lock();
+            added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
+        mtx_add_del_.unlock();
+        return added;
+    }
 
     /*
         Add desire Critical Section (to be executed AFTER having acquired mtx_add_del_.lock())
@@ -207,12 +207,23 @@ private:
     /*
         Wrapper for delDesire with two args
     */
-    bool delDesire(const BDIManaged::ManagedDesire mdDel);
+    bool delDesire(const BDIManaged::ManagedDesire mdDel)
+    {
+        return delDesire(mdDel, false);//do not delete desires within the same group of mdDel
+    }
 
     /*
         Del desire from desire_set if present (Access through lock!)
     */
-    bool delDesire(const BDIManaged::ManagedDesire mdDel, const bool& wipeSameGroup);
+    bool delDesire(const BDIManaged::ManagedDesire mdDel, const bool& wipeSameGroup)
+    {
+        bool deleted = false;
+        mtx_add_del_.lock();
+            deleted = delDesireCS(mdDel, wipeSameGroup);
+        mtx_add_del_.unlock();
+
+        return deleted;
+    }
     
     /*
         Del desire from desire_set CRITICAL SECTION (to be called after having acquired mtx_add_del_ lock)
@@ -226,6 +237,8 @@ private:
         Deleting atomically all the desires within the same desire group
     */
     void delDesireInGroupCS(const std::string& desireGroup);
+
+    //void reschedulingOnline();
 
     // internal state of the node
     StateType state_;
@@ -274,7 +287,7 @@ private:
     std::map<std::string, int> aborted_plan_desire_map_;
 
     // waiting_plans_ in execution + waiting plans for execution (could be none if the agent isn't doing anything)
-    std::queue<BDIManaged::ManagedPlan> waiting_plans_;
+    //std::queue<BDIManaged::ManagedPlan> waiting_plans_;
 
     // last plan execution info
     ros2_bdi_interfaces::msg::BDIPlanExecutionInfo current_plan_exec_info_;
