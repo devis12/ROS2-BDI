@@ -22,7 +22,7 @@
 #define WAIT_PLAN_EXEC_SRV_UP 1   
 
 //seconds to wait before giving up on waiting for the response
-#define WAIT_PLAN_EXEC_RESPONSE_TIMEOUT 1
+#define WAIT_PLAN_EXEC_RESPONSE_TIMEOUT 2
 
 /* ROS2 Parameter names for PlanSys2Monitor node */
 #define PARAM_MAX_TRIES_COMP_PLAN "comp_plan_tries"
@@ -32,5 +32,8 @@
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
 #define JAVAFF_PPLANS_TOPIC "javaff_search/plan"
+#define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
+#define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
+#define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
 
 #endif

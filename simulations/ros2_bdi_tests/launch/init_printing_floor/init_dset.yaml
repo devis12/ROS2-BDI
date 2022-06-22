@@ -1,0 +1,9 @@
+- name: "clean_rooms"
+  priority: 0.6
+  deadline: 100.0
+  value:
+    - name: "printed_docs_left_in"
+      pddl_type: 2
+      params:
+        - "r2"
+        - "r_e"

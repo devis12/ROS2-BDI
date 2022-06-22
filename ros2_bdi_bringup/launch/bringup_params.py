@@ -7,6 +7,7 @@ INIT_DSET_PARAM = 'init_dset'
 INIT_RRULESSET_PARAM = 'init_reactive_rules_set'
 
 PLANNING_MODE_PARAM = 'planning_mode'
+SEARCH_INTERVAL_MS_PARAM = 'search_interval'
 
 ACCEPT_BELIEFS_R_PARAM = 'belief_ck'
 ACCEPT_BELIEFS_W_PARAM = 'belief_w'

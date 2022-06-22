@@ -84,6 +84,24 @@ add_executable(wp_sensor src/sensors/wp_sensor.cpp)
 ament_target_dependencies(wp_sensor ${sensors_dep})
 
 
+add_executable(pf_move src/actions/printing-floor/move.cpp)
+ament_target_dependencies(pf_move ${bdi_act_client_dep})
+
+add_executable(pf_docking src/actions/printing-floor/docking.cpp)
+ament_target_dependencies(pf_docking ${bdi_act_client_dep})
+
+add_executable(pf_printing src/actions/printing-floor/printing.cpp)
+ament_target_dependencies(pf_printing ${bdi_act_client_dep})
+
+add_executable(pf_recharge src/actions/printing-floor/recharge.cpp)
+ament_target_dependencies(pf_recharge ${bdi_act_client_dep})
+
+add_executable(pf_undocking src/actions/printing-floor/undocking.cpp)
+ament_target_dependencies(pf_undocking ${bdi_act_client_dep})
+
+add_executable(pf_unload_printed_docs src/actions/printing-floor/unload_printed_docs.cpp)
+ament_target_dependencies(pf_unload_printed_docs ${bdi_act_client_dep})
+
 install(TARGETS
   movetoward
   recharge
@@ -97,6 +115,13 @@ install(TARGETS
   asksweeping_bdi
   dosweep_bdi
   wp_sensor
+
+  pf_move
+  pf_docking
+  pf_printing
+  pf_recharge
+  pf_undocking
+  pf_unload_printed_docs
 
   DESTINATION lib/${PROJECT_NAME}
 )

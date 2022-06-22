@@ -54,8 +54,6 @@ using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
-//using javaff_interfaces::msg::PartialPlans;
-
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;

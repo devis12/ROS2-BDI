@@ -47,6 +47,13 @@ void SchedulerOnline::init()
     fulfilling_desire_ = ManagedDesire{};
     waiting_plans_ = queue<ManagedPlan>();
 
+    searching_ = false;
+
+    // interval search ms
+    this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
+
+    javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
+
     javaff_pplans_subscriber_ = this->create_subscription<PartialPlans>(
         JAVAFF_PPLANS_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
@@ -86,12 +93,25 @@ void SchedulerOnline::reschedule()
             md.getPrecondition().isSatisfied(belief_set_) && 
             md.getPriority() > selDesire.getPriority())
             selDesire = md;
+        
+        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t ack = " + std::to_string(Scheduler::desireAcceptanceCheck(md)));
+
+        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t prec = " + std::to_string(md.getPrecondition().isSatisfied(belief_set_)));
+
+        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t pr = " + std::to_string(md.getPriority()) + "\t selDesire pr = " + std::to_string(selDesire.getPriority()));
+    
     }
 
     mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
 
+    RCLCPP_INFO(this->get_logger(), "Starting search for the fullfillment of Alex's desire to " + selDesire.getName());
+    
+
     if(selDesire.getValue().size() > 0 && launchPlanSearch(selDesire))//a desire has effectively been selected && a search for it has been launched
+    {    
+        searching_ = true;
         fulfilling_desire_ = selDesire; 
+    }
 }
 
 /*
@@ -107,7 +127,36 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 */
 void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg)
 {
+    if(searching_)
+    {
+        // TODO store incremental partial plans 
+        // as soon as you have the first, trigger plan execution
+        string pplans = "";
+        for(auto pplan : msg->plans)
+        {
+            pplans += "\n\n-\n";
+            for(auto pplanItem : pplan.items)
+                pplans += "\t[" + std::to_string(pplanItem.time) + "]: " + pplanItem.action  + "\t\t(" + std::to_string(pplanItem.duration) + "\n";
+        }
+        RCLCPP_INFO(this->get_logger(), pplans);
+    }
+}
 
+/*
+    Launch a new plan search
+*/
+bool SchedulerOnline::launchPlanSearch(const BDIManaged::ManagedDesire selDesire)
+{
+    //set desire as goal of the pddl_problem
+    if(!problem_expert_->setGoal(Goal{BDIPDDLConverter::desireToGoal(selDesire.toDesire())})){
+        psys2_comm_errors_++;//plansys2 comm. errors
+        return false;
+    }
+
+    string pddl_problem = problem_expert_->getProblem();//get problem string
+    int intervalSearchMS = this->get_parameter(JAVAFF_SEARCH_INTERVAL_PARAM).as_int();
+    intervalSearchMS = intervalSearchMS >= 100? intervalSearchMS : 100;
+    return javaff_client_->launchPlanSearch(pddl_problem, intervalSearchMS);
 }
 
 /*

@@ -26,7 +26,10 @@ include_directories(include)
 set(CORE-LIB-SOURCES
   src/support/plansys_monitor_client.cpp
   src/support/trigger_plan_client.cpp
+
   src/scheduler.cpp
+  
+  src/support/javaff_client.cpp
 )
 
 set(common_dependencies
@@ -46,6 +49,7 @@ ament_target_dependencies(${PROJECT_NAME}
   ${common_dependencies} 
   ${pddl_experts}
   plansys2_planner
+  javaff_interfaces
 )
 target_link_libraries(${PROJECT_NAME}
   yaml-cpp

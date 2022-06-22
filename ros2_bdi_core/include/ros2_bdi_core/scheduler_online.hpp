@@ -1,6 +1,7 @@
 #include <queue>
 
 #include "ros2_bdi_core/scheduler.hpp"
+#include "ros2_bdi_core/support/javaff_client.hpp"
 
 #include "javaff_interfaces/msg/partial_plans.hpp"
 
@@ -56,12 +57,23 @@ private:
     */
     void updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg);
 
+    /*
+        Call JavaFF for triggering the search for a plan fulfilling @selDesire
+    */
+    bool launchPlanSearch(const BDIManaged::ManagedDesire selDesire);
+
     // waiting_plans for execution
     std::queue<BDIManaged::ManagedPlan> waiting_plans_;
 
     // fulfilling desire 
     BDIManaged::ManagedDesire fulfilling_desire_;
 
+    // search is progressing
+    bool searching_;
+
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::PartialPlans>::SharedPtr javaff_pplans_subscriber_;//javaff pplans sub.
+
+    // Client to wrap srv call to JavaFFServer
+    std::shared_ptr<JavaFFClient> javaff_client_;
 };

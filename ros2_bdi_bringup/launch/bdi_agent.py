@@ -58,6 +58,10 @@ from bdi_agent_core import *
                                     to specify the reschedule policy
 
 
+            ** "search_interval": if planning_mode=="online", it is possible to specify the interval search (in ms, min 100, default 500)
+                                    which corresponds to the lapse of time in which JavaFF needs to provide an update about its plan search
+
+
             ** "debug_log_active": array containing the nodes of which you want to activate the debug log
 '''
 def AgentLaunchDescription(
@@ -111,13 +115,14 @@ def AgentLaunchDescription(
             package='javaff',
             executable='javaff_nodes',
             name='javaff_nodes',
+            arguments='???'+ init_params[PDDL_FILE_PARAM] + '???',
             namespace=namespace,
             output='screen',
             parameters= []
         )
         
         ld.add_action(javaff_nodes)
-
+        
     '''
         [*] PLANSYS2 Bringup
     '''

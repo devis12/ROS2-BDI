@@ -10,24 +10,41 @@
       pddl_type: 2
       params:
         - "bathroom"
-  precondition:
-    clauses:
-      - literals:
-          - check: "T"
-            condition_to_check:
-              name: "in"
-              pddl_type: 2
-              params:
-                - "cleaner"
-                - "bedroom"
-      - literals:
-          - check: "T"
-            condition_to_check:
-              name: "in"
-              pddl_type: 2
-              params:
-                - "cleaner"
-                - "bathroom"
+    - name: "cleaned"
+      pddl_type: 2
+      params:
+        - "bedroom"
+    - name: "cleaned"
+      pddl_type: 2
+      params:
+        - "dock"
+    - name: "in"
+      pddl_type: 2
+      params:
+        - "cleaner"
+        - "dock"
+    - name: "full_recharged"
+      pddl_type: 2
+      params:
+        - "cleaner"
+  # precondition:
+  #   clauses:
+  #     - literals:
+  #         - check: "T"
+  #           condition_to_check:
+  #             name: "in"
+  #             pddl_type: 2
+  #             params:
+  #               - "cleaner"
+  #               - "bedroom"
+  #     - literals:
+  #         - check: "T"
+  #           condition_to_check:
+  #             name: "in"
+  #             pddl_type: 2
+  #             params:
+  #               - "cleaner"
+  #               - "bathroom"
   rollback_belief_add:
     - name: "workfree"
       pddl_type: 2
