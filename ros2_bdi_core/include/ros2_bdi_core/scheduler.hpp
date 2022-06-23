@@ -85,11 +85,6 @@ protected:
     */
     virtual void reschedule() = 0;
 
-    /*
-        Check whether a plan is executing
-    */
-    virtual bool noPlanExecuting() = 0;
-
     /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
         beliefs which shows they're already fulfilled
     */
@@ -110,6 +105,33 @@ protected:
        Publish the current desire set of the agent in agent_id_/desire_set topic
     */
     void publishDesireSet();
+
+
+    /*
+        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
+        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
+    */
+    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+
+    /*
+        Launch execution of selectedPlan; if successful waiting_plans_.access() gets value of selectedPlan
+        return true if successful
+    */
+    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+    
+    /*
+        Abort execution of first waiting_plans_; if successful waiting_plans_ first element is popped
+        return true if successful
+    */
+    bool abortCurrentPlanExecution();
+
+    /*
+        Check if there is a current valid plan selected
+    */
+    bool noPlanExecuting()
+    {
+        return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
+    }
 
 
     /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
@@ -263,6 +285,9 @@ protected:
 
     // Selected planning mode
     PlanningMode sel_planning_mode_;
+
+    // current_plan in execution
+    BDIManaged::ManagedPlan current_plan_;
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;

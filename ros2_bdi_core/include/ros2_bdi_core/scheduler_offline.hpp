@@ -36,36 +36,9 @@ private:
     std::optional<plansys2_msgs::msg::Plan> computePlan(const BDIManaged::ManagedDesire& md);
 
     /*
-        Check if there is a current valid plan selected
-    */
-    bool noPlanExecuting()
-    {
-        return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
-    }
-
-    /*
         Select plan execution based on precondition, deadline
     */
     void reschedule();
-
-
-    /*
-        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
-        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
-    */
-    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-
-    /*
-        Launch execution of selectedPlan; if successful waiting_plans_.access() gets value of selectedPlan
-        return true if successful
-    */
-    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-    
-    /*
-        Abort execution of first waiting_plans_; if successful waiting_plans_ first element is popped
-        return true if successful
-    */
-    bool abortCurrentPlanExecution();
 
     /*
         Received update on current plan execution
@@ -77,8 +50,4 @@ private:
         return sum of progress status of all actions within a plan divided by the number of actions
     */
     float computePlanProgressStatus();
-
-
-    // current_plan in execution
-    BDIManaged::ManagedPlan current_plan_;
 };

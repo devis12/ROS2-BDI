@@ -1,5 +1,3 @@
-#include <queue>
-
 #include "ros2_bdi_core/scheduler.hpp"
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
@@ -16,6 +14,75 @@ public:
     void init() override;
 
 private:
+
+    /*
+        Enqueue plan in waiting list for execution
+    */
+    void enqueuePlan(BDIManaged::ManagedPlan& el)
+    {
+        if(waiting_plans_.size() == 0)
+            waiting_plans_.push_back(el);
+        else
+            waiting_plans_.insert(waiting_plans_.begin(), el);
+    }
+
+    /*
+        Dequeue plan from execution waiting list 
+    */
+    std::optional<BDIManaged::ManagedPlan> dequeuePlan()
+    {
+        if(waiting_plans_.size() == 0)
+            return std::nullopt;
+
+        BDIManaged::ManagedPlan el = waiting_plans_.back();
+        waiting_plans_.pop_back();
+        return el;
+    }
+
+    /*
+        Return first plan to be executed in waiting list
+    */
+    std::optional<BDIManaged::ManagedPlan> waitingPlansFront()
+    {
+        if(waiting_plans_.size() == 0)
+            return std::nullopt;
+            
+        return waiting_plans_[waiting_plans_.size() -1];
+    }
+
+    /*
+        Return last plan to be executed in waiting list
+    */
+    std::optional<BDIManaged::ManagedPlan> waitingPlansBack()
+    {        
+        if(waiting_plans_.size() == 0)
+            return std::nullopt;
+        return waiting_plans_[0];
+    }
+
+    /*
+        Return last plan to be executed in waiting list
+    */
+    bool replaceLastPlan(const BDIManaged::ManagedPlan& mp)
+    {        
+        if(waiting_plans_.size() == 0)
+            return false;
+            
+        waiting_plans_[0] = mp;//first element of the vector is the last of the queue since the items are inserted from the top
+        return true;
+    }
+
+    /*
+        Find plan index, -1 if not there
+    */
+    bool findPlanIndex(const BDIManaged::ManagedPlan& mp)
+    {        
+        for(int i=0; i<waiting_plans_.size(); i++)
+            if(mp == waiting_plans_[i])
+                return i;
+        return -1;
+    }
+
     /*
         Specific behaviour of scheduler after desire successful addition, based on its selected mode    
     */
@@ -37,10 +104,6 @@ private:
     */
     float computePlanProgressStatus();
 
-    /*
-        Check whether a plan is executing
-    */
-    bool noPlanExecuting();
 
     /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
         beliefs which shows they're already fulfilled
@@ -62,8 +125,8 @@ private:
     */
     bool launchPlanSearch(const BDIManaged::ManagedDesire selDesire);
 
-    // waiting_plans for execution
-    std::queue<BDIManaged::ManagedPlan> waiting_plans_;
+    // queue of waiting_plans for execution (LAST element of the vector is the first one that has been pushed)
+    std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
     // fulfilling desire 
     BDIManaged::ManagedDesire fulfilling_desire_;

@@ -367,6 +367,82 @@ TargetBeliefAcceptance Scheduler::desireAcceptanceCheck(const ManagedDesire& md)
 }
 
 /*
+    Launch execution of selectedPlan; if successful current plan is pushed into waiting plans for execution gets value of selectedPlan
+    return true if successful
+*/
+bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
+{   
+    //trigger plan execution
+    bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
+    if(triggered)
+        current_plan_ = selectedPlan;// selectedPlan can now be set as currently executing plan
+
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+    {
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getDesire().getName() + "\" success");
+        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getDesire().getName() + "\" failed");
+    }
+
+    return triggered;
+}
+
+/*
+    Abort execution of current plan; if successful waiting plans is popped empty
+    return true if successful
+*/
+bool Scheduler::abortCurrentPlanExecution()
+{
+    bool aborted = plan_exec_srv_client_->abortPlanExecution(current_plan_.toPlan());
+    if(aborted)
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getDesire().getName());
+        
+        current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
+    }  
+    return aborted;
+}
+
+
+/*
+    If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
+    try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution) by exploiting the TriggerPlanClient
+
+*/
+bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
+{      
+    string reschedulePolicy = this->get_parameter(PARAM_RESCHEDULE_POLICY).as_string();
+    bool noPlan = noPlanExecuting();
+    //rescheduling not ammitted -> a plan already executing and policy not admit any switch with higher priority plans
+    if(reschedulePolicy == VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan)
+        return false;
+
+    //rescheduling possible, but plan currently in exec (substitute just for plan with higher priority)
+    bool planinExec = reschedulePolicy != VAL_RESCHEDULE_POLICY_NO_IF_EXEC && !noPlan;
+    if(planinExec)
+    {
+        //before triggering new plan, abort the one currently in exec
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
+                            " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
+            
+        //trigger plan abortion
+        if(!abortCurrentPlanExecution())
+            return false;//current plan abortion failed
+    }
+    
+    //desire still in desire set
+    bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
+    
+    //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
+    if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)
+        return false;
+    
+
+    return launchPlanExecution(selectedPlan);
+}
+
+/*
     Given the current knowledge of the belief set, decide if a given desire
     is already fulfilled
 */
@@ -534,35 +610,3 @@ void Scheduler::delDesireInGroupCS(const string& desireGroup)
     for(ManagedDesire md : toBeDiscarded)
         delDesireCS(md, false);//you're already iterating over all the desires within the same group
 }
-
-
-
-
-/*--------------------------------------------------------------------------------------------------------*/
-/*------------------------------------------[ ONLINE PLANNING ]-------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------*/
-
-
-// void Scheduler::reschedulingOnline()
-// {
-
-// }
-
-// /*
-//     Received update on current online plan search
-// */
-// void Scheduler::updateComputedPartialPlans(const javaff_interfaces::msg::PartialPlans::SharedPtr msg)
-// {
-//     //TODO
-// }
-
-
-// int main(int argc, char ** argv)
-// {
-//   rclcpp::init(argc, argv);
-
-//   std::cerr << "You need to instantiate a specific Scheduler among SchedulerOffline and SchedulerOnline" << std::endl;
-//   rclcpp::shutdown();
-
-//   return 0;
-// }

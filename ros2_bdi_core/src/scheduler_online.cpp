@@ -12,7 +12,6 @@
 using std::string;
 using std::vector;
 using std::set;
-using std::queue;
 using std::shared_ptr;
 using std::chrono::milliseconds;
 using std::bind;
@@ -45,7 +44,8 @@ void SchedulerOnline::init()
 
     //init SchedulerOffline specific props
     fulfilling_desire_ = ManagedDesire{};
-    waiting_plans_ = queue<ManagedPlan>();
+    waiting_plans_ = vector<ManagedPlan>();
+    current_plan_ = ManagedPlan{};
 
     searching_ = false;
 
@@ -58,14 +58,6 @@ void SchedulerOnline::init()
         JAVAFF_PPLANS_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
 
-}
-
-/*
-    Check whether a plan is executing
-*/
-bool SchedulerOnline::noPlanExecuting()
-{
-    return fulfilling_desire_.getValue().size() == 0 && waiting_plans_.size() == 0;
 }
 
 /*
@@ -113,7 +105,55 @@ void SchedulerOnline::reschedule()
 */
 void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
 {
-    
+    auto planExecInfo = (*msg);
+    ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
+
+    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
+    {
+        current_plan_exec_info_ = planExecInfo;
+        current_plan_.setUpdatedInfo(planExecInfo);
+
+        string targetDesireName = targetDesire.getName();
+        if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
+        {
+            current_plan_ = ManagedPlan{};//no plan executing rn
+
+            if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
+            {
+                //step over to the next pplan
+                if(waiting_plans_.size() > 0)
+                {
+                    std::optional<ManagedPlan> nextPPlanToExec = dequeuePlan();
+                    //launch plan execution
+                    if(nextPPlanToExec.has_value() && nextPPlanToExec.value().getActionsExecInfo().size() > 0)
+                    {
+                        bool triggered = tryTriggerPlanExecution(nextPPlanToExec.value());
+                        if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        {
+                            if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+                            else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+                        }
+
+                        if(!triggered)//TODO eval how to handle better this case
+                            return;
+                    }
+                }
+                else
+                {   
+                    //no plan to execute
+                    current_plan_ = ManagedPlan{};
+                    searching_ = false;
+
+                    mtx_iter_dset_.lock();
+                    bool desireAchieved = isDesireSatisfied(targetDesire);
+                    if(desireAchieved)
+                        delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
+                    mtx_iter_dset_.unlock();
+                }
+            }
+
+        }
+    }
 }
 
 /*
@@ -123,16 +163,77 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
 {
     if(searching_)
     {
+        int i = 0;
         // TODO store incremental partial plans 
         // as soon as you have the first, trigger plan execution
-        string pplans = "";
-        for(auto pplan : msg->plans)
-        {
-            pplans += "\n\n-\n";
-            for(auto pplanItem : pplan.items)
-                pplans += "\t[" + std::to_string(pplanItem.time) + ", " + std::to_string(pplanItem.duration) + "]: \t" + pplanItem.action  + "\n";
+        
+        if(noPlanExecuting() && msg->plans.size() > 0)
+        {  
+            ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, msg->plans[i].items, fulfilling_desire_.getPrecondition(), fulfilling_desire_.getContext()};
+            //launch plan execution
+            if(firstPPlanToExec.getActionsExecInfo().size() > 0)
+            {   
+                bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                {
+                    if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+                    else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+                }
+
+                if(!triggered)//TODO eval how to handle better this case
+                    return;
+            }
+            i++;
         }
-        RCLCPP_INFO(this->get_logger(), pplans);
+
+        int lastMatchingPPlanFound = -1;
+
+        for(; i<msg->plans.size(); i++)
+        {   
+            //TODO: fulfilling_desire_ might be fulfilled when the whole queue is processed, so need to compute intermediate desire
+            //          - precondition has to be passed exclusively to the first pplan of the queue to be processed
+            //          - compute intermediate desires and, when plan exec. update stating their finish arrives, check that they are fulfilled
+            
+            ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, msg->plans[i].items, fulfilling_desire_.getPrecondition(), fulfilling_desire_.getContext()};
+            int computedMPPStartTime = (int) 1000*computedMPP.getActionsExecInfo()[0].planned_start;
+             /*Looking for computedMPP in current_plan || in waiting_plans_*/
+            if(computedMPP != current_plan_)
+            {
+                std::optional<ManagedPlan> lastInsertedPlan = waitingPlansBack();
+                if(lastInsertedPlan.has_value())
+                {
+                    int waitingMPPHighestStartTime = (int) 1000*lastInsertedPlan.value().getActionsExecInfo()[0].planned_start;
+                    if(computedMPPStartTime > waitingMPPHighestStartTime)
+                        enqueuePlan(computedMPP);//new plan has to be pushed in the queue
+
+                    else if(computedMPPStartTime == waitingMPPHighestStartTime && computedMPP != lastInsertedPlan.value())
+                        replaceLastPlan(computedMPP);//replace last element of the queue
+
+                    else if(computedMPPStartTime <= waitingMPPHighestStartTime)
+                    {
+                        // TODO EVALUATE THIS SCENARIO
+                        // int foundAt = findPlanIndex(computedMPP);
+                        // if(foundAt < 0)
+                        // {
+                        //     //remove all the elements from the last matching one to this
+                        //     while(lastMatchingPPlanFound >= 0 && waiting_plans_[lastMatchingPPlanFound] != waitingPlansBack().value())
+                        //         dequeuePlan();
+                                
+                        //     //enqueue new element
+                        //     enqueuePlan(computedMPP);
+                        // }
+                        // else
+                        //     lastMatchingPPlanFound = foundAt;//up to this point, queue does not change
+                    }
+                }
+                else
+                {
+                    //waiting plans still empty
+                    enqueuePlan(computedMPP);
+                }
+                        
+            }
+        }
     }   
 }
 

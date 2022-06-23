@@ -105,6 +105,7 @@ namespace BDIManaged
     };  // class ManagedPlan
 
     bool operator==(ManagedPlan const &mp1, ManagedPlan const &mp2);
+    bool operator!=(ManagedPlan const &mp1, ManagedPlan const &mp2);
     std::ostream& operator<<(std::ostream& os, const ManagedPlan& mp);
 
 }

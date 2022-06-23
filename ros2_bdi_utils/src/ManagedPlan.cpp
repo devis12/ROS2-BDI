@@ -170,7 +170,6 @@ bool BDIManaged::operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
      // first check based on target desire
     if(!(mp1.getDesire() == mp2.getDesire()))
         return false;
-    
     vector<PlanItem> mp1_body = mp1.toPsys2Plan().items;
     vector<PlanItem> mp2_body = mp2.toPsys2Plan().items;
 
@@ -185,6 +184,11 @@ bool BDIManaged::operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
 
     //otherwise equals
     return mp1.getPrecondition() == mp2.getPrecondition() && mp1.getContext() == mp2.getContext();
+}
+
+// overload `!=` operator 
+bool BDIManaged::operator!=(ManagedPlan const &mp1, ManagedPlan const &mp2){
+    return !(mp1==mp2);
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedPlan& mp)
