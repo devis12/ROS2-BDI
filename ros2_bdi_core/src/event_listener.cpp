@@ -2,8 +2,6 @@
 
 // header file for Event listener node
 #include "ros2_bdi_core/event_listener.hpp"
-// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
-#include "ros2_bdi_core/params/core_common_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Event Listener node
 #include "ros2_bdi_core/params/event_listener_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
@@ -13,6 +11,7 @@
 
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
@@ -20,6 +19,7 @@ using ros2_bdi_interfaces::msg::Desire;
 using BDIManaged::ManagedReactiveRule;
 using std::string;
 using std::set;
+using std::map;
 using std::bind;
 using std::placeholders::_1;
 
@@ -50,6 +50,27 @@ bool EventListener::init()
         return false;
     }
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                bind(&EventListener::callbackLifecycleStatus, this, _1));
+
     //Receive belief set update notification to keep the event listener belief set mirror up to date
     belief_set_subscription_ = this->create_subscription<BeliefSet>(
                 BELIEF_SET_TOPIC, qos_keep_all,
@@ -64,6 +85,15 @@ bool EventListener::init()
     del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_keep_all);
 
     return true;
+}
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus EventListener::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = EVENT_LISTENER_NODE_NAME;
+    lifecycle_status.status = state_ == CHECKING? lifecycle_status.RUNNING : lifecycle_status.BOOTING;
+    return lifecycle_status;
 }
 
 /*

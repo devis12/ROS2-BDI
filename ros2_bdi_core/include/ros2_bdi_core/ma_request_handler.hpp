@@ -3,8 +3,10 @@
 
 #include <mutex>
 #include <vector>
+#include <map>
 #include <thread>
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -18,6 +20,7 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/ma_request_handler_params.hpp"
 #include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
@@ -48,6 +51,18 @@ public:
   
 
 private:
+
+    /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+    ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
+    /*
+        Received notification about ROS2-BDI Lifecycle status
+    */
+    void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+    {
+        if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+            lifecycle_status_[msg->node_name] = msg->status;
+    }
 
     /*
       Return true if the request agent's group name is among the accepted ones wrt.
@@ -136,6 +151,11 @@ private:
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+    // step counter
+    uint64_t step_counter_;
+
+    // timer to trigger callback to perform main loop of work regularly
+    rclcpp::TimerBase::SharedPtr do_work_timer_;
 
     // Selected planning mode
     PlanningMode sel_planning_mode_;
@@ -192,6 +212,13 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr add_desire_publisher_;
     //del_desire publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;
+
+    // current known status of the system nodes
+    std::map<std::string, uint8_t> lifecycle_status_;
+    // Publish updated lifecycle status
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+    // Sub to updated lifecycle status
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
 
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
     std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;

@@ -42,6 +42,7 @@ using plansys2::Goal;
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::BeliefSet;
@@ -108,13 +109,31 @@ void Scheduler::init()
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                bind(&Scheduler::callbackLifecycleStatus, this, _1));
+
     //Check for plansys2 active state flags init to false
     psys2_planner_active_ = false;
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
-                PSYS2_STATE_TOPIC, qos_keep_all,
+                PSYS_STATE_TOPIC, qos_keep_all,
                 bind(&Scheduler::callbackPsys2State, this, _1));
 
     //Desire to be added notification
@@ -160,6 +179,9 @@ void Scheduler::step()
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+
     switch (state_) {
         
         case STARTING:
@@ -171,12 +193,19 @@ void Scheduler::step()
                     tryInitDesireSet();
                     init_dset_ = true;
                 }
-
-                if  ( (sel_planning_mode_ == OFFLINE && psys2_planner_active_)
-                        ||
-                      (sel_planning_mode_ == ONLINE && javaff_planner_active_)
-                    )
-                    setState(SCHEDULING);
+                
+                RCLCPP_INFO(this->get_logger(),"Belief manager  active = %d and plan director active = %d", 
+                    lifecycle_status_[BELIEF_MANAGER_NODE_NAME], lifecycle_status_[PLAN_DIRECTOR_NODE_NAME]);
+                    
+                if(lifecycle_status_[BELIEF_MANAGER_NODE_NAME] == LifecycleStatus{}.RUNNING && lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] == LifecycleStatus{}.RUNNING)
+                {
+                    //belief manager and plan director are booted and ready to go!!!
+                    if((sel_planning_mode_ == OFFLINE && psys2_planner_active_) || (sel_planning_mode_ == ONLINE && javaff_planner_active_))
+                    {    
+                        setState(SCHEDULING);//corresponding planner is active too, so you can jump to scheduling state
+                        lifecycle_status_publisher_->publish(getLifecycleStatus());
+                    }
+                }
             }else{
                 
                 if(sel_planning_mode_ == OFFLINE && !psys2_planner_active_)
@@ -225,6 +254,17 @@ void Scheduler::step()
         default:
             break;
     }
+
+    step_counter_++;
+}
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus Scheduler::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = SCHEDULER_NODE_NAME;
+    lifecycle_status.status = (state_ == STARTING)? lifecycle_status.BOOTING : lifecycle_status.RUNNING;
+    return lifecycle_status;
 }
 
 
@@ -296,9 +336,11 @@ TargetBeliefAcceptance Scheduler::targetBeliefAcceptanceCheck(const ManagedBelie
     {
         string instanceName = params[i];
         optional<Instance> opt_ins = problem_expert_->getInstance(instanceName);
-        if(!opt_ins.has_value())//found a not valid instance in one of the goal predicates
+        
+        if(!opt_ins.has_value())//found a not valid instance in one of the goal predicates       
             return UNKNOWN_INSTANCES;
-        else if(opt_ins.value().type != predDef.parameters[i].type)//instance types not matching definition
+        else if(opt_ins.value().type != predDef.parameters[i].type && //instance types not matching definition
+            std::find(predDef.parameters[i].sub_types.begin(), predDef.parameters[i].sub_types.end(), opt_ins.value().type) == predDef.parameters[i].sub_types.end()) //failing also checks within sub types
             return UNKNOWN_INSTANCES;
     }
 
@@ -361,7 +403,8 @@ void Scheduler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
         belief_set_ = newBeliefSet;//update current mirroring of the belief set
         
         checkForSatisfiedDesires();//check for satisfied desires
-        reschedule();//do a rescheduling
+        if(state_ == SCHEDULING)
+            reschedule();//do a rescheduling
     }
     
 }

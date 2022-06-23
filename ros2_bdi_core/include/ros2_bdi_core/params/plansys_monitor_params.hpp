@@ -8,8 +8,7 @@
 #define PSYS2NODES 4
 #define PSYS2_CK_STATE_SRV "get_state"
 
-#define PSYS2_MONITOR_NODE_NAME "plansys_monitor"
-#define PSYS2_STATE_TOPIC "plansys_state"
+#define PSYS_STATE_TOPIC "plansys_state"
 
 // psys2 nodes' names
 #define PSYS2_DOM_EXPERT "domain_expert"

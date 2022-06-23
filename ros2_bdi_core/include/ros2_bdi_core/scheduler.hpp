@@ -26,8 +26,10 @@
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/scheduler_params.hpp"
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 #include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/trigger_plan_client.hpp"
@@ -109,10 +111,23 @@ protected:
     */
     void publishDesireSet();
 
+
+    /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+    ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
     /*
        Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
     void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
+
+    /*
+        Received notification about ROS2-BDI Lifecycle status
+    */
+    void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+    {
+        if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+            lifecycle_status_[msg->node_name] = msg->status;
+    }
 
     /*
         Expect to find yaml file to init the desire set in "/tmp/{agent_id}/init_dset.yaml"
@@ -243,6 +258,9 @@ protected:
     // internal state of the node
     StateType state_;
 
+    // step counter
+    uint64_t step_counter_;
+
     // Selected planning mode
     PlanningMode sel_planning_mode_;
     
@@ -316,6 +334,13 @@ protected:
 
     // plan executioninfo subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
+
+    // current known status of the system nodes
+    std::map<std::string, uint8_t> lifecycle_status_;
+    // Publish updated lifecycle status
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+    // Sub to updated lifecycle status
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
 
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
     std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;

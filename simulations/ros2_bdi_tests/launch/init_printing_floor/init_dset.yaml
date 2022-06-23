@@ -1,4 +1,4 @@
-- name: "clean_rooms"
+- name: "print_docs"
   priority: 0.6
   deadline: 100.0
   value:

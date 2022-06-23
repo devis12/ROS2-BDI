@@ -30,6 +30,34 @@
         (battery_charge ?r - robot)
     )
 
+    ; (:durative-action running
+    ;     :parameters (?r - robot)
+    ;     :duration (= ?duration 80)
+    ;     :condition (and 
+    ;         (at start (inactive ?r))
+    ;     )
+    ;     :effect (and
+    ;         (at start (active ?r))
+    ;         (at start (not(inactive ?r)))
+    ;         (at end (not(active ?r)))
+    ;         (at end (inactive ?r))
+    ;     )
+    ; )
+
+    ; (:durative-action standby
+    ;     :parameters (?r - robot)
+    ;     :duration (= ?duration 80)
+    ;     :condition (and 
+    ;         (at start (active ?r))
+    ;     )
+    ;     :effect (and
+    ;         (at start (inactive ?r))
+    ;         (at start (not(active ?r)))
+    ;         (at end (not(inactive ?r)))
+    ;         (at end (active ?r))
+    ;     )
+    ; )
+
     (:durative-action move
         :parameters (?r - robot ?a1 ?a2 - area)
         :duration (= ?duration 4)

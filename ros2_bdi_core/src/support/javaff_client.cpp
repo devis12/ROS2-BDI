@@ -30,7 +30,6 @@ bool JavaFFClient::launchPlanSearch(const string& problem, const int& interval)
 bool JavaFFClient::makePlanSearchRequest(const JavaFFPlan::Request::SharedPtr& request)
 {
     try{
-    
         while (!start_plan_client_->wait_for_service(std::chrono::seconds(WAIT_PLAN_EXEC_SRV_UP))) {
             if (!rclcpp::ok()) {
                 return false;
@@ -40,9 +39,7 @@ bool JavaFFClient::makePlanSearchRequest(const JavaFFPlan::Request::SharedPtr& r
                 start_plan_client_->get_service_name() <<
                     " service client: waiting for service to appear...");
         }
-
         auto future_result = start_plan_client_->async_send_request(request);
-
         if (rclcpp::spin_until_future_complete(caller_node_, future_result, std::chrono::seconds(WAIT_PLAN_EXEC_RESPONSE_TIMEOUT)) !=
             rclcpp::FutureReturnCode::SUCCESS)
         {

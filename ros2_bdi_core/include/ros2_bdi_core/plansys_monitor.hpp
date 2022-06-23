@@ -3,7 +3,9 @@
 
 #include <string>
 #include <memory>
+#include <map>
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 #include "ros2_bdi_core/support/planning_mode.hpp"
 
@@ -46,10 +48,24 @@ class PlanSysMonitor : public rclcpp::Node
         */
         void checkPsysNodeActive(const std::string& psysNodeName);
 
+        /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+        ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
+        /*
+            Received notification about ROS2-BDI Lifecycle status
+        */
+        void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+        {
+            if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+                lifecycle_status_[msg->node_name] = msg->status;
+        }
+
         // Selected planning mode
         PlanningMode sel_planning_mode_;
         // agent id that defines the namespace in which the node operates
         std::string agent_id_;
+        // step counter
+        uint64_t step_counter_;
         // callback to perform main loop of work regularly
         rclcpp::TimerBase::SharedPtr do_work_timer_;
         // work timer interval in ms
@@ -60,6 +76,13 @@ class PlanSysMonitor : public rclcpp::Node
 
         // comm errors psys2
         int psys2_comm_errors_;
+
+        // current known status of the system nodes
+        std::map<std::string, uint8_t> lifecycle_status_;
+        // Publish updated lifecycle status
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+        // Sub to updated lifecycle status
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
         
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
         std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;

@@ -471,7 +471,7 @@ void SchedulerOffline::postAddDesireSuccess(const BDIManaged::ManagedDesire& md)
     // Offline mode behaviour
     checkForSatisfiedDesires();// check for desire to be already fulfilled
 
-    if(desire_set_.size() > 0 && noPlanExecuting())// still there to be satisfied && no plan selected, rescheduled immediately
+    if(state_ == SCHEDULING && desire_set_.size() > 0 && noPlanExecuting())// still there to be satisfied && no plan selected, rescheduled immediately
     {   
         reschedule();
     }

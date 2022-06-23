@@ -23,6 +23,7 @@
 
 using std::string;
 using std::set;
+using std::map;
 using std::vector;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -41,6 +42,7 @@ using plansys2_msgs::msg::PlanItem;
 using plansys2_msgs::msg::Action;
 using plansys2_msgs::msg::DurativeAction;
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
@@ -98,13 +100,34 @@ void PlanDirector::init()
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                bind(&PlanDirector::callbackLifecycleStatus, this, _1));
+
     //Check for plansys2 active state flags init to false
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
-                PSYS2_STATE_TOPIC, qos_keep_all,
+                PSYS_STATE_TOPIC, qos_keep_all,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
 
     //belief_set_subscriber_ 
@@ -146,12 +169,16 @@ void PlanDirector::step()
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+
     switch (state_) {
         
         case STARTING:
         {
             if(psys2_executor_active_){
                 setState(READY);
+                lifecycle_status_publisher_->publish(getLifecycleStatus());
             }else{
                 RCLCPP_ERROR(this->get_logger(), "PlanSys2 Executor still not active");
                 psys2_comm_errors_++;
@@ -183,6 +210,8 @@ void PlanDirector::step()
         default:
             break;
     }
+
+    step_counter_++;
 }   
 
 /*
@@ -208,6 +237,15 @@ void PlanDirector::publishNoPlanExec()
         //no plan currently in execution -> proceeds notifying that
         plan_exec_publisher_->publish(no_plan_msg_);
     }
+}
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus PlanDirector::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = PLAN_DIRECTOR_NODE_NAME;
+    lifecycle_status.status = (state_ == STARTING)? lifecycle_status.BOOTING : lifecycle_status.RUNNING;
+    return lifecycle_status;
 }
 
 /*

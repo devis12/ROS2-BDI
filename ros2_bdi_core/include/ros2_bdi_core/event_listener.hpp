@@ -3,10 +3,12 @@
 
 #include <string>
 #include <set>
+#include <map>
 #include <utility>
 #include <memory>
 #include <mutex>  
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -19,12 +21,14 @@
 
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/event_listener_params.hpp"
 #include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
+typedef enum {STARTING, CHECKING} StateType;   
 /*
     Checks at every belief set update for conditions to be satisfied,
     if any of them is sat, then apply the corresponding rules
@@ -59,10 +63,31 @@ class EventListener : public rclcpp::Node
 
     private:
 
+        /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+        ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
         void updBeliefSetCallback(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg)
         {
             belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-            check_if_any_rule_apply();
+            if(state_ == CHECKING)
+                check_if_any_rule_apply();
+            
+            if(step_counter_ % 4 == 0)
+                lifecycle_status_publisher_->publish(getLifecycleStatus());
+            
+            step_counter_++;
+        }
+
+        /*
+            Received notification about ROS2-BDI Lifecycle status
+        */
+        void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+        {
+            if(msg->node_name == BELIEF_MANAGER_NODE_NAME && msg->status == ros2_bdi_interfaces::msg::LifecycleStatus{}.RUNNING)
+                state_ = CHECKING; // start checking if any rule applies when belief manager has successfully terminated boot 
+    
+            if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+                lifecycle_status_[msg->node_name] = msg->status;
         }
 
         // recover from expected file the rules to be applied
@@ -72,10 +97,12 @@ class EventListener : public rclcpp::Node
         void check_if_any_rule_apply();
 
         // internal state of the node
-        // StateType state_; //NOT used in this node (it just reacts to belief set update notification)
+        StateType state_; 
                
         // agent id that defines the namespace in which the node operates
         std::string agent_id_;
+        // step counter
+        uint64_t step_counter_;
 
         // Selected planning mode
         PlanningMode sel_planning_mode_;
@@ -94,6 +121,13 @@ class EventListener : public rclcpp::Node
         rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;//del desire topic pub
 
         rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscription_;//belief set subscription
+
+        // current known status of the system nodes
+        std::map<std::string, uint8_t> lifecycle_status_;
+        // Publish updated lifecycle status
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+        // Sub to updated lifecycle status
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
 
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
         std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;

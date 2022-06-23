@@ -10,13 +10,15 @@
 using std::string;
 using std::shared_ptr;
 using std::chrono::milliseconds;
+using std::map;
 using std::bind;
 using std::placeholders::_1;
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::PlanningSystemState;
 
 
-PlanSysMonitor::PlanSysMonitor() : rclcpp::Node(PSYS2_MONITOR_NODE_NAME)
+PlanSysMonitor::PlanSysMonitor() : rclcpp::Node(PSYS_MONITOR_NODE_NAME)
 {
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
@@ -25,7 +27,7 @@ PlanSysMonitor::PlanSysMonitor() : rclcpp::Node(PSYS2_MONITOR_NODE_NAME)
     sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
     this->undeclare_parameter(PARAM_PLANNING_MODE);
 
-    psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PSYS2_MONITOR_NODE_NAME + string("_caller_"), sel_planning_mode_);
+    psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PSYS_MONITOR_NODE_NAME + string("_caller_"), sel_planning_mode_);
 }
 
 /*
@@ -38,7 +40,7 @@ void PlanSysMonitor::init()
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     // PlanSys2 state monitor publisher
-    psys_state_publisher_ = this->create_publisher<PlanningSystemState>(PSYS2_STATE_TOPIC, 10);
+    psys_state_publisher_ = this->create_publisher<PlanningSystemState>(PSYS_STATE_TOPIC, 10);
 
     // set at start work timer interval at minimum (so it checks very frequently)
     // if all up & active, it'll grow, checking the services less frequently
@@ -49,6 +51,27 @@ void PlanSysMonitor::init()
             bind(&PlanSysMonitor::checkPlanningSystemState, this));
 
     psys2_comm_errors_ = 0;
+
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, rclcpp::QoS(10),
+                bind(&PlanSysMonitor::callbackLifecycleStatus, this, _1));
 
     // init flag values to false
     psys_active_ = PlanningSystemState{};
@@ -62,6 +85,15 @@ void PlanSysMonitor::init()
     RCLCPP_INFO(this->get_logger(), "PlanSys2 Monitor node initialized");
 }
 
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus PlanSysMonitor::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = PSYS_MONITOR_NODE_NAME;
+    lifecycle_status.status = lifecycle_status.RUNNING;
+    return lifecycle_status;
+}
+
 /*
 Main loop of work called regularly through a wall timer
 */
@@ -70,6 +102,9 @@ void PlanSysMonitor::checkPlanningSystemState()
     //if psys2 appears crashed, crash too
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
+
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
 
     bool psys2NodesActive = allActive();
 
@@ -99,6 +134,8 @@ void PlanSysMonitor::checkPlanningSystemState()
 
     //publish current state
     psys_state_publisher_->publish(psys_active_);
+
+    step_counter_++;
 }
 
 /*

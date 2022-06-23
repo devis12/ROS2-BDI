@@ -65,8 +65,8 @@ def generate_launch_description():
             'comp_plan_tries': 16,
             'exec_plan_tries': 4,
             'planning_mode':'online',
-            'search_interval': 250,
-            'debug_log_active': ['belief_manager', 'scheduler', 'plan_director']
+            'search_interval': 256,
+            'debug_log_active': ['scheduler', 'plan_director']
         },
         actions=[pf_action_move, pf_action_docking, pf_action_printing, pf_action_undocking, pf_action_recharge, pf_action_unload_printed_docs],
         run_only_psys2=False

@@ -145,11 +145,11 @@ bool PlanSysMonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_w
         active[PSYS2_PLANNER_I] = isPsysNodeActive(planner_name);
         active[PSYS2_EXECUTOR_I] = isPsysNodeActive(PSYS2_EXECUTOR);
 
-        std::cout << "active dom_expert = " << active[PSYS2_DOM_EXPERT_I]
-                    << "active prob_expert = " << active[PSYS2_PROB_EXPERT_I]
-                    << "active planner = " << active[PSYS2_PLANNER_I]
-                    << "active executor = " << active[PSYS2_EXECUTOR_I]
-                    << std::flush << std::endl;
+        // std::cout << "active dom_expert = " << active[PSYS2_DOM_EXPERT_I]
+        //             << "active prob_expert = " << active[PSYS2_PROB_EXPERT_I]
+        //             << "active planner = " << active[PSYS2_PLANNER_I]
+        //             << "active executor = " << active[PSYS2_EXECUTOR_I]
+        //             << std::flush << std::endl;
                     
                     
 

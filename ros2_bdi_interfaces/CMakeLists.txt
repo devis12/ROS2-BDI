@@ -21,6 +21,7 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/BDIActionExecutionInfo.msg"
   "msg/BDIPlanExecutionInfo.msg"
   "msg/PlanningSystemState.msg"
+  "msg/LifecycleStatus.msg"
   
   "srv/IsAcceptedOperation.srv"
   "srv/CheckBelief.srv"

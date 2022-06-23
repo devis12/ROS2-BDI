@@ -93,13 +93,6 @@ void SchedulerOnline::reschedule()
             md.getPrecondition().isSatisfied(belief_set_) && 
             md.getPriority() > selDesire.getPriority())
             selDesire = md;
-        
-        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t ack = " + std::to_string(Scheduler::desireAcceptanceCheck(md)));
-
-        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t prec = " + std::to_string(md.getPrecondition().isSatisfied(belief_set_)));
-
-        RCLCPP_INFO(this->get_logger(), "Alex's desire to " + md.getName() + "\t pr = " + std::to_string(md.getPriority()) + "\t selDesire pr = " + std::to_string(selDesire.getPriority()));
-    
     }
 
     mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
@@ -110,6 +103,7 @@ void SchedulerOnline::reschedule()
     if(selDesire.getValue().size() > 0 && launchPlanSearch(selDesire))//a desire has effectively been selected && a search for it has been launched
     {    
         searching_ = true;
+        RCLCPP_INFO(this->get_logger(), "Search started for the fullfillment of Alex's desire to " + selDesire.getName());
         fulfilling_desire_ = selDesire; 
     }
 }
@@ -136,10 +130,10 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
         {
             pplans += "\n\n-\n";
             for(auto pplanItem : pplan.items)
-                pplans += "\t[" + std::to_string(pplanItem.time) + "]: " + pplanItem.action  + "\t\t(" + std::to_string(pplanItem.duration) + "\n";
+                pplans += "\t[" + std::to_string(pplanItem.time) + ", " + std::to_string(pplanItem.duration) + "]: \t" + pplanItem.action  + "\n";
         }
         RCLCPP_INFO(this->get_logger(), pplans);
-    }
+    }   
 }
 
 /*
@@ -228,7 +222,7 @@ void SchedulerOnline::postAddDesireSuccess(const BDIManaged::ManagedDesire& md)
     // Offline mode behaviour
     checkForSatisfiedDesires();// check for desire to be already fulfilled
 
-    if(desire_set_.size() > 0 && noPlanExecuting())// still there to be satisfied && no plan selected, rescheduled immediately
+    if(state_ == SCHEDULING && desire_set_.size() > 0 && noPlanExecuting())// still there to be satisfied && no plan selected, rescheduled immediately
     {   
         reschedule();
     }

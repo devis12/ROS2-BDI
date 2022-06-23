@@ -2,7 +2,6 @@
 #define SCHEDULER_PARAMS_H_
 
 /* Parameters affecting internal logic (recompiling required) */
-#define SCHEDULER_NODE_NAME "scheduler"
 #define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_PREEMPT"
 #define VAL_RESCHEDULE_POLICY_IF_EXEC "PREEMPT"
 

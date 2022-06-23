@@ -152,12 +152,12 @@ namespace PDDLBDIConverter
   */
   int getActionIndex(const vector<PlanItem>& current_plan_body, const string& action_full_name)
   {
-      float timex1000 = std::stof(action_full_name.substr(action_full_name.find_last_of(":")+1));
+      int timex1000 = std::stoi(action_full_name.substr(action_full_name.find_last_of(":")+1));
       string action_full_no_time = action_full_name.substr(0, action_full_name.find_first_of(":"));// (action_name param1 param2 ...)
       
       for(int i = 0; i < current_plan_body.size(); i++)
       {   
-          float plannedStartTimex1000 = current_plan_body[i].time * 1000;
+          int plannedStartTimex1000 = (int) (current_plan_body[i].time * 1000);
 
           if(timex1000 == plannedStartTimex1000 && action_full_no_time == current_plan_body[i].action)//same time of start
             return i;
