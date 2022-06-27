@@ -16,9 +16,10 @@ JavaFFClient::JavaFFClient(const string& nodeBasename)
     start_plan_client_ = caller_node_->create_client<JavaFFPlan>(JAVAFF_START_PLAN_SRV);
 }
 
-bool JavaFFClient::launchPlanSearch(const string& problem, const int& interval)
+bool JavaFFClient::launchPlanSearch(const ros2_bdi_interfaces::msg::Desire fulfilling_desire, const string& problem, const int& interval)
 {
     auto req = std::make_shared<JavaFFPlan::Request>();
+    req->fulfilling_desire = fulfilling_desire;
     req->problem = problem;
     req->search_interval = interval;
     return makePlanSearchRequest(req);

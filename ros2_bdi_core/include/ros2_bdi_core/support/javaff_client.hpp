@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 
+#include "ros2_bdi_interfaces/msg/desire.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "javaff_interfaces/srv/java_ff_plan.hpp"
 
@@ -15,7 +16,7 @@ class JavaFFClient
         /* Constructor for the supporting node for calling javaff services */
         JavaFFClient(const std::string& nodeBasename);
 
-        bool launchPlanSearch(const std::string& problem, const int& interval);
+        bool launchPlanSearch(const ros2_bdi_interfaces::msg::Desire fulfilling_desire, const std::string& problem, const int& interval);
 
     private:
         bool makePlanSearchRequest(const javaff_interfaces::srv::JavaFFPlan::Request::SharedPtr& request);

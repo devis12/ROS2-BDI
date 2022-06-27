@@ -1,18 +1,18 @@
--
-  name: "r1"
-  pddl_type: 1
-  params: 
-    - "robot"
+# -
+#   name: "r1"
+#   pddl_type: 1
+#   params: 
+#     - "robot"
 -
   name: "r2"
   pddl_type: 1
   params: 
     - "robot"
--
-  name: "r3"
-  pddl_type: 1
-  params: 
-    - "robot"
+# -
+#   name: "r3"
+#   pddl_type: 1
+#   params: 
+#     - "robot"
 -
   name: "p1"
   pddl_type: 1
@@ -516,22 +516,22 @@
   params: 
     - "d3"
     - "r_c"
--
-  name: "r_in"
-  pddl_type: 2 
-  params: 
-    - "r1"
-    - "r_d"
--
-  name: "active"
-  pddl_type: 2 
-  params: 
-    - "r1"
--
-  name: "not_r_docked"
-  pddl_type: 2 
-  params: 
-    - "r1"
+# -
+#   name: "r_in"
+#   pddl_type: 2 
+#   params: 
+#     - "r1"
+#     - "r_d"
+# -
+#   name: "active"
+#   pddl_type: 2 
+#   params: 
+#     - "r1"
+# -
+#   name: "not_r_docked"
+#   pddl_type: 2 
+#   params: 
+#     - "r1"
 -
   name: "r_in"
   pddl_type: 2 
@@ -548,19 +548,19 @@
   pddl_type: 2 
   params: 
     - "r2"
--
-  name: "r_in"
-  pddl_type: 2 
-  params: 
-    - "r3"
-    - "r_c"
--
-  name: "active"
-  pddl_type: 2 
-  params: 
-    - "r3"
--
-  name: "r_docked"
-  pddl_type: 2 
-  params: 
-    - "r3"
+# -
+#   name: "r_in"
+#   pddl_type: 2 
+#   params: 
+#     - "r3"
+#     - "r_c"
+# -
+#   name: "active"
+#   pddl_type: 2 
+#   params: 
+#     - "r3"
+# -
+#   name: "r_docked"
+#   pddl_type: 2 
+#   params: 
+#     - "r3"

@@ -36,6 +36,9 @@ using javaff_interfaces::msg::PartialPlans;
 
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
+using BDIManaged::ManagedCondition;
+using BDIManaged::ManagedConditionsConjunction;
+using BDIManaged::ManagedConditionsDNF;
 
 
 void SchedulerOnline::init()
@@ -170,7 +173,10 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
         
         if(noPlanExecuting() && msg->plans.size() > 0)
         {  
-            ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, msg->plans[i].items, fulfilling_desire_.getPrecondition(), fulfilling_desire_.getContext()};
+            // make union of high level desire precondition and subplan precondition
+            ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
+            allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
+            ManagedPlan firstPPlanToExec = ManagedPlan{ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
             //launch plan execution
             if(firstPPlanToExec.getActionsExecInfo().size() > 0)
             {   
@@ -191,8 +197,8 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
             }
             i++;
         
-        }else if(msg->plans[i].items.size() > 0){
-            ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, msg->plans[i].items, fulfilling_desire_.getPrecondition(), fulfilling_desire_.getContext()};
+        }else if(msg->plans[i].plan.items.size() > 0){
+            ManagedPlan computedMPP = ManagedPlan{ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
             enqueuePlan(computedMPP);
         }
 
@@ -261,7 +267,7 @@ bool SchedulerOnline::launchPlanSearch(const BDIManaged::ManagedDesire selDesire
     string pddl_problem = problem_expert_->getProblem();//get problem string
     int intervalSearchMS = this->get_parameter(JAVAFF_SEARCH_INTERVAL_PARAM).as_int();
     intervalSearchMS = intervalSearchMS >= 100? intervalSearchMS : 100;
-    return javaff_client_->launchPlanSearch(pddl_problem, intervalSearchMS);
+    return javaff_client_->launchPlanSearch(selDesire.toDesire(), pddl_problem, intervalSearchMS);
 }
 
 /*
