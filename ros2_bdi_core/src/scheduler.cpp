@@ -241,7 +241,6 @@ void Scheduler::step()
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
                     RCLCPP_INFO(this->get_logger(), "Reschedule to select new plan to be executed");
-
                 reschedule();
             }
         }
