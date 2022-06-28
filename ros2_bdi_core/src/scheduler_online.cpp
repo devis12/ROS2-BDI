@@ -32,7 +32,7 @@ using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
-using javaff_interfaces::msg::PartialPlans;
+using javaff_interfaces::msg::SearchResult;
 
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
@@ -57,8 +57,8 @@ void SchedulerOnline::init()
 
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
-    javaff_pplans_subscriber_ = this->create_subscription<PartialPlans>(
-        JAVAFF_PPLANS_TOPIC, 10,
+    javaff_search_subscriber_ = this->create_subscription<SearchResult>(
+        JAVAFF_SEARCH_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
 
 }
@@ -90,7 +90,11 @@ void SchedulerOnline::reschedule()
     }
 
     mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
-
+    
+    // I'm already searching for this
+    if(searching_ && selDesire == fulfilling_desire_)
+        return;
+    
     RCLCPP_INFO(this->get_logger(), "Starting search for the fullfillment of Alex's desire to " + selDesire.getName());
     
 
@@ -100,6 +104,17 @@ void SchedulerOnline::reschedule()
         RCLCPP_INFO(this->get_logger(), "Search started for the fullfillment of Alex's desire to " + selDesire.getName());
         fulfilling_desire_ = selDesire; 
     }
+}
+
+/*
+    Init all info related to current desire in pursuit & plan to fulfill it, then launch reschedule
+*/
+void SchedulerOnline::forcedReschedule()
+{
+    current_plan_ = ManagedPlan{};//no plan executing rn
+    waiting_plans_ = vector<ManagedPlan>();
+    searching_ = false;//saluti da T.V.
+    reschedule();
 }
 
 /*
@@ -150,11 +165,28 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
             }
 
             if(!triggeredNewPlanExec)//no plan running anymore and nothing's already been triggered
+                forcedReschedule();
+
+            if(planExecInfo.status == planExecInfo.ABORT)
             {
-                current_plan_ = ManagedPlan{};//no plan executing rn
-                waiting_plans_ = vector<ManagedPlan>();
-                searching_ = false;//saluti da T.V.
-                reschedule();
+                string targetDesireName = fulfilling_desire_.getName();
+                //current plan execution has been aborted
+                int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
+                aborted_plan_desire_map_[targetDesireName]++;
+                
+                RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
+                    "\" has been aborted for the %d time (max attempts: %d)", 
+                        aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
+                
+                if(aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
+                {
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                        RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
+                    delDesire(fulfilling_desire_, true);
+                }
+
+                //TODO handle the following with unexpected state
+                forcedReschedule();//temporary solution!!!
             }
         }
     }
@@ -163,93 +195,71 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 /*
     Received update on current plan search
 */
-void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg)
+void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
 {
     if(searching_)
     {
-        int i = 0;
-        // store incremental partial plans 
-        // as soon as you have the first, trigger plan execution
+        if(msg->status != msg->SEARCHING)
+            searching_ = false;//not searching anymore
+
+        if(msg->status == msg->FAILED)
+        {
+            //search has failed!!
+            int invCounter = ++computed_plan_desire_map_[fulfilling_desire_.getName()]; //increment invalid counter for this desire
+            int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
+            string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + fulfilling_desire_.getName() + "\" (or its preconditions): plan not computable; " +
+                desireOperation + " (invalid counter = %d/%d).", invCounter, maxTries);
         
-        if(noPlanExecuting() && msg->plans.size() > 0)
-        {  
-            // make union of high level desire precondition and subplan precondition
-            ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
-            allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
-            ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
-            //launch plan execution
-            if(firstPPlanToExec.getActionsExecInfo().size() > 0)
-            {   
-                bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
-                if(this->get_parameter(PARAM_DEBUG).as_bool())
-                {
-                    if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-                    else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-                }
-
-                if(!triggered)// just reschedule from scratch
-                {
-                    current_plan_ = ManagedPlan{};
-                    waiting_plans_ = vector<ManagedPlan>();
-                    reschedule();
-                    return;
-                }
-            }
-            i++;
-        
-        }else if(msg->plans[i].plan.items.size() > 0){
-            ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
-            enqueuePlan(computedMPP);
-        }
-
-        // int lastMatchingPPlanFound = -1;
-
-        // for(; i<msg->plans.size(); i++)
-        // {   
-        //     //TODO: fulfilling_desire_ might be fulfilled when the whole queue is processed, so need to compute intermediate desire
-        //     //          - precondition has to be passed exclusively to the first pplan of the queue to be processed
-        //     //          - compute intermediate desires and, when plan exec. update stating their finish arrives, check that they are fulfilled
+            if(invCounter >= maxTries)//desire needs to be discarded, because a plan has tried to be unsuccessfully computed for it too many times
+                delDesire(fulfilling_desire_, true);
             
-        //     ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, msg->plans[i].items, fulfilling_desire_.getPrecondition(), fulfilling_desire_.getContext()};
-        //     int computedMPPStartTime = (int) 1000*computedMPP.getActionsExecInfo()[0].planned_start;
-        //      /*Looking for computedMPP in current_plan || in waiting_plans_*/
-        //     if(computedMPP != current_plan_)
-        //     {
-        //         std::optional<ManagedPlan> lastInsertedPlan = waitingPlansBack();
-        //         if(lastInsertedPlan.has_value())
-        //         {
-        //             int waitingMPPHighestStartTime = (int) 1000*lastInsertedPlan.value().getActionsExecInfo()[0].planned_start;
-        //             if(computedMPPStartTime > waitingMPPHighestStartTime)
-        //                 enqueuePlan(computedMPP);//new plan has to be pushed in the queue
+            forcedReschedule();
+            return;
+        }
+        else
+        {
+            //search is progressing
+            if(!noPlanExecuting() && current_plan_.getFinalTarget() != fulfilling_desire_)//started a new search for a different desire -> should abort old executing plan
+            {    
+                if(abortCurrentPlanExecution())//if aborted is correctly performed, clean away the current waiting list as well, exploiting new msg to build the new one, for new instantiated search
+                    waiting_plans_ = vector<ManagedPlan>();
+            }
+            
+            int i = 0;
+            // store incremental partial plans 
+            // as soon as you have the first, trigger plan execution
+            
+            if(noPlanExecuting() && msg->plans.size() > 0)
+            {  
+                // make union of high level desire precondition and subplan precondition
+                ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
+                allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
+                ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+                //launch plan execution
+                if(firstPPlanToExec.getActionsExecInfo().size() > 0)
+                {   
+                    bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
+                    if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    {
+                        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+                        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+                    }
 
-        //             else if(computedMPPStartTime == waitingMPPHighestStartTime && computedMPP != lastInsertedPlan.value())
-        //                 replaceLastPlan(computedMPP);//replace last element of the queue
-
-        //             else if(computedMPPStartTime <= waitingMPPHighestStartTime)
-        //             {
-        //                 // TODO EVALUATE THIS SCENARIO
-        //                 // int foundAt = findPlanIndex(computedMPP);
-        //                 // if(foundAt < 0)
-        //                 // {
-        //                 //     //remove all the elements from the last matching one to this
-        //                 //     while(lastMatchingPPlanFound >= 0 && waiting_plans_[lastMatchingPPlanFound] != waitingPlansBack().value())
-        //                 //         dequeuePlan();
-                                
-        //                 //     //enqueue new element
-        //                 //     enqueuePlan(computedMPP);
-        //                 // }
-        //                 // else
-        //                 //     lastMatchingPPlanFound = foundAt;//up to this point, queue does not change
-        //             }
-        //         }
-        //         else
-        //         {
-        //             //waiting plans still empty
-        //             enqueuePlan(computedMPP);
-        //         }
-                        
-        //     }
-        // }
+                    if(!triggered)// just reschedule from scratch
+                    {
+                       forcedReschedule();
+                        return;
+                    }
+                }
+                i++;
+            
+            }else if(msg->plans[i].plan.items.size() > 0){
+                ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                enqueuePlan(computedMPP);
+            }
+        }
     }   
 }
 

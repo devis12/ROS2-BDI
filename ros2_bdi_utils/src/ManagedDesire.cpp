@@ -231,3 +231,8 @@ bool BDIManaged::operator==(ManagedDesire const &md1, ManagedDesire const &md2){
     //otherwise compare precondition & context
     return md1.getPrecondition() == md2.getPrecondition() && md1.getContext() == md1.getContext();
 }
+
+// overload `!=` operator 
+bool BDIManaged::operator!=(const ManagedDesire& md1, const ManagedDesire& md2){
+    return !(md1 == md2);
+}

@@ -1,7 +1,7 @@
 #include "ros2_bdi_core/scheduler.hpp"
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
-#include "javaff_interfaces/msg/partial_plans.hpp"
+#include "javaff_interfaces/msg/search_result.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -97,6 +97,11 @@ private:
         Operations related to the selection of the next active desire and Intentions to be enforced
     */
     void reschedule();
+
+    /*
+        Init all info related to current desire in pursuit & plan to fulfill it, then launch reschedule
+    */
+    void forcedReschedule();
     
     /*
         wrt the current plan execution...
@@ -118,7 +123,7 @@ private:
     /*
         Received update on current plan search
     */
-    void updatedIncrementalPlan(const javaff_interfaces::msg::PartialPlans::SharedPtr msg);
+    void updatedIncrementalPlan(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
 
     /*
         Call JavaFF for triggering the search for a plan fulfilling @selDesire
@@ -135,7 +140,7 @@ private:
     bool searching_;
 
     // computed partial plans echoed by JavaFF
-    rclcpp::Subscription<javaff_interfaces::msg::PartialPlans>::SharedPtr javaff_pplans_subscriber_;//javaff pplans sub.
+    rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.
 
     // Client to wrap srv call to JavaFFServer
     std::shared_ptr<JavaFFClient> javaff_client_;

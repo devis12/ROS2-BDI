@@ -30,7 +30,7 @@
 #define PARAM_AUTOSUBMIT_PREC "autosub_prec"
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
-#define JAVAFF_PPLANS_TOPIC "javaff_search/plan"
+#define JAVAFF_SEARCH_TOPIC "javaff_search/plan"
 #define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
 #define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
