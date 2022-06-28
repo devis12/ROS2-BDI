@@ -93,11 +93,11 @@ void SchedulerOffline::reschedule()
             continue;
 
         //desire currently fulfilling
-        if(current_plan_.getDesire() == md)
+        if(current_plan_.getPlanTarget() == md)
             continue;
         
         //plan in exec has higher priority than this one, skip this desire
-        if(planinExec && current_plan_.getDesire().getPriority() > md.getPriority())
+        if(planinExec && current_plan_.getPlanTarget().getPriority() > md.getPriority())
             continue;
         
         bool computedPlan = false;//flag to mark plan for desire as computable
@@ -241,7 +241,7 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
     auto planExecInfo = (*msg);
     ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
 
-    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
+    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getPlanTarget().getName())//current plan selected in execution update
     {
         current_plan_exec_info_ = planExecInfo;
         current_plan_.setUpdatedInfo(planExecInfo);
@@ -334,7 +334,7 @@ void SchedulerOffline::checkForSatisfiedDesires()
     {   
         if(isDesireSatisfied(md))//desire already achieved, remove it
         {
-            if(!noPlanExecuting() && current_plan_.getDesire() == md && 
+            if(!noPlanExecuting() && current_plan_.getFinalTarget() == md && 
                 current_plan_exec_info_.status == current_plan_exec_info_.RUNNING)  
             {
                 float plan_progress_status = computePlanProgressStatus();
@@ -375,7 +375,7 @@ void SchedulerOffline::checkForSatisfiedDesires()
 float SchedulerOffline::computePlanProgressStatus()
 {   
     // not exeuting any plan or last update not related to currently triggered plan
-    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getDesire().getName())
+    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getPlanTarget().getName())
         return 0.0f;
 
     float progress_sum = 0.0f;
@@ -407,7 +407,7 @@ void SchedulerOffline::postAddDesireSuccess(const BDIManaged::ManagedDesire& md)
 void SchedulerOffline::postDelDesireSuccess(const BDIManaged::ManagedDesire& md)
 {
     //Offline mode behaviour
-    if(md == current_plan_.getDesire())//deleted desire of current executing plan)
+    if(md == current_plan_.getFinalTarget())//deleted desire of current executing plan)
         abortCurrentPlanExecution();//abort current plan execution
 }
 

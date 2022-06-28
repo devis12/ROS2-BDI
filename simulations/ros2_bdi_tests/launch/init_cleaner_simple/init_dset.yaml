@@ -1,6 +1,6 @@
 - name: "clean_rooms"
   priority: 0.2
-  deadline: 36.0
+  deadline: 48.0
   value:
     - name: "cleaned"
       pddl_type: 2
@@ -23,28 +23,24 @@
       params:
         - "cleaner"
         - "dock"
-    - name: "full_recharged"
-      pddl_type: 2
-      params:
-        - "cleaner"
-  # precondition:
-  #   clauses:
-  #     - literals:
-  #         - check: "T"
-  #           condition_to_check:
-  #             name: "in"
-  #             pddl_type: 2
-  #             params:
-  #               - "cleaner"
-  #               - "bedroom"
-  #     - literals:
-  #         - check: "T"
-  #           condition_to_check:
-  #             name: "in"
-  #             pddl_type: 2
-  #             params:
-  #               - "cleaner"
-  #               - "bathroom"
+  precondition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "cleaner"
+                - "bedroom"
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "cleaner"
+                - "bathroom"
   rollback_belief_add:
     - name: "workfree"
       pddl_type: 2

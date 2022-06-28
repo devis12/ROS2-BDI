@@ -108,16 +108,16 @@ void SchedulerOnline::reschedule()
 void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr msg)
 {
     auto planExecInfo = (*msg);
-    ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
+    ManagedDesire planTargetDesire = ManagedDesire{planExecInfo.target};
 
-    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getDesire().getName())//current plan selected in execution update
+    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getPlanTarget().getName())//current plan selected in execution update
     {
         current_plan_exec_info_ = planExecInfo;
         current_plan_.setUpdatedInfo(planExecInfo);
-        string targetDesireName = targetDesire.getName();
+        string targetDesireName = planTargetDesire.getName();
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
-            current_plan_ = ManagedPlan{};//no plan executing rn
+            bool triggeredNewPlanExec = false;
 
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
             {
@@ -128,34 +128,34 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     //launch plan execution
                     if(nextPPlanToExec.has_value() && nextPPlanToExec.value().getActionsExecInfo().size() > 0)
                     {
-                        bool triggered = tryTriggerPlanExecution(nextPPlanToExec.value());
+                        current_plan_ = ManagedPlan{};//no plan executing rn
+                        triggeredNewPlanExec = tryTriggerPlanExecution(nextPPlanToExec.value());
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
                         {
-                            if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+                            if(triggeredNewPlanExec) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
                             else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-                        }
-
-                        if(!triggered)//just reschedule from scratch
-                        {
-                            waiting_plans_ = vector<ManagedPlan>();//wipe out waiting plan queue
-                            reschedule();//reschedule from scratch
-                            return;
                         }
                     }
                 }
                 else
                 {   
-                    //no plan to execute
-                    current_plan_ = ManagedPlan{};
-                    searching_ = false;
+                    //no plan left to execute
+                    ManagedDesire finalTarget = current_plan_.getFinalTarget();
                     mtx_iter_dset_.lock();
-                    bool desireAchieved = isDesireSatisfied(targetDesire);
+                    bool desireAchieved = isDesireSatisfied(finalTarget);
                     if(desireAchieved)
-                        delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
+                        delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
                     mtx_iter_dset_.unlock();
                 }
             }
 
+            if(!triggeredNewPlanExec)//no plan running anymore and nothing's already been triggered
+            {
+                current_plan_ = ManagedPlan{};//no plan executing rn
+                waiting_plans_ = vector<ManagedPlan>();
+                searching_ = false;//saluti da T.V.
+                reschedule();
+            }
         }
     }
 }
@@ -176,7 +176,7 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
             // make union of high level desire precondition and subplan precondition
             ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
             allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
-            ManagedPlan firstPPlanToExec = ManagedPlan{ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+            ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
             //launch plan execution
             if(firstPPlanToExec.getActionsExecInfo().size() > 0)
             {   
@@ -198,7 +198,7 @@ void SchedulerOnline::updatedIncrementalPlan(const javaff_interfaces::msg::Parti
             i++;
         
         }else if(msg->plans[i].plan.items.size() > 0){
-            ManagedPlan computedMPP = ManagedPlan{ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+            ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
             enqueuePlan(computedMPP);
         }
 
@@ -277,7 +277,7 @@ bool SchedulerOnline::launchPlanSearch(const BDIManaged::ManagedDesire selDesire
 float SchedulerOnline::computePlanProgressStatus()
 {   
     // not exeuting any plan or last update not related to currently triggered plan
-    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getDesire().getName() || current_plan_exec_info_.actions_exec_info.size() == 0)
+    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getPlanTarget().getName() || current_plan_exec_info_.actions_exec_info.size() == 0)
         return 0.0f;
 
     float progress_sum = 0.0f;
@@ -299,7 +299,7 @@ void SchedulerOnline::checkForSatisfiedDesires()
     {   
         if(isDesireSatisfied(md))//desire already achieved, remove it
         {
-            if(!noPlanExecuting() && current_plan_.getDesire() == md && 
+            if(!noPlanExecuting() && current_plan_.getFinalTarget() == md && 
                 current_plan_exec_info_.status == current_plan_exec_info_.RUNNING)  
             {
                 float plan_progress_status = computePlanProgressStatus();
@@ -310,6 +310,12 @@ void SchedulerOnline::checkForSatisfiedDesires()
                         RCLCPP_INFO(this->get_logger(), "Current plan execution fulfilling desire \"" + md.getName() + 
                             "\" will be aborted since desire is already fulfilled and plan exec. is still far from being completed " +
                             "(progress status = %f)", plan_progress_status);
+
+                    if(abortCurrentPlanExecution())
+                    {
+                        searching_ = false;
+                        waiting_plans_ = vector<ManagedPlan>();
+                    }
                 }
             }
             else
@@ -351,9 +357,14 @@ void SchedulerOnline::postAddDesireSuccess(const BDIManaged::ManagedDesire& md)
 void SchedulerOnline::postDelDesireSuccess(const BDIManaged::ManagedDesire& md)
 {
     //Offline mode behaviour
-    if(md == current_plan_.getDesire())//deleted desire of current executing plan)
+    if(md == current_plan_.getFinalTarget())//deleted desire of current executing plan)
     {
-        //TODO ABORT CURRENT AND WAITING PLANS, still has to be understood
+        //ABORT CURRENT AND WAITING PLANS
+        if(abortCurrentPlanExecution())
+        {
+            searching_ = false;
+            waiting_plans_ = vector<ManagedPlan>();
+        }
     }
 }
 

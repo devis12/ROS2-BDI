@@ -378,8 +378,8 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
 
     if(this->get_parameter(PARAM_DEBUG).as_bool())
     {
-        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getDesire().getName() + "\" success");
-        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getDesire().getName() + "\" failed");
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getPlanTarget().getName() + "\" success");
+        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getPlanTarget().getName() + "\" failed");
     }
 
     return triggered;
@@ -395,7 +395,7 @@ bool Scheduler::abortCurrentPlanExecution()
     if(aborted)
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getDesire().getName());
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getPlanTarget().getName());
         
         current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
     }  
@@ -422,8 +422,8 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     {
         //before triggering new plan, abort the one currently in exec
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getDesire().getName() + "\"" + 
-                            " in order to trigger plan execution for desire \"" + selectedPlan.getDesire().getName() + "\"");
+                RCLCPP_INFO(this->get_logger(), "Ready to abort plan for desire \"" + current_plan_.getPlanTarget().getName() + "\"" + 
+                            " in order to trigger plan execution for desire \"" + selectedPlan.getPlanTarget().getName() + "\"");
             
         //trigger plan abortion
         if(!abortCurrentPlanExecution())
@@ -431,7 +431,7 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     }
     
     //desire still in desire set
-    bool desireInDesireSet = desire_set_.count(selectedPlan.getDesire())==1;
+    bool desireInDesireSet = desire_set_.count(selectedPlan.getFinalTarget())==1;
     
     //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
     if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)

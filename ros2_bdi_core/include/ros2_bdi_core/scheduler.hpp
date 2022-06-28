@@ -130,7 +130,7 @@ protected:
     */
     bool noPlanExecuting()
     {
-        return current_plan_.getDesire().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
+        return current_plan_.getPlanTarget().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
     }
 
 

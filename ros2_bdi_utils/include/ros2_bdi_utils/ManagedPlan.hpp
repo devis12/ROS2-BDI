@@ -27,9 +27,13 @@ namespace BDIManaged
             ManagedPlan(const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems);
             ManagedPlan(const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems, 
                 const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context);
+            ManagedPlan(const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
+                const std::vector<plansys2_msgs::msg::PlanItem>& planitems, const ManagedConditionsDNF& precondition, 
+                const ManagedConditionsDNF& context);
             
             /* getter methods for ManagedPlan instance prop  */
-            ManagedDesire getDesire() const {return target_;};
+            ManagedDesire getFinalTarget() const {return *final_target_;};
+            ManagedDesire getPlanTarget() const {return *plan_target_;};
 
             void setUpdatedInfo(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo& planExecInfo)
             {
@@ -78,8 +82,11 @@ namespace BDIManaged
 
             float computeUpdatedEndTime(const ros2_bdi_interfaces::msg::BDIActionExecutionInfo& bdi_ai);
 
-            /* Desire to be fulfilled by plan execution*/
-            ManagedDesire target_;
+            /* Desire to be fulfilled after successful plan execution*/
+            std::shared_ptr<ManagedDesire> plan_target_;
+
+            /* Main desire that is currently under pursuit and the plan execution should increment the possibilities to fulfill it*/
+            std::shared_ptr<ManagedDesire> final_target_;
 
             /* Plansys2 action (name, duration, start time) vector enwrapping the tree of actions to be performed to fulfilled the desire
                 that needs to be passed to PlanSys2 Executor */

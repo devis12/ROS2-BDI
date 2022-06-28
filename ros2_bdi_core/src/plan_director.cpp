@@ -69,7 +69,7 @@ PlanDirector::PlanDirector()
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
     no_plan_msg_.target = Desire();
-    no_plan_msg_.target.name = (ManagedPlan{}).getDesire().getName();
+    no_plan_msg_.target.name = (ManagedPlan{}).getPlanTarget().getName();
     no_plan_msg_.target.value = vector<Belief>();
     no_plan_msg_.actions_exec_info = vector<BDIActionExecutionInfo>();
     no_plan_msg_.current_time = 0.0f;
@@ -230,7 +230,7 @@ void PlanDirector::executingPlan()
 */
 void PlanDirector::publishNoPlanExec()
 {
-    auto current_plan_desire = current_plan_.getDesire();
+    auto current_plan_desire = current_plan_.getPlanTarget();
     if(current_plan_.getActionsExecInfo().size() == 0 &&
             current_plan_desire.getName() == no_plan_msg_.target.name && current_plan_desire.getPriority() == 0.0f)
     {
@@ -263,7 +263,7 @@ void PlanDirector::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 */
 bool PlanDirector::executingNoPlan()
 {
-    return state_ != EXECUTING && current_plan_.getActionsExecInfo().size() == 0 && current_plan_.getDesire().getName() == ManagedPlan{}.getDesire().getName();
+    return state_ != EXECUTING && current_plan_.getActionsExecInfo().size() == 0 && current_plan_.getPlanTarget().getName() == ManagedPlan{}.getPlanTarget().getName();
 }
 
 /*
@@ -504,7 +504,7 @@ void PlanDirector::checkPlanExecution()
 
     if(planExecutionInfo.status != planExecutionInfo.RUNNING)
     {
-        ManagedDesire targetDes = current_plan_.getDesire();
+        ManagedDesire targetDes = current_plan_.getPlanTarget();
         //in any case plan execution has stopped, so go back to printing out you're not executing any plan
         resetWorkTimer(NO_PLAN_INTERVAL);
         setNoPlanMsg();
@@ -613,7 +613,7 @@ BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::Ex
         }
     );
     
-    planExecutionInfo.target = current_plan_.getDesire().toDesire();
+    planExecutionInfo.target = current_plan_.getPlanTarget().toDesire();
     planExecutionInfo.planned_deadline = current_plan_.getPlannedDeadline();
     planExecutionInfo.estimated_deadline = current_plan_.getUpdatedEstimatedDeadline();
     

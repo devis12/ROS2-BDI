@@ -65,25 +65,39 @@ ManagedPlan::ManagedPlan():
     {
         Desire d = Desire{};
         d.name = NO_PLAN;
-        target_ = d;
+        final_target_ = std::make_shared<ManagedDesire>(d);
+        plan_target_ = final_target_;
     }
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems):
-    target_(md),
     actions_exec_info_(computeActionsExecInfo(planitems)),
     precondition_(ManagedConditionsDNF{}),
     context_(ManagedConditionsDNF{})
     {   
+        final_target_ = std::make_shared<ManagedDesire>(md);
+        plan_target_ = final_target_;
         planned_deadline_ = computePlannedDeadline();
     }
 
 ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
     const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
-    target_(md),
     actions_exec_info_(computeActionsExecInfo(planitems)),
     precondition_(precondition),
     context_(context)
     {   
+        final_target_ = std::make_shared<ManagedDesire>(md);
+        plan_target_ = final_target_;
+        planned_deadline_ = computePlannedDeadline();
+    }
+
+ManagedPlan::ManagedPlan(const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
+    const vector<PlanItem>& planitems, const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
+    actions_exec_info_(computeActionsExecInfo(planitems)),
+    precondition_(precondition),
+    context_(context)
+    {   
+        final_target_ = std::make_shared<ManagedDesire>(finalDesire);
+        plan_target_ = std::make_shared<ManagedDesire>(intermediateDesire);;
         planned_deadline_ = computePlannedDeadline();
     }
 
@@ -106,7 +120,7 @@ Plan ManagedPlan::toPsys2Plan() const
 BDIPlan ManagedPlan::toPlan() const
 {
     BDIPlan p = BDIPlan();
-    p.target = target_.toDesire();
+    p.target = plan_target_->toDesire();
     p.actions = toPsys2Plan().items;
 
     p.precondition = precondition_.toConditionsDNF();
@@ -167,9 +181,12 @@ float ManagedPlan::getUpdatedEstimatedDeadline()
 
 // overload `==` operator 
 bool BDIManaged::operator==(ManagedPlan const &mp1, ManagedPlan const &mp2){
-     // first check based on target desire
-    if(!(mp1.getDesire() == mp2.getDesire()))
+     // first check based on target desires
+    if(!(mp1.getPlanTarget() == mp2.getPlanTarget()))
         return false;
+    if(!(mp1.getFinalTarget() == mp2.getFinalTarget()))
+        return false;
+
     vector<PlanItem> mp1_body = mp1.toPsys2Plan().items;
     vector<PlanItem> mp2_body = mp2.toPsys2Plan().items;
 
@@ -193,7 +210,7 @@ bool BDIManaged::operator!=(ManagedPlan const &mp1, ManagedPlan const &mp2){
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedPlan& mp)
 {   
-    os << "PLAN\nDesire: " << mp.getDesire();
+    os << "PLAN\nPlan target: " << mp.getPlanTarget();
     
     os << "\n\nActions exec info:\n";
     for(auto bdi_ai : mp.getActionsExecInfo())

@@ -55,7 +55,7 @@ def generate_launch_description():
             'autosub_prec': True,
             'autosub_cont': True,
             'reschedule_policy': 'NO_PREEMPT',
-            'planning_mode': 'online',
+            'planning_mode': 'offline',
             'debug_log_active': ['belief_manager', 'scheduler', 'plan_director']
         },
         actions=[action_movetoward, action_doclean, action_recharge],
