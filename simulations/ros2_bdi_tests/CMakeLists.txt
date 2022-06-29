@@ -80,7 +80,7 @@ ament_target_dependencies(asksweeping_bdi ${bdi_act_client_dep})
 add_executable(dosweep_bdi src/actions/sweeper_cli/sweeper_cli_bdi/dosweep.cpp)
 ament_target_dependencies(dosweep_bdi ${bdi_act_client_dep})
 
-add_executable(wp_sensor src/sensors/wp_sensor.cpp)
+add_executable(wp_sensor src/sensors/cleaner_cli/wp_sensor.cpp)
 ament_target_dependencies(wp_sensor ${sensors_dep})
 
 

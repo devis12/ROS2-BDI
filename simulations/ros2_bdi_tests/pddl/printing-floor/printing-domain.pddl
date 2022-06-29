@@ -59,6 +59,7 @@
         :effect (and
             (at start (not(available ?p)))
             (at end (printed_docs_loaded ?r))
+            (at end (available ?p))
         )
     )
 

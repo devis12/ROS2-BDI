@@ -43,7 +43,7 @@ bool TriggerPlanClient::makePlanExecutionRequest(const BDIPlanExecution::Request
 {
         try{
     
-        while (!caller_client_->wait_for_service(std::chrono::seconds(WAIT_PLAN_EXEC_SRV_UP))) {
+        while (!caller_client_->wait_for_service(std::chrono::seconds(WAIT_SRV_UP))) {
             if (!rclcpp::ok()) {
                 return false;
             }
@@ -55,7 +55,7 @@ bool TriggerPlanClient::makePlanExecutionRequest(const BDIPlanExecution::Request
 
         auto future_result = caller_client_->async_send_request(request);
 
-        if (rclcpp::spin_until_future_complete(caller_node_, future_result, std::chrono::seconds(WAIT_PLAN_EXEC_RESPONSE_TIMEOUT)) !=
+        if (rclcpp::spin_until_future_complete(caller_node_, future_result, std::chrono::seconds(WAIT_RESPONSE_TIMEOUT)) !=
             rclcpp::FutureReturnCode::SUCCESS)
         {
             return false;

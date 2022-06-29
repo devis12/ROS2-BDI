@@ -132,7 +132,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
         string targetDesireName = planTargetDesire.getName();
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
-            bool triggeredNewPlanExec = false;
+            bool callUnexpectedState = false;
 
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
             {
@@ -143,8 +143,10 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     //launch plan execution
                     if(nextPPlanToExec.has_value() && nextPPlanToExec.value().getActionsExecInfo().size() > 0)
                     {
+                        bool triggeredNewPlanExec;
                         current_plan_ = ManagedPlan{};//no plan executing rn
                         triggeredNewPlanExec = tryTriggerPlanExecution(nextPPlanToExec.value());
+                        callUnexpectedState = !triggeredNewPlanExec;//if failed, call unexpected state srv
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
                         {
                             if(triggeredNewPlanExec) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
@@ -164,11 +166,10 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 }
             }
 
-            if(!triggeredNewPlanExec)//no plan running anymore and nothing's already been triggered
-                forcedReschedule();
-
             if(planExecInfo.status == planExecInfo.ABORT)
             {
+                callUnexpectedState = true;
+
                 string targetDesireName = fulfilling_desire_.getName();
                 //current plan execution has been aborted
                 int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
@@ -184,9 +185,16 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                         RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
                     delDesire(fulfilling_desire_, true);
                 }
+            }
 
-                //TODO handle the following with unexpected state
-                forcedReschedule();//temporary solution!!!
+            if(callUnexpectedState)//handle the following with unexpected state srv
+            {        
+                //tmp cleaning //TODO need to be revised this after having fixed search full reset 
+                current_plan_ = ManagedPlan{};//no plan executing rn
+                waiting_plans_ = vector<ManagedPlan>();
+                searching_ = javaff_client_->callUnexpectedStateSrv(problem_expert_->getProblem());
+                if(!searching_)
+                    forcedReschedule();//if service call failed, just reschedule from scratch solution!!!
             }
         }
     }
@@ -209,7 +217,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
             int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
             string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
             if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + fulfilling_desire_.getName() + "\" (or its preconditions): plan not computable; " +
+                RCLCPP_INFO(this->get_logger(), "Desire \"" + fulfilling_desire_.getName() + "\" (or its preconditions): plan search failed; " +
                 desireOperation + " (invalid counter = %d/%d).", invCounter, maxTries);
         
             if(invCounter >= maxTries)//desire needs to be discarded, because a plan has tried to be unsuccessfully computed for it too many times

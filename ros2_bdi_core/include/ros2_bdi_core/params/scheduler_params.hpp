@@ -18,10 +18,10 @@
 #define COMPLETED_THRESHOLD 0.75 //TODO check in the future for a better value
 
 //seconds to wait before giving up on performing a request (service does not appear to be up)
-#define WAIT_PLAN_EXEC_SRV_UP 1   
+#define WAIT_SRV_UP 1   
 
 //seconds to wait before giving up on waiting for the response
-#define WAIT_PLAN_EXEC_RESPONSE_TIMEOUT 2
+#define WAIT_RESPONSE_TIMEOUT 2
 
 /* ROS2 Parameter names for PlanSys2Monitor node */
 #define PARAM_MAX_TRIES_COMP_PLAN "comp_plan_tries"
@@ -32,6 +32,7 @@
 
 #define JAVAFF_SEARCH_TOPIC "javaff_search/plan"
 #define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
+#define JAVAFF_UNEXPECTED_STATE_SRV "javaff_server/unexpected_state"
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
 #define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
 

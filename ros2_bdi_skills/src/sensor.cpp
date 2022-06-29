@@ -48,7 +48,7 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     proto_belief_.params = proto_belief.params;
 
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
-    this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_DEBUG, false);
     this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
     this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
     this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) // default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
@@ -140,6 +140,17 @@ void Sensor::publishSensing(const UpdOperation& op)
         add_belief_publisher_->publish(last_sensed_);
     else if(op == DEL)
         del_belief_publisher_->publish(last_sensed_);
+
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+    {
+        string stringOp = ((op==ADD)? "ADD" : "DEL");
+        string paramsJoined = "";
+        for(auto p : last_sensed_.params)
+            paramsJoined += p + ", ";
+        string stringBelief = "name = " + last_sensed_.name + ", params = " + paramsJoined + 
+            ((last_sensed_.pddl_type == last_sensed_.FUNCTION_TYPE)? " value = " + std::to_string(last_sensed_.value) : "");
+        RCLCPP_INFO(this->get_logger(), "Operation = " + stringOp + " , belief " + stringBelief);
+    }
 }
 
 /*
