@@ -12,6 +12,8 @@
 #include "ros2_bdi_utils/ManagedCondition.hpp"
 #include "ros2_bdi_utils/ManagedConditionsConjunction.hpp"
 
+const char mgcond_belief_default_delimiters[2] = {'{', '}'};
+const char mgcond_clause_default_delimiters[2] = {'(', ')'};
 
 /* Namespace for wrapper classes wrt. BDI msgs defined in ros2_bdi_interfaces::msg */
 namespace BDIManaged
@@ -36,6 +38,22 @@ class ManagedConditionsDNF
 
         // convert instance to ros2_bdi_interfaces::msg::ConditionsDNF
         ros2_bdi_interfaces::msg::ConditionsDNF toConditionsDNF() const;
+
+        /*
+            Try to parse a ManagedConditionsDNF from a string, format is the following for ConditionsDNF
+
+            Condition(literal) = ({check}, {{pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}]})
+            ConditionsConjunction(clause) = (l1 && l2 && l3)
+            ConditionsDNF(expression) = clause1 || clause2
+        */
+        static std::optional<ManagedConditionsDNF> parseMGConditionsDNF(std::string mg_conditions_dnf);
+
+        /*
+            Convert ManagedConditionsDNF to string, format is the following
+
+            ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+        */
+        std::string toString() const;
         
     private:
         /* A single clause needs to be satisfied, being this a disjunction among them */

@@ -67,6 +67,20 @@ namespace BDIManaged
             */
             static std::string computeActionFullName(ros2_bdi_interfaces::msg::BDIActionExecutionInfo action_exec);
 
+            /*
+                Try to parse an array of psys2 plan items from a string, format is the following
+
+                [start_time](action)[duration]\n[start_time](action)[duration]
+            */
+            static std::optional<std::vector<plansys2_msgs::msg::PlanItem>> parsePsys2PlanMsg(std::string plan_msg);
+
+            /*
+                Convert managed plan to Plansys2 msg string, format is the following
+
+                [start_time](action)[duration]\n[start_time](action)[duration]
+            */
+            std::string toPsys2PlanString() const;
+
         private:
 
             /*

@@ -7,6 +7,9 @@
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 
+const char belief_default_delimiters[2] = {'(', ')'};
+
+
 /* Namespace for wrapper classes wrt. BDI msgs defined in ros2_bdi_interfaces::msg */
 namespace BDIManaged
 {
@@ -42,6 +45,23 @@ namespace BDIManaged
 
             /*  convert instance to ros2_bdi_interfaces::msg::Belief format */
             ros2_bdi_interfaces::msg::Belief toBelief() const;
+
+            /*
+                Try to parse a managed belief from a string, format is the following
+                assuming delimiters = ['(', ')']
+                ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+            */
+            static std::optional<ManagedBelief> parseMGBelief(std::string mg_belief, const char delimiters[]);
+
+            /*
+                Convert managed belief to string, format is the following
+                assuming delimiters = ['(', ')']
+                ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+
+                if delimiterNum is wrong, set delimiters to default values ['(',')']
+            */
+            std::string toString(const char delimiters[]) const;
+            std::string toString() const {return toString(belief_default_delimiters);}
             
         private:
             

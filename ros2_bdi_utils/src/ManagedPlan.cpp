@@ -4,6 +4,8 @@
 
 #include "ros2_bdi_interfaces/msg/desire.hpp"
 
+#include <boost/algorithm/string.hpp>
+
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
 
@@ -177,6 +179,78 @@ float ManagedPlan::getUpdatedEstimatedDeadline()
         deadline = std::max(deadline, computeUpdatedEndTime(bdi_ai)); 
 
     return deadline;
+}
+
+
+/*
+    Try to parse an array of psys2 plan items from a string, format is the following
+    
+    [start_time](action)[duration]\n[start_time](action)[duration]
+*/
+std::optional<vector<PlanItem>> ManagedPlan::parsePsys2PlanMsg(string plan_msg)
+{
+    if(plan_msg.length() == 0)
+        return std::nullopt;
+    else
+    {
+        vector<PlanItem> p_items;
+        vector<string> s_pitems;
+        boost::split(s_pitems, plan_msg, [](char c){return c == '\n';});//split string
+        for(string s_pitem : s_pitems)
+        {   
+            //init values for parsing pitem
+            int i = 0;
+
+            float start_time = -1.0f;
+            string action = "";
+            float duration = -1.0f;
+
+            //retrieve start time
+            string s_start_time = "";
+            for(; i<s_pitem.size() && s_pitem.at(i) != ']'; i++)
+                if(s_pitem.at(i) != '[' && s_pitem.at(i) != ']' )
+                    s_start_time += s_pitem.at(i);
+            start_time = atof(s_start_time.c_str());
+
+            //retrieve action
+            string s_action = "";
+            for(; i<s_pitem.size() && s_pitem.at(i) != '['; i++)
+                if(s_pitem.at(i) != '[' && s_pitem.at(i) != ']' )
+                    s_action += s_pitem.at(i);
+
+            //retrieve duration
+            string s_duration = "";
+            for(; i<s_pitem.size() && s_pitem.at(i) != ']'; i++)
+                if(s_pitem.at(i) != '[' && s_pitem.at(i) != ']' )
+                    s_duration += s_pitem.at(i);
+            duration = atof(s_duration.c_str());  
+            
+            PlanItem p_item = PlanItem();
+            p_item.time = start_time;
+            p_item.action = action;
+            p_item.duration = duration;
+            p_items.push_back(p_item);
+        }
+        return p_items;
+    }
+}
+
+/*
+    Convert managed plan to Plansys2 msg string, format is the following
+
+    [start_time](action)[duration]\n[start_time](action)[duration]
+*/
+string ManagedPlan::toPsys2PlanString() const
+{
+    string result = "";
+    vector<PlanItem> pitems = toPsys2Plan().items;
+    for(PlanItem item : pitems)
+    {
+        result += "[" + std::to_string(item.time) + "]";
+        result += "(" + item.action + ")";
+        result += "[" + std::to_string(item.duration) + "]\n";
+    }
+    return result;
 }
 
 // overload `==` operator 

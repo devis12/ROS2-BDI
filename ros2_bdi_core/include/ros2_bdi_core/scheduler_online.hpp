@@ -3,6 +3,8 @@
 
 #include "javaff_interfaces/msg/search_result.hpp"
 
+#include "ros2_bdi_utils/BDIPlanLibrary.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 
@@ -13,7 +15,48 @@ public:
 
     void init() override;
 
+    /*
+        Open plan library connection, if not opened yet
+    */
+    void open_planlib_connection(){
+        if(!planlib_conn_ok_)
+            planlib_conn_ok_ = BDIPlanLibrary::openConnection("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME,planlib_db_conn_);
+        
+        if(planlib_conn_ok_)
+            RCLCPP_INFO(this->get_logger(), "Open connection to plan library '"+("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME)+"': success!");
+        else
+            RCLCPP_ERROR(this->get_logger(), "Open connection to plan library '"+("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME)+"': failed!");
+    }
+
+    /*
+        Close plan library connection, if opened
+    */
+    void close_planlib_connection(){
+        if(planlib_conn_ok_)
+        {    
+            planlib_conn_ok_ = !BDIPlanLibrary::closeConnection(planlib_db_conn_);
+
+            if(!planlib_conn_ok_)
+                RCLCPP_INFO(this->get_logger(), "Closed connection to plan library: success");
+            else
+                RCLCPP_ERROR(this->get_logger(), "Closed connection to plan library: failed!");
+        }
+    }
+
+
 private:
+
+    /*
+        Store plan in plan library
+    */
+    void storePlan(const BDIManaged::ManagedPlan&mp)
+    {
+        if(planlib_conn_ok_)
+        {
+            std::cout<<"Storing plan" << std::endl;
+            BDIPlanLibrary::insertPlan(mp, planlib_db_conn_);
+        }
+    }
 
     /*
         Enqueue plan in waiting list for execution
@@ -144,4 +187,8 @@ private:
 
     // Client to wrap srv call to JavaFFServer
     std::shared_ptr<JavaFFClient> javaff_client_;
+
+    //Plan library db connection (just used in online for now: put it here, so we can close connection in bringdown)
+    sqlite3* planlib_db_conn_;
+    bool planlib_conn_ok_;
 };

@@ -36,4 +36,6 @@
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
 #define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
 
+#define PLAN_LIBRARY_NAME "plan_lib.db"
+
 #endif

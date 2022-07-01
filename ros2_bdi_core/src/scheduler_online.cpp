@@ -60,6 +60,9 @@ void SchedulerOnline::init()
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
         JAVAFF_SEARCH_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
+    
+    // open connection to plan library and initiate it, if not already present
+    open_planlib_connection();
 
 }
 
@@ -245,6 +248,8 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
                 allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
                 ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+                storePlan(firstPPlanToExec);
+
                 //launch plan execution
                 if(firstPPlanToExec.getActionsExecInfo().size() > 0)
                 {   
@@ -265,6 +270,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
             
             }else if(msg->plans[i].plan.items.size() > 0){
                 ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                storePlan(computedMPP);
                 enqueuePlan(computedMPP);
             }
         }
@@ -397,6 +403,7 @@ int main(int argc, char ** argv)
   {
     node->init();
     rclcpp::spin(node);
+    node->close_planlib_connection();//will be closed, if opened
   }
   else
   {
