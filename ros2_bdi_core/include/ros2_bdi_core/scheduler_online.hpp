@@ -20,7 +20,7 @@ public:
     */
     void open_planlib_connection(){
         if(!planlib_conn_ok_)
-            planlib_conn_ok_ = BDIPlanLibrary::openConnection("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME,planlib_db_conn_);
+            planlib_conn_ok_ = BDIPlanLibrary::openConnection("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME,planlib_db_conn_);//TODO for some reason, it's not able to create tables db in /tmp/{agent_id}
         
         if(planlib_conn_ok_)
             RCLCPP_INFO(this->get_logger(), "Open connection to plan library '"+("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME)+"': success!");
@@ -53,8 +53,7 @@ private:
     {
         if(planlib_conn_ok_)
         {
-            std::cout<<"Storing plan" << std::endl;
-            BDIPlanLibrary::insertPlan(mp, planlib_db_conn_);
+            std::cout << "Storing plan: " << BDIPlanLibrary::insertPlan(mp, planlib_db_conn_) << std::flush << std::endl;
         }
     }
 

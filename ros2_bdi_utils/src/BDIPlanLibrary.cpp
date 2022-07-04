@@ -24,7 +24,7 @@ bool createTable(sqlite3* DB, const PlanLibTable& table)
 
         case PLANS:
             create_query = "CREATE TABLE %s("
-                      "pId              INT     PRIMARY KEY AUTOINCREMENT NOT NULL, "
+                      "pId              INTEGER     PRIMARY KEY AUTOINCREMENT NOT NULL, "
                       "plan             TEXT    NOT NULL, "
                       "deadline         REAL    NOT NULL, "
                       "preconditions    TEXT, "
@@ -36,8 +36,8 @@ bool createTable(sqlite3* DB, const PlanLibTable& table)
         
         case SUCCESSORS:
             create_query = "CREATE TABLE %s("
-                      "pId              INT     NOT NULL, "
-                      "pSuccId          INT     NOT NULL, "
+                      "pId              INTEGER     NOT NULL, "
+                      "pSuccId          INTEGER     NOT NULL, "
                       "PRIMARY KEY(pId, pSuccId), "
                       "FOREIGN KEY (pId) REFERENCES %s(pId) ON UPDATE CASCADE ON DELETE CASCADE, "
                       "FOREIGN KEY (pSuccId) REFERENCES %s(pId) ON UPDATE CASCADE ON DELETE CASCADE "
@@ -72,7 +72,7 @@ bool tryInitTable(sqlite3* DB, const PlanLibTable& table, const char* table_name
     delete select_query_c;
     if (select_res != SQLITE_OK)
     {
-        if(!createTable(DB, table));
+        if(!createTable(DB, table))
             return false;//table init has failed
     }
     return true; //either table already existed or creation has been successful
@@ -83,7 +83,6 @@ bool BDIPlanLibrary::openConnection(const string& filepath, sqlite3* DB)
 {
     int exit = 0;
     exit = sqlite3_open(filepath.c_str(), &DB);
-  
     if (exit)
         return false;
     
@@ -105,7 +104,7 @@ bool BDIPlanLibrary::openConnection(const string& filepath, sqlite3* DB)
 bool BDIPlanLibrary::insertPlan(const BDIManaged::ManagedPlan& mp, sqlite3* DB)
 {
     string query =  "INSERT INTO %s (plan,deadline,preconditions,target) "  
-         "VALUES (%s,%s,%s,%s); ";
+         "VALUES ('%s',%s,'%s','%s'); ";
     string plan = mp.toPsys2PlanString(); 
     string deadline = std::to_string(mp.getPlannedDeadline());
     string precondition = mp.getPrecondition().toString();
@@ -123,10 +122,11 @@ bool BDIPlanLibrary::insertPlan(const BDIManaged::ManagedPlan& mp, sqlite3* DB)
     if(query.find_first_of(";") != query.find_last_of(";"))
         return false;
 
+    std::cout << "Executing query: " << insert_query_c << std::flush << std::endl;
     int insert_res = sqlite3_exec(DB, insert_query_c, NULL, 0, NULL);
     delete insert_query_c;
 
-    return insert_res != SQLITE_OK;
+    return insert_res == SQLITE_OK;
 }
 
 bool BDIPlanLibrary::closeConnection(sqlite3* DB)
