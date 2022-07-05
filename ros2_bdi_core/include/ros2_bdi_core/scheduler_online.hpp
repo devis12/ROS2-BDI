@@ -11,51 +11,23 @@
 class SchedulerOnline : public Scheduler
 {
 public:
-    SchedulerOnline() : Scheduler() {};
+    SchedulerOnline() : Scheduler(), 
+        planlib_db_(PlanLibrary::BDIPlanLibrary{"/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME}){};
 
     void init() override;
 
-    /*
-        Open plan library connection, if not opened yet
-    */
-    void open_planlib_connection(){
-        if(!planlib_conn_ok_)
-            planlib_conn_ok_ = BDIPlanLibrary::openConnection("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME,planlib_db_conn_);//TODO for some reason, it's not able to create tables db in /tmp/{agent_id}
-        
-        if(planlib_conn_ok_)
-            RCLCPP_INFO(this->get_logger(), "Open connection to plan library '"+("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME)+"': success!");
-        else
-            RCLCPP_ERROR(this->get_logger(), "Open connection to plan library '"+("/tmp/"+agent_id_+"/"+PLAN_LIBRARY_NAME)+"': failed!");
-    }
-
-    /*
-        Close plan library connection, if opened
-    */
-    void close_planlib_connection(){
-        if(planlib_conn_ok_)
-        {    
-            planlib_conn_ok_ = !BDIPlanLibrary::closeConnection(planlib_db_conn_);
-
-            if(!planlib_conn_ok_)
-                RCLCPP_INFO(this->get_logger(), "Closed connection to plan library: success");
-            else
-                RCLCPP_ERROR(this->get_logger(), "Closed connection to plan library: failed!");
-        }
-    }
-
 
 private:
+    
+    /*
+        Store plan in plan library && enqueue in waiting_plans
+    */
+    void storeEnqueuePlan(BDIManaged::ManagedPlan&mp);
 
     /*
         Store plan in plan library
     */
-    void storePlan(const BDIManaged::ManagedPlan&mp)
-    {
-        if(planlib_conn_ok_)
-        {
-            std::cout << "Storing plan: " << BDIPlanLibrary::insertPlan(mp, planlib_db_conn_) << std::flush << std::endl;
-        }
-    }
+    void storePlan(BDIManaged::ManagedPlan&mp);
 
     /*
         Enqueue plan in waiting list for execution
@@ -187,7 +159,7 @@ private:
     // Client to wrap srv call to JavaFFServer
     std::shared_ptr<JavaFFClient> javaff_client_;
 
-    //Plan library db connection (just used in online for now: put it here, so we can close connection in bringdown)
-    sqlite3* planlib_db_conn_;
+    //Plan library db utility (just used in online for now: put it here, so we can close connection in bringdown)
+    PlanLibrary::BDIPlanLibrary planlib_db_;
     bool planlib_conn_ok_;
 };

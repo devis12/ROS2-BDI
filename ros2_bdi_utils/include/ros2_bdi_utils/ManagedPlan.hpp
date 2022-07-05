@@ -32,8 +32,12 @@ namespace BDIManaged
                 const ManagedConditionsDNF& context);
             
             /* getter methods for ManagedPlan instance prop  */
-            ManagedDesire getFinalTarget() const {return *final_target_;};
-            ManagedDesire getPlanTarget() const {return *plan_target_;};
+            ManagedDesire getFinalTarget() const {return *final_target_;}
+            ManagedDesire getPlanTarget() const {return *plan_target_;}
+
+            /* getter/setter methods for ManagedPlan instance prop  */
+            int getPlanLibID() const {return planlib_id_;}
+            void setPlanLibID(const int& id) {planlib_id_ = id;}
 
             void setUpdatedInfo(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo& planExecInfo)
             {
@@ -120,6 +124,9 @@ namespace BDIManaged
 
             /* Plan level exec status*/
             std::string exec_status_;
+
+            /*If stored in plan lib, id with which it was stored*/
+            int planlib_id_ = -1;
 
             
 

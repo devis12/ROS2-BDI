@@ -40,6 +40,8 @@ using BDIManaged::ManagedCondition;
 using BDIManaged::ManagedConditionsConjunction;
 using BDIManaged::ManagedConditionsDNF;
 
+using PlanLibrary::BDIPlanLibrary;
+
 
 void SchedulerOnline::init()
 {
@@ -61,9 +63,43 @@ void SchedulerOnline::init()
         JAVAFF_SEARCH_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
     
-    // open connection to plan library and initiate it, if not already present
-    open_planlib_connection();
+    // open connection to plan library and init. tables, if not already present
+    planlib_conn_ok_ = planlib_db_.initPlanLibrary();
+}
 
+
+/*
+    Store plan in plan library && enqueue in waiting_plans
+*/
+void SchedulerOnline::storeEnqueuePlan(BDIManaged::ManagedPlan&mp)
+{
+    storePlan(mp);
+    if(planlib_conn_ok_ && mp.getPlanLibID() >= 0)
+    {
+        //mp has been stored
+        if(waiting_plans_.size() == 0 && current_plan_.getPlanLibID() >= 0)//mp is successor of current_plan_
+            planlib_db_.markSuccessors(current_plan_, mp);
+        
+        else if(waitingPlansBack().value().getPlanLibID() >= 0)//mp is successor of current_plan_
+            planlib_db_.markSuccessors(waitingPlansBack().value(), mp);
+    }
+    enqueuePlan(mp);
+}
+
+/*
+    Store plan in plan library
+*/
+void SchedulerOnline::storePlan(BDIManaged::ManagedPlan&mp)
+{
+    if(planlib_conn_ok_)
+    {
+        int new_plan_id = planlib_db_.insertPlan(mp);
+        if(new_plan_id >= 0)
+            //plan has been stored successfully
+            mp.setPlanLibID(new_plan_id);
+        else
+            planlib_conn_ok_ = false;
+    }
 }
 
 /*
@@ -270,8 +306,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
             
             }else if(msg->plans[i].plan.items.size() > 0){
                 ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
-                storePlan(computedMPP);
-                enqueuePlan(computedMPP);
+                storeEnqueuePlan(computedMPP);
             }
         }
     }   
@@ -403,7 +438,6 @@ int main(int argc, char ** argv)
   {
     node->init();
     rclcpp::spin(node);
-    node->close_planlib_connection();//will be closed, if opened
   }
   else
   {

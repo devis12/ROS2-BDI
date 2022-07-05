@@ -63,7 +63,11 @@ Scheduler::Scheduler()
   : rclcpp::Node(SCHEDULER_NODE_NAME), state_(STARTING)
 {
     psys2_comm_errors_ = 0;
+    
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    //agent's namespace
+    agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
+
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_MAX_TRIES_COMP_PLAN, 8);
     this->declare_parameter(PARAM_MAX_TRIES_EXEC_PLAN, 8);
