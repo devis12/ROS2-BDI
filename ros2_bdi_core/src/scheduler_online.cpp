@@ -195,6 +195,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 }
                 else
                 {   
+                    current_plan_ = ManagedPlan{};//no plan executing rn
                     //no plan left to execute
                     ManagedDesire finalTarget = current_plan_.getFinalTarget();
                     mtx_iter_dset_.lock();
