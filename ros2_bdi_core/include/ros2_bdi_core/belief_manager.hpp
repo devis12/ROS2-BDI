@@ -4,18 +4,22 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <memory>
 #include <mutex>  
 
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "std_msgs/msg/empty.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -49,8 +53,8 @@ class BeliefManager : public rclcpp::Node
         */
         bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
         {
-            psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"));
-            return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+            psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(BELIEF_MANAGER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
+            return psys_monitor_client_->areAllPsysNodeActive(max_wait);
         }
 
     private:
@@ -62,7 +66,19 @@ class BeliefManager : public rclcpp::Node
         /*
             Received notification about PlanSys2 nodes state by plansys2 monitor node
         */
-        void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
+        void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
+
+        /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+        ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
+        /*
+            Received notification about ROS2-BDI Lifecycle status
+        */
+        void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+        {
+            if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+                lifecycle_status_[msg->node_name] = msg->status;
+        }
 
         /*
             Publish the current belief set of the agent in agent_id_/belief_set topic
@@ -165,12 +181,17 @@ class BeliefManager : public rclcpp::Node
 
         // internal state of the node
         StateType state_;
+
+        // Selected planning mode
+        PlanningMode sel_planning_mode_;
         
         //mutex for deciding in which direction we're sync (PDDL->belief_set_ or belief_set_->PDDL)
         std::mutex mtx_sync;        
         
         // agent id that defines the namespace in which the node operates
-        std::string agent_id_;
+        std::string agent_id_;        
+        // step counter
+        uint64_t step_counter_;
         // callback to perform main loop of work regularly
         rclcpp::TimerBase::SharedPtr do_work_timer_;
 
@@ -189,7 +210,7 @@ class BeliefManager : public rclcpp::Node
         // flag to denote if the domain expert node seems to be up and active
         bool psys2_domain_expert_active_;
         // plansys2 node status monitor subscription
-        rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr plansys2_status_subscriber_;
         
         // belief set has been init. (or at least the process to do so has been tried)
         bool init_bset_;
@@ -205,8 +226,15 @@ class BeliefManager : public rclcpp::Node
         // plansys2 problem expert notification for updates
         rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr updated_problem_subscriber_;
 
+        // current known status of the system nodes
+        std::map<std::string, uint8_t> lifecycle_status_;
+        // Publish updated lifecycle status
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+        // Sub to updated lifecycle status
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
+
         // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-        std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+        std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 }; //BeliefManager class prototype
 

@@ -31,8 +31,8 @@ setup(
     zip_safe=True,
     maintainer='devis',
     maintainer_email='devis.dalmoro@unitn.it',
-    description='TODO: Package description',    
-    license='TODO: License declaration',
+    description='Package description of webots_ros2_simulations',    
+    license='License declaration of webots_ros2_simulations',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

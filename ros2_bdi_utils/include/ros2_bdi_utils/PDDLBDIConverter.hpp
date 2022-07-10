@@ -48,14 +48,28 @@ namespace PDDLBDIConverter
   std::vector<ros2_bdi_interfaces::msg::Belief> convertPDDLFunctions(const std::vector<plansys2::Function> functions);
 
   /*
+    get index of action with given action_name & args in the vector<PlanItem> in current_plan_.body, -1 if not present
+    action_full_name is in the form "(a1 p1 p2 p3):timex1000"
+  */
+  int getActionIndex(const std::vector<plansys2_msgs::msg::PlanItem>& current_plan_body, const std::string& action_full_name);
+
+
+  /*
+    get index of action with given action_name & args in the vector<ActionExecutionInfo> in psys2_plan_exec_info, -1 if not present
+    action_full_name is in the form "(a1 p1 p2 p3):timex1000"
+  */
+  int getActionIndex(const std::vector<plansys2_msgs::msg::ActionExecutionInfo>& psys2_plan_exec_info, const std::string& action_full_name);
+  
+  /*
     Build a BDIActionExecutionInfo from the corresponding PlanSys2 ActionExecutionInfo
     PlanSys2 plan body is needed too (PlanItem array) to get the index of the executing action within it
 
     Timestamps of corresponding plan start are passed too 
   */
   ros2_bdi_interfaces::msg::BDIActionExecutionInfo buildBDIActionExecutionInfo(
-    const plansys2_msgs::msg::ActionExecutionInfo& psys2_action_feed, 
+    const std::optional<plansys2_msgs::msg::ActionExecutionInfo>& psys2_action_feed, 
     const std::vector<plansys2_msgs::msg::PlanItem>& current_plan_body,
+    const int& action_index, 
     const int& first_ts_plan_sec, const unsigned int& first_ts_plan_nanosec);
 
   

@@ -5,7 +5,7 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <yaml-cpp/exceptions.h>
 
@@ -19,6 +19,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -35,7 +36,8 @@ using std_msgs::msg::Empty;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::LifecycleStatus;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 
 using BDIManaged::ManagedBelief;
 
@@ -47,6 +49,10 @@ BeliefManager::BeliefManager()
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
+
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 
@@ -83,13 +89,34 @@ void BeliefManager::init()
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                bind(&BeliefManager::callbackLifecycleStatus, this, _1));
+
     //Check for plansys2 active state flags init to false
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
 
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                PSYS2_STATE_TOPIC, qos_keep_all,
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
+                PSYS_STATE_TOPIC, qos_keep_all,
                 bind(&BeliefManager::callbackPsys2State, this, _1));
 
     //Belief to be added notification
@@ -127,6 +154,9 @@ void BeliefManager::step()
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+
     switch (state_) {
         
         case STARTING:
@@ -139,7 +169,7 @@ void BeliefManager::step()
                     init_bset_ = true;
                 }
                 setState(SYNC);
-            
+                lifecycle_status_publisher_->publish(getLifecycleStatus());
             }else{
                 if(!psys2_domain_expert_active_)
                     RCLCPP_ERROR(this->get_logger(), "PlanSys2 Domain Expert still not active");
@@ -164,12 +194,24 @@ void BeliefManager::step()
         default:
             break;
     }
+
+    step_counter_++;
 }
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus BeliefManager::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = BELIEF_MANAGER_NODE_NAME;
+    lifecycle_status.status = (state_ == SYNC || state_ == PAUSE)? lifecycle_status.RUNNING : lifecycle_status.BOOTING;
+    return lifecycle_status;
+}
+
 
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void BeliefManager::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void BeliefManager::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_problem_expert_active_ = msg->problem_expert_active;
     psys2_domain_expert_active_ = msg->domain_expert_active;

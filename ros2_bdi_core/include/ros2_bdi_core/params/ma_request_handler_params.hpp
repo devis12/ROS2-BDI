@@ -2,7 +2,6 @@
 #define MA_REQUEST_HANDLER_PARAMS_H_
 
 /* Parameters affecting internal logic (recompiling required) */
-#define MA_REQUEST_HANDLER_NODE_NAME "ma_request_handler"
 
 #define IS_ACCEPTED_OP_SRV "is_accepted_operation"
 

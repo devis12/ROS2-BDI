@@ -48,9 +48,11 @@ def generate_launch_description():
             'desire_w':  [CLEANER_GROUP_NAME, SWEEPER_GROUP_NAME],   
             'desire_pr': [0.6, 0.8],
             'comp_plan_tries': 16,
-            'exec_plan_tries': 4
+            'exec_plan_tries': 4,
+            'debug_log_active': ['belief_manager', 'scheduler', 'plan_director']
         },
-        actions=[action_movetoward, action_dosweep, action_recharge]
+        actions=[action_movetoward, action_dosweep, action_recharge],
+        run_only_psys2=False
     ) 
 
     return ld

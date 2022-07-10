@@ -6,8 +6,10 @@
 #include "ros2_bdi_core/params/plan_director_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for topics' names)
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler 
+#include "ros2_bdi_core/params/scheduler_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <boost/algorithm/string.hpp>
 
@@ -21,6 +23,7 @@
 
 using std::string;
 using std::set;
+using std::map;
 using std::vector;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -39,10 +42,11 @@ using plansys2_msgs::msg::PlanItem;
 using plansys2_msgs::msg::Action;
 using plansys2_msgs::msg::DurativeAction;
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 
@@ -60,15 +64,19 @@ PlanDirector::PlanDirector()
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
     this->declare_parameter(PARAM_CANCEL_AFTER_DEADLINE, DEFAULT_VAL_CANCEL_AFTER_DEADLINE);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
 
     //object to notify the absence of a current plan execution
     no_plan_msg_ = BDIPlanExecutionInfo();
     no_plan_msg_.target = Desire();
-    no_plan_msg_.target.name = (ManagedPlan{}).getDesire().getName();
+    no_plan_msg_.target.name = (ManagedPlan{}).getPlanTarget().getName();
     no_plan_msg_.target.value = vector<Belief>();
-    no_plan_msg_.actions = vector<PlanItem>();
+    no_plan_msg_.actions_exec_info = vector<BDIActionExecutionInfo>();
     no_plan_msg_.current_time = 0.0f;
     no_plan_msg_.estimated_deadline = 0.0f;
+
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 /*
@@ -92,13 +100,34 @@ void PlanDirector::init()
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                bind(&PlanDirector::callbackLifecycleStatus, this, _1));
+
     //Check for plansys2 active state flags init to false
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                PSYS2_STATE_TOPIC, qos_keep_all,
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
+                PSYS_STATE_TOPIC, qos_keep_all,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
 
     //belief_set_subscriber_ 
@@ -140,12 +169,16 @@ void PlanDirector::step()
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+
     switch (state_) {
         
         case STARTING:
         {
             if(psys2_executor_active_){
                 setState(READY);
+                lifecycle_status_publisher_->publish(getLifecycleStatus());
             }else{
                 RCLCPP_ERROR(this->get_logger(), "PlanSys2 Executor still not active");
                 psys2_comm_errors_++;
@@ -177,6 +210,8 @@ void PlanDirector::step()
         default:
             break;
     }
+
+    step_counter_++;
 }   
 
 /*
@@ -195,8 +230,8 @@ void PlanDirector::executingPlan()
 */
 void PlanDirector::publishNoPlanExec()
 {
-    auto current_plan_desire = current_plan_.getDesire();
-    if(current_plan_.getBody().size() == 0 &&
+    auto current_plan_desire = current_plan_.getPlanTarget();
+    if(current_plan_.getActionsExecInfo().size() == 0 &&
             current_plan_desire.getName() == no_plan_msg_.target.name && current_plan_desire.getPriority() == 0.0f)
     {
         //no plan currently in execution -> proceeds notifying that
@@ -204,10 +239,19 @@ void PlanDirector::publishNoPlanExec()
     }
 }
 
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus PlanDirector::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = PLAN_DIRECTOR_NODE_NAME;
+    lifecycle_status.status = (state_ == STARTING)? lifecycle_status.BOOTING : lifecycle_status.RUNNING;
+    return lifecycle_status;
+}
+
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void PlanDirector::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void PlanDirector::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_domain_expert_active_ = msg->domain_expert_active;
     psys2_problem_expert_active_ = msg->problem_expert_active;
@@ -219,7 +263,7 @@ void PlanDirector::callbackPsys2State(const PlanSys2State::SharedPtr msg)
 */
 bool PlanDirector::executingNoPlan()
 {
-    return state_ != EXECUTING && current_plan_.getBody().size() == 0 && current_plan_.getDesire().getName() == ManagedPlan{}.getDesire().getName();
+    return state_ != EXECUTING && current_plan_.getActionsExecInfo().size() == 0 && current_plan_.getPlanTarget().getName() == ManagedPlan{}.getPlanTarget().getName();
 }
 
 /*
@@ -243,7 +287,7 @@ bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
 {
     // prepare plansys2 msg for plan execution
     Plan plan_to_execute = Plan();
-    plan_to_execute.items = mp.getBody();
+    plan_to_execute.items = mp.toPsys2Plan().items;
 
     // select current_plan_ which will start execution
     current_plan_ = mp;
@@ -254,9 +298,9 @@ bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
     {
         setState(EXECUTING);//put node in executing state
         //reset value, so they can be set at the first action execution feedback
-        first_ts_plan_sec = -1;//reset this value
-        first_ts_plan_nanosec = 0;//reset this value
-        last_ts_plan_exec = -1.0f;//reset this value
+        first_ts_plan_sec_ = -1;//reset this value
+        first_ts_plan_nanosec_ = 0;//reset this value
+        last_ts_plan_exec_ = -1.0f;//reset this value
         
         counter_check_ = 0;//checks performed during this plan exec
 
@@ -450,18 +494,17 @@ void PlanDirector::publishRollbackBeliefs(const vector<Belief> rollback_belief_a
     Plan currently in execution, monitor and publish the feedback of its development
 */
 void PlanDirector::checkPlanExecution()
-{
+{   
     //get feedback from plansys2 api
     auto feedback = executor_client_->getFeedBack();
-
-    // msg to publish about the plan execution
     BDIPlanExecutionInfo planExecutionInfo = getPlanExecutionInfo(feedback);
+    current_plan_.setUpdatedInfo(planExecutionInfo); 
 
     plan_exec_publisher_->publish(planExecutionInfo);
 
     if(planExecutionInfo.status != planExecutionInfo.RUNNING)
     {
-        ManagedDesire targetDes = current_plan_.getDesire();
+        ManagedDesire targetDes = current_plan_.getPlanTarget();
         //in any case plan execution has stopped, so go back to printing out you're not executing any plan
         resetWorkTimer(NO_PLAN_INTERVAL);
         setNoPlanMsg();
@@ -481,7 +524,7 @@ void PlanDirector::checkPlanExecution()
         
         //check if you've surpassed N times the estimated deadline (N ros2 parameter && >= 1.0)
         float cancelAfterDeadline = std::max(1.0f, (float) this->get_parameter(PARAM_CANCEL_AFTER_DEADLINE).as_double());
-        if(planExecutionInfo.current_time >= cancelAfterDeadline * planExecutionInfo.estimated_deadline)
+        if(planExecutionInfo.current_time >= cancelAfterDeadline * planExecutionInfo.target.deadline)
             cancelCurrentPlanExecution();
     }
 }
@@ -495,22 +538,26 @@ ActionExecutionInfo extractEarliestAction(const vector<ActionExecutionInfo>& psy
     if(psys2_actions_status.size() == 0)//empty array
         return ActionExecutionInfo();
     
-    ActionExecutionInfo earliest_action = psys2_actions_status[0];//take the first as earliest action
-    for(int i = 1; i<psys2_actions_status.size(); i++)
-        earliest_action =   (                                                                                   //update if
-                                    (psys2_actions_status[i].start_stamp.sec < earliest_action.start_stamp.sec) //earliest sec ts
-                                ||                                                                              //OR
-                                    (psys2_actions_status[i].start_stamp.sec == earliest_action.start_stamp.sec
-                                        &&
-                                    psys2_actions_status[i].start_stamp.nanosec < earliest_action.start_stamp.nanosec) // same sec ts AND earliest nanosec ts
-                            )?
+    ActionExecutionInfo earliest_action;//take the first as earliest action
+    earliest_action.start_stamp.sec = -1;
 
-                            psys2_actions_status[i] : earliest_action; //otherwise do not update
+    for(int i = 0; i<psys2_actions_status.size(); i++)
+    {
+        if(psys2_actions_status[i].status != psys2_actions_status[i].NOT_EXECUTED)
+            earliest_action =   (                                                                                   //update if
+                                        (psys2_actions_status[i].start_stamp.sec < earliest_action.start_stamp.sec) //earliest sec ts
+                                    ||                                                                              //OR
+                                        (psys2_actions_status[i].start_stamp.sec == earliest_action.start_stamp.sec
+                                            &&
+                                        psys2_actions_status[i].start_stamp.nanosec < earliest_action.start_stamp.nanosec) // same sec ts AND earliest nanosec ts
+                                    ||
+                                        earliest_action.start_stamp.sec == -1                                       //earliest action still not init.
+                                )?
 
-    
+                                psys2_actions_status[i] : earliest_action; //otherwise do not update
+    }
     return earliest_action;
 }
-
 
 /* 
     Use PlanSys2 feedback received from the executor to build the BDIPlanExecutionInfo to be published to the respecive topic
@@ -519,45 +566,63 @@ ActionExecutionInfo extractEarliestAction(const vector<ActionExecutionInfo>& psy
 BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::ExecutePlan::Feedback& feedback)
 {
     // retrieve plan body (action with duration and planned start step by step as computed by the pddl planner)
-    vector<PlanItem> current_plan_body = current_plan_.getBody();
+    vector<PlanItem> current_plan_body = current_plan_.toPsys2Plan().items;
 
     BDIPlanExecutionInfo planExecutionInfo = BDIPlanExecutionInfo();
     float status_time_s = -1.0;//current exec time relatively to plan start referred as the "zero" time point
-
-    //find executing action status
-    for (int i=0; i<feedback.action_execution_status.size(); i++) {
-        ActionExecutionInfo psys2_action_feed = feedback.action_execution_status[i];        
-        if(psys2_action_feed.status == psys2_action_feed.EXECUTING)
+    int executing = 0;
+    
+    if(first_ts_plan_sec_ < 0 && feedback.action_execution_status.size() > 0)//NOTE: update first ts for plan if it's not init yet and you've received the first significant feedback
+    {
+        //set just for earliest start timestamp captured in this plan exec (then always subtract from it)
+        ActionExecutionInfo psys2_action_earliest = extractEarliestAction(feedback.action_execution_status);
+        if(psys2_action_earliest.start_stamp.sec >= 0)
         {
-            if(first_ts_plan_sec < 0)//NOTE: first_ts_plan_nanosec is uint (given builtin_interfaces/msg/Time)
-            {
-                //set just for earliest start timestamp captured in this plan exec (then always subtract from it)
-                ActionExecutionInfo psys2_action_earliest = extractEarliestAction(feedback.action_execution_status);
-                first_ts_plan_sec = psys2_action_earliest.start_stamp.sec;
-                first_ts_plan_nanosec = psys2_action_earliest.start_stamp.nanosec;
-            }
-            
-            BDIActionExecutionInfo bdiActionExecutionInfo = PDDLBDIConverter::buildBDIActionExecutionInfo(psys2_action_feed, current_plan_body, 
-                    first_ts_plan_sec, first_ts_plan_nanosec);
-
-            planExecutionInfo.executing.push_back(bdiActionExecutionInfo);//add action execution info to plan execution info 
-
-            status_time_s = bdiActionExecutionInfo.actual_start + bdiActionExecutionInfo.exec_time;// actual start time for action + duration action up to now
-        }    
+            first_ts_plan_sec_ = psys2_action_earliest.start_stamp.sec;
+            first_ts_plan_nanosec_ = psys2_action_earliest.start_stamp.nanosec;
+        }
     }
+
+    // find executing action status
+    for (int i=0; i<current_plan_body.size(); i++) {
+        string timex1000s = std::to_string(current_plan_body[i].time * 1000);
+        timex1000s = timex1000s.substr(0, timex1000s.find_first_of("."));
+        string action_full_name = current_plan_body[i].action + ":" + timex1000s;
+        int aindex_psys2_feed = PDDLBDIConverter::getActionIndex(feedback.action_execution_status,  action_full_name);
+        
+        std::optional<ActionExecutionInfo> psys2_action_feed_opt = {};
+        if(aindex_psys2_feed >= 0)
+        {
+            psys2_action_feed_opt = feedback.action_execution_status[aindex_psys2_feed];     
+            executing += (psys2_action_feed_opt.value().status == psys2_action_feed_opt.value().EXECUTING)? 1 : 0;
+        }   
+
+        BDIActionExecutionInfo bdiActionExecutionInfo = PDDLBDIConverter::buildBDIActionExecutionInfo(psys2_action_feed_opt, current_plan_body, i,
+                first_ts_plan_sec_, first_ts_plan_nanosec_);
+        planExecutionInfo.actions_exec_info.push_back(bdiActionExecutionInfo);//add action execution info to plan execution info 
+
+        // plan status time
+        if(bdiActionExecutionInfo.status == bdiActionExecutionInfo.RUNNING)
+            status_time_s = std::max(status_time_s, bdiActionExecutionInfo.actual_start + bdiActionExecutionInfo.exec_time);// actual start time for action + duration action up to now
+    }
+
+    //TODO sort before directly on Plansys2 feedback DO IT!!!!! SHOULD BE SOLVED
+    sort(planExecutionInfo.actions_exec_info.begin(), planExecutionInfo.actions_exec_info.end(), 
+        [](BDIActionExecutionInfo bdi_a1, BDIActionExecutionInfo bdi_a2){
+            return bdi_a1.index < bdi_a2.index;
+        }
+    );
     
-    planExecutionInfo.target = current_plan_.getDesire().toDesire();
-    planExecutionInfo.actions = current_plan_body;
-    planExecutionInfo.estimated_deadline = current_plan_.getPlanDeadline();
+    planExecutionInfo.target = current_plan_.getPlanTarget().toDesire();
+    planExecutionInfo.planned_deadline = current_plan_.getPlannedDeadline();
+    planExecutionInfo.estimated_deadline = current_plan_.getUpdatedEstimatedDeadline();
     
-    //current time ms computed with real clock (option left aside for now)
-    //float current_time_ms =  (float) (std::chrono::duration<double, std::milli>(high_resolution_clock::now()-current_plan_start_).count()) / pow(10, 3);
     
     // current time s computed by difference from fist start ts of first action executed within the plan
     planExecutionInfo.current_time = (status_time_s >= 0.0f)? status_time_s : 0.0f;
-    if(planExecutionInfo.executing.size() == 0 && last_ts_plan_exec > 0.0f)//last steps -> no action executing right now
-        planExecutionInfo.current_time = last_ts_plan_exec + (PLAN_INTERVAL / pow(10,3)); //add plan interval in sec from last check
-    last_ts_plan_exec = planExecutionInfo.current_time;
+    if(executing == 0 && last_ts_plan_exec_ > 0.0f)//last steps -> no action executing right now
+        planExecutionInfo.current_time = last_ts_plan_exec_ + (PLAN_INTERVAL / pow(10,3)); //add plan interval in sec from last check
+    last_ts_plan_exec_ = planExecutionInfo.current_time;
     planExecutionInfo.status = getPlanExecutionStatus();
 
     return planExecutionInfo;
@@ -566,9 +631,9 @@ BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::Ex
 /*
     Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
 */
-uint8_t PlanDirector::getPlanExecutionStatus()
+string PlanDirector::getPlanExecutionStatus()
 {
-    uint8_t result = BDIPlanExecutionInfo().RUNNING;
+    string result = BDIPlanExecutionInfo().RUNNING;
     if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
     {      
         if(executor_client_->getResult().value().success)//successful  run

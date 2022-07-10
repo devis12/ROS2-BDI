@@ -111,6 +111,9 @@ namespace BDIManaged
     // overload `==` operator 
     bool operator==(const ManagedDesire& md1, const ManagedDesire& md2);
 
+    // overload `!=` operator 
+    bool operator!=(const ManagedDesire& md1, const ManagedDesire& md2);
+
 }
 
 #endif  // MANAGED_DESIRE_H_

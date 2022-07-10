@@ -1,7 +1,9 @@
+#include <iostream>
+
 // header file for PlanSys2 Monitor Support clients node
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <numeric>
 
@@ -10,44 +12,46 @@ using std::vector;
 
 using lifecycle_msgs::srv::GetState;
 
-PlanSys2MonitorClient::PlanSys2MonitorClient(const string& nodesBasename)
+PlanSysMonitorClient::PlanSysMonitorClient(const string& nodesBasename, const PlanningMode& selPlanningMode)
 {   
     /*Init caller nodes*/
     caller_nodes_ = vector<rclcpp::Node::SharedPtr>();
     for(int i=0; i<PSYS2NODES; i++)
         caller_nodes_.push_back(rclcpp::Node::make_shared(nodesBasename + std::to_string(i)));
     
+    this->sel_planning_mode = selPlanningMode;
+
     /*Init caller clients*/
     caller_clients_ = vector<rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr>();
     string domain_expert_name = PSYS2_DOM_EXPERT;
     caller_clients_.push_back(caller_nodes_[PSYS2_DOM_EXPERT_I]->create_client<lifecycle_msgs::srv::GetState>(domain_expert_name + "/" + PSYS2_CK_STATE_SRV));  
     string problem_expert_name = PSYS2_PROB_EXPERT;
     caller_clients_.push_back(caller_nodes_[PSYS2_PROB_EXPERT_I]->create_client<lifecycle_msgs::srv::GetState>(problem_expert_name + "/" + PSYS2_CK_STATE_SRV));  
-    string planner_name = PSYS2_PLANNER;
+    string planner_name = sel_planning_mode == OFFLINE? PSYS2_PLANNER : JAVAFF_PLANNER;
     caller_clients_.push_back(caller_nodes_[PSYS2_PLANNER_I]->create_client<lifecycle_msgs::srv::GetState>(planner_name + "/" + PSYS2_CK_STATE_SRV));  
     string executor_name = PSYS2_EXECUTOR;
     caller_clients_.push_back(caller_nodes_[PSYS2_EXECUTOR_I]->create_client<lifecycle_msgs::srv::GetState>(executor_name + "/" + PSYS2_CK_STATE_SRV));  
 }
 
-/* Get the reference to the node caller instance for the PlanSys2 node @psys2NodeName */
-rclcpp::Node::SharedPtr PlanSys2MonitorClient::getCallerNode(const std::string& psys2NodeName)
+/* Get the reference to the node caller instance for the PlanSys2 node @psysNodeName */
+rclcpp::Node::SharedPtr PlanSysMonitorClient::getCallerNode(const std::string& psysNodeName)
 {
-    if(psys2NodeName == PSYS2_DOM_EXPERT && caller_nodes_.size() > PSYS2_DOM_EXPERT_I)
+    if(psysNodeName == PSYS2_DOM_EXPERT && caller_nodes_.size() > PSYS2_DOM_EXPERT_I)
     {
         return caller_nodes_[PSYS2_DOM_EXPERT_I];
     }
 
-    if(psys2NodeName == PSYS2_PROB_EXPERT && caller_nodes_.size() > PSYS2_PROB_EXPERT_I)
+    if(psysNodeName == PSYS2_PROB_EXPERT && caller_nodes_.size() > PSYS2_PROB_EXPERT_I)
     {
         return caller_nodes_[PSYS2_PROB_EXPERT_I];
     }
 
-    if(psys2NodeName == PSYS2_PLANNER && caller_nodes_.size() > PSYS2_PLANNER_I)
+    if((psysNodeName == PSYS2_PLANNER || psysNodeName == JAVAFF_PLANNER) && caller_nodes_.size() > PSYS2_PLANNER_I)
     {
         return caller_nodes_[PSYS2_PLANNER_I];
     }
 
-    if(psys2NodeName == PSYS2_EXECUTOR && caller_nodes_.size() > PSYS2_EXECUTOR_I)
+    if(psysNodeName == PSYS2_EXECUTOR && caller_nodes_.size() > PSYS2_EXECUTOR_I)
     {
         return caller_nodes_[PSYS2_EXECUTOR_I];
     }
@@ -55,25 +59,25 @@ rclcpp::Node::SharedPtr PlanSys2MonitorClient::getCallerNode(const std::string& 
     return {}; //unmatched
 }
 
-/* Get the reference to the client caller instance for the PlanSys2 node @psys2NodeName */
-rclcpp::Client<GetState>::SharedPtr PlanSys2MonitorClient::getCallerClient(const std::string& psys2NodeName)
+/* Get the reference to the client caller instance for the PlanSys2 node @psysNodeName */
+rclcpp::Client<GetState>::SharedPtr PlanSysMonitorClient::getCallerClient(const std::string& psysNodeName)
 {
-    if(psys2NodeName == PSYS2_DOM_EXPERT && caller_clients_.size() > PSYS2_DOM_EXPERT_I)
+    if(psysNodeName == PSYS2_DOM_EXPERT && caller_clients_.size() > PSYS2_DOM_EXPERT_I)
     {
         return caller_clients_[PSYS2_DOM_EXPERT_I];
     }
 
-    if(psys2NodeName == PSYS2_PROB_EXPERT && caller_clients_.size() > PSYS2_PROB_EXPERT_I)
+    if(psysNodeName == PSYS2_PROB_EXPERT && caller_clients_.size() > PSYS2_PROB_EXPERT_I)
     {
         return caller_clients_[PSYS2_PROB_EXPERT_I];
     }
 
-    if(psys2NodeName == PSYS2_PLANNER && caller_clients_.size() > PSYS2_PLANNER_I)
+    if((psysNodeName == PSYS2_PLANNER || psysNodeName == JAVAFF_PLANNER) && caller_clients_.size() > PSYS2_PLANNER_I)
     {
         return caller_clients_[PSYS2_PLANNER_I];
     }
 
-    if(psys2NodeName == PSYS2_EXECUTOR && caller_clients_.size() > PSYS2_EXECUTOR_I)
+    if(psysNodeName == PSYS2_EXECUTOR && caller_clients_.size() > PSYS2_EXECUTOR_I)
     {
         return caller_clients_[PSYS2_EXECUTOR_I];
     }
@@ -81,11 +85,11 @@ rclcpp::Client<GetState>::SharedPtr PlanSys2MonitorClient::getCallerClient(const
     return {}; //unmatched
 }
 
-/* Return true if {psys2NodeName}/get_state service called confirm that the node is active */
-bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
+/* Return true if {psysNodeName}/get_state service called confirm that the node is active */
+bool PlanSysMonitorClient::isPsysNodeActive(const std::string& psysNodeName)
 {
-    rclcpp::Node::SharedPtr node = getCallerNode(psys2NodeName);
-    rclcpp::Client<GetState>::SharedPtr client = getCallerClient(psys2NodeName);
+    rclcpp::Node::SharedPtr node = getCallerNode(psysNodeName);
+    rclcpp::Client<GetState>::SharedPtr client = getCallerClient(psysNodeName);
 
     try{
         
@@ -126,27 +130,34 @@ bool PlanSys2MonitorClient::isPsys2NodeActive(const std::string& psys2NodeName)
 
 
 /* Return true if all {psys2NodeName}/get_state service called confirm that the nodes are active, wait max_wait in case they're not before returning false */
-bool PlanSys2MonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_wait)
+bool PlanSysMonitorClient::areAllPsysNodeActive(const std::chrono::seconds max_wait)
 {
     std::vector<bool> active = std::vector<bool>(PSYS2NODES, false);
 
     std::chrono::seconds waited_amount = std::chrono::seconds(0);
 
-    while(waited_amount <= max_wait)
+    std::string planner_name = sel_planning_mode == OFFLINE? PSYS2_PLANNER : JAVAFF_PLANNER;
+
+    while(waited_amount.count() <= max_wait.count())
     {
-        active[PSYS2_DOM_EXPERT_I] = isPsys2NodeActive(PSYS2_DOM_EXPERT);
-        active[PSYS2_PROB_EXPERT_I] = isPsys2NodeActive(PSYS2_PROB_EXPERT);
-        active[PSYS2_PLANNER_I] = isPsys2NodeActive(PSYS2_PLANNER);
-        active[PSYS2_EXECUTOR_I] = isPsys2NodeActive(PSYS2_EXECUTOR);
+        active[PSYS2_DOM_EXPERT_I] = isPsysNodeActive(PSYS2_DOM_EXPERT);
+        active[PSYS2_PROB_EXPERT_I] = isPsysNodeActive(PSYS2_PROB_EXPERT);
+        active[PSYS2_PLANNER_I] = isPsysNodeActive(planner_name);
+        active[PSYS2_EXECUTOR_I] = isPsysNodeActive(PSYS2_EXECUTOR);
+
+        // std::cout << "active dom_expert = " << active[PSYS2_DOM_EXPERT_I]
+        //             << "active prob_expert = " << active[PSYS2_PROB_EXPERT_I]
+        //             << "active planner = " << active[PSYS2_PLANNER_I]
+        //             << "active executor = " << active[PSYS2_EXECUTOR_I]
+        //             << std::flush << std::endl;
+                    
+                    
 
         if(std::accumulate(active.begin(), active.end(), 0) == PSYS2NODES)
             return true;
         
-        if(waited_amount < max_wait)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
-            waited_amount += std::chrono::seconds(1);
-        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));//WAIT PSYS2 TO BOOT
+        waited_amount += std::chrono::seconds(1);
     }
     return false;
 }

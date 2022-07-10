@@ -3,9 +3,9 @@
 <package format="3">
   <name>ros2_bdi_on_webots</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Package description of pkg ros2_bdi_on_webots</description>
   <maintainer email="devis.dalmoro@unitn.it">devis</maintainer>
-  <license>TODO: License declaration</license>
+  <license>License declaration of pkg ros2_bdi_on_webots</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

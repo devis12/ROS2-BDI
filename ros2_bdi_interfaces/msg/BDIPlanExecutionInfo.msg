@@ -6,16 +6,18 @@
 # @actions              -> array of actions which composed the body of the plan in execution
 # @executing            -> specific info about the action(s) currently in execution 
 # @current_time         -> time elapsed since plan started
-# @estimated_deadline   -> estimated deadline in seconds
+# @planned_deadline   -> estimated planned deadline in seconds
+# @estimated_deadline   -> run time estimated deadline in seconds
 # @status               -> plan status
 
-uint8 RUNNING=0
-uint8 ABORT=1
-uint8 SUCCESSFUL=2
+string RUNNING="0"
+string ABORT="1"
+string SUCCESSFUL="2"
+string WAITING="3"
 
 Desire target
-plansys2_msgs/PlanItem[] actions
-BDIActionExecutionInfo[] executing
+BDIActionExecutionInfo[] actions_exec_info
 float32     current_time
+float32     planned_deadline
 float32     estimated_deadline
-uint8       status
+string      status

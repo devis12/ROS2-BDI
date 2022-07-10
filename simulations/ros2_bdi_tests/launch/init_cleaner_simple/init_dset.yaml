@@ -1,6 +1,6 @@
 - name: "clean_rooms"
   priority: 0.2
-  deadline: 36.0
+  deadline: 48.0
   value:
     - name: "cleaned"
       pddl_type: 2
@@ -10,6 +10,19 @@
       pddl_type: 2
       params:
         - "bathroom"
+    - name: "cleaned"
+      pddl_type: 2
+      params:
+        - "bedroom"
+    - name: "cleaned"
+      pddl_type: 2
+      params:
+        - "dock"
+    - name: "in"
+      pddl_type: 2
+      params:
+        - "cleaner"
+        - "dock"
   precondition:
     clauses:
       - literals:

@@ -29,6 +29,7 @@ set(UTILS-SOURCES
   src/ManagedReactiveRule.cpp
 
   src/BDIYAMLParser.cpp
+  src/BDIPlanLibrary.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${UTILS-SOURCES})
@@ -40,6 +41,7 @@ install(DIRECTORY include/
 
 target_link_libraries(${PROJECT_NAME}
   yaml-cpp  
+  sqlite3
 )
 
 install(TARGETS

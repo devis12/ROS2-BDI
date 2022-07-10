@@ -1,6 +1,8 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
+#include <boost/algorithm/string.hpp>
+
 #define INSTANCE_S PDDLBDIConstants::INSTANCE_TYPE
 #define PREDICATE_S PDDLBDIConstants::PREDICATE_TYPE
 #define FUNCTION_S PDDLBDIConstants::FUNCTION_TYPE
@@ -83,6 +85,74 @@ string ManagedBelief::pddlTypeString() const
                             (pddl_type_ == Belief().PREDICATE_TYPE)? PREDICATE_S :
                             (pddl_type_ == Belief().FUNCTION_TYPE)? FUNCTION_S : "";
     return pddl_type_string;
+}
+
+
+/*
+    Try to parse a managed belief from a string, format is the following
+    assuming delimiters = ['(', ')']
+
+    ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+*/
+std::optional<ManagedBelief> ManagedBelief::parseMGBelief(std::string mg_belief, const char delimiters[])
+{
+    int delimiterNum = sizeof(delimiters)/sizeof(delimiters[0]);
+    if(delimiterNum != 2)
+        return std::nullopt;
+    else
+    {
+        vector<string> items;
+        if(mg_belief.length() == 0)
+            return std::nullopt;
+        else
+        {
+            //remove parenthesis
+            if(mg_belief.at(0) == delimiters[0])
+                mg_belief = mg_belief.substr(1);
+            if(mg_belief.at(mg_belief.length()-1) == delimiters[1])
+                mg_belief = mg_belief.substr(0,mg_belief.length()-1);
+
+            boost::split(items, mg_belief, [](char c){return c == ',';});//split string
+            if(items.size() != 3 && items.size() != 4)//items should be either 3 or 4
+                return std::nullopt;
+
+            //retrieve elements
+            int pddl_type = atoi(items[0].c_str());
+            string name = items[1];
+            vector<string> params;
+            boost::split(params, items[2], [](char c){return c == ' ';});//split string
+            
+            float value = 0.0f;
+            if(pddl_type == Belief().FUNCTION_TYPE && items.size() == 4)
+                value = atof(items[3].c_str());
+            
+            return ManagedBelief{name, pddl_type, params, value};
+        }
+    }
+}   
+
+/*
+    Convert managed belief to string, format is the following
+
+    ({pddl_type},{name},{p1} {p2} {p3} ... {p54},[{value}])
+*/
+string ManagedBelief::toString(const char delimiters[]) const{
+    //if delimiterNum is wrong, set delimiters to default values ['(',')']
+    int delimiterNum = sizeof(delimiters)/sizeof(delimiters[0]);
+    char d0 = '(', d1 = ')';
+    if(delimiterNum != 2)
+    {
+        d0 = '(';
+        d1 = ')';
+    }
+
+    string result = d0 + std::to_string(pddl_type_) + "," + name_ + "," + getParamsJoined();
+    if(pddl_type_ == Belief().FUNCTION_TYPE)
+        result += "," + std::to_string(value_);
+    
+    result += d1;
+
+    return result;
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedBelief& mb)
