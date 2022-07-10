@@ -88,7 +88,7 @@ class GripperPutOnCarrier : public BDIActionExecutor
                     if(repeat_ == 0)
                         base_counter_[base]++;//increment just the first repeat
                     
-                    base += (base_counter_[base]%2 == 0)? "2" : "1";
+                    base += (base_counter_[base]%2 == 0)? "1" : "2";
                 }
                 msg.data = base;
                 move_gripper_cmd_publisher_->publish(msg);

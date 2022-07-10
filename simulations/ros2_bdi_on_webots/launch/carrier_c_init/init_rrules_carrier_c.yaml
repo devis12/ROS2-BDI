@@ -48,7 +48,7 @@
               pddl_type: 3
               params:
                 - "carrier_c"
-              value: 2
+              value: 1 #PUT THIS TO 1 to force replanning
           - check: "T"
             condition_to_check:
               name: "lb_load_completed" #last box loading completed
