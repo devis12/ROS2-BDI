@@ -31,7 +31,7 @@ from bdi_agent_core import *
             ** "init_bset": string file path to YAML file to init the belief set of the agent
             ** "init_dset": string file path to YAML file to init the desire set of the agent
 
-            ** "planning_mode": {"offline", "online"}, default: "offline"
+            ** "planning_mode": {"offline"}, default: "offline" ("online" will be supported in the future, for now experimental branch)
             
             ** "belief_ck": string array of agent groups accepts beliefs CHECK request from
             ** "belief_w": string array of agent groups accepts beliefs WRITE request from
@@ -106,23 +106,23 @@ def AgentLaunchDescription(
     '''
         PLANNING MODE
     '''
-    planning_mode = 'offline'
-    if PLANNING_MODE_PARAM in init_params:
-        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+    # planning_mode = 'offline'
+    # if PLANNING_MODE_PARAM in init_params:
+    #     planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
 
-    if planning_mode == 'online': # psys2 won't start its planner (by launch args passed)
-        debug_javaff = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('javaff' in init_params[DEBUG_ACTIVE_NODES_PARAM])
-        javaff_nodes = Node(
-            package='javaff',
-            executable='javaff_nodes',
-            name='javaff_nodes',
-            arguments=('!!!debug={}!!!???'+ init_params[PDDL_FILE_PARAM] + '???').format(debug_javaff),
-            namespace=namespace,
-            output='screen',
-            parameters= []
-        )
+    # if planning_mode == 'online': # psys2 won't start its planner (by launch args passed)
+    #     debug_javaff = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('javaff' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    #     javaff_nodes = Node(
+    #         package='javaff',
+    #         executable='javaff_nodes',
+    #         name='javaff_nodes',
+    #         arguments=('!!!debug={}!!!???'+ init_params[PDDL_FILE_PARAM] + '???').format(debug_javaff),
+    #         namespace=namespace,
+    #         output='screen',
+    #         parameters= []
+    #     )
         
-        ld.add_action(javaff_nodes)
+    #     ld.add_action(javaff_nodes)
         
     '''
         [*] PLANSYS2 Bringup
@@ -137,7 +137,7 @@ def AgentLaunchDescription(
         launch_arguments={
             'model_file': init_params[PDDL_FILE_PARAM],
             'namespace': namespace,
-            'planning_mode': planning_mode
+            # 'planning_mode': planning_mode
             }.items()
     )
     # Declare the launch options

@@ -71,7 +71,7 @@ def generate_launch_description():
             'desire_ck': ['grippers'],   
             'desire_w':  ['grippers'],   
             'desire_pr': [0.6],
-            'debug': ['belief_manager']
+            'debug': ['belief_manager', 'scheduler']
         },
         actions=[carrier_a_move, carrier_a_unload],
         sensors=[carrier_a_move_sensor, carrier_moving_boxes_sensor],

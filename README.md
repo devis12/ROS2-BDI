@@ -14,7 +14,7 @@ Moreover, you'll need [Boost libraries](https://www.boost.org/) and [yaml-cpp-0.
 sudo apt install libboost-dev libyaml-cpp0.6
 ```
 
-To avoid any further unpleasant interaction, it's highly recommended to disable Groot monitoring in PlanSys2. To do that, just go under the `plansys2_executor` package and within the script of the only launch file present ("*executor_launch.py*") add the configuration `'enable_groot_monitoring': False`  to the parameters of the `executor_cmd` **Node** (approximately line 55).
+To avoid any further unpleasant interaction, it's highly recommended to disable Groot monitoring in PlanSys2. To do that, just go under the `plansys2_executor` package and within the script of the only launch file present ("*executor_launch.py*") add the configuration `'enable_groot_monitoring': False`  to the parameters of the `executor_cmd` **Node** (approximately line 55). In order to avoid this or any kind of other difficulties, it's highly suggested to use a compatible and accustomed version of PlanSys2 you can find in this [forked repo](https://github.com/RTI-BDI/ros2_planning_system).
 
 ## Building
 
