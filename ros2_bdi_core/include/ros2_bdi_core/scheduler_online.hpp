@@ -162,4 +162,7 @@ private:
     //Plan library db utility (just used in online for now: put it here, so we can close connection in bringdown)
     PlanLibrary::BDIPlanLibrary planlib_db_;
     bool planlib_conn_ok_;
+
+    // Index of executing partial plan in the queue of executions for current global target in fulfillment 
+    int executing_pplan_index_;
 };

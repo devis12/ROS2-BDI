@@ -54,6 +54,8 @@ void SchedulerOnline::init()
 
     searching_ = false;
 
+    executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
+        
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
@@ -153,6 +155,8 @@ void SchedulerOnline::forcedReschedule()
     current_plan_ = ManagedPlan{};//no plan executing rn
     waiting_plans_ = vector<ManagedPlan>();
     searching_ = false;//saluti da T.V.
+    executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
+
     reschedule();
 }
 
@@ -185,6 +189,8 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                         bool triggeredNewPlanExec;
                         current_plan_ = ManagedPlan{};//no plan executing rn
                         triggeredNewPlanExec = tryTriggerPlanExecution(nextPPlanToExec.value());
+                        if(triggeredNewPlanExec)
+                            executing_pplan_index_ = nextPPlanToExec.value().getPlanQueueIndex();
                         callUnexpectedState = !triggeredNewPlanExec;//if failed, call unexpected state srv
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
                         {
@@ -196,6 +202,8 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 else
                 {   
                     current_plan_ = ManagedPlan{};//no plan executing rn
+                    executing_pplan_index_ = -1;//will put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
+        
                     //no plan left to execute
                     ManagedDesire finalTarget = current_plan_.getFinalTarget();
                     mtx_iter_dset_.lock();
@@ -232,6 +240,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 //tmp cleaning //TODO need to be revised this after having fixed search full reset 
                 current_plan_ = ManagedPlan{};//no plan executing rn
                 waiting_plans_ = vector<ManagedPlan>();
+                executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
                 searching_ = javaff_client_->callUnexpectedStateSrv(problem_expert_->getProblem());
                 if(!searching_)
                     forcedReschedule();//if service call failed, just reschedule from scratch solution!!!
@@ -285,6 +294,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
                 allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
                 ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+                firstPPlanToExec.setPlanQueueIndex(msg->plans[i].index);
                 storePlan(firstPPlanToExec);
 
                 //launch plan execution
@@ -300,14 +310,26 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                     if(!triggered)// just reschedule from scratch
                     {
                        forcedReschedule();
-                        return;
+                       return;
                     }
+                    else
+                        executing_pplan_index_ = firstPPlanToExec.getPlanQueueIndex();
                 }
                 i++;
             
             }else if(msg->plans[i].plan.items.size() > 0){
-                ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
-                storeEnqueuePlan(computedMPP);
+                for(i = 1; i<msg->plans.size(); i++)//avoid considering first pplan which is demanded for execution in the if branch above
+                {
+                    int queueHighestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : 0;
+                    //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
+                    if(waiting_plans_.empty() && msg->plans[i].index > executing_pplan_index_ || msg->plans[i].index > queueHighestPPlanId)//should be enqueued
+                    {
+                        ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                        computedMPP.setPlanQueueIndex(msg->plans[i].index);//set plan queue index retrieved by planner
+                        storeEnqueuePlan(computedMPP);
+                    }
+                }
+                
             }
         }
     }   

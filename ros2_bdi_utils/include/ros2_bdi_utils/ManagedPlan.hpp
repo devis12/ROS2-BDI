@@ -39,6 +39,9 @@ namespace BDIManaged
             int getPlanLibID() const {return planlib_id_;}
             void setPlanLibID(const int& id) {planlib_id_ = id;}
 
+            int getPlanQueueIndex() const {return planqueue_index_;}
+            void setPlanQueueIndex(const int& id) {planqueue_index_ = id;}
+
             void setUpdatedInfo(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo& planExecInfo)
             {
                 this->exec_status_ = planExecInfo.status;
@@ -128,7 +131,8 @@ namespace BDIManaged
             /*If stored in plan lib, id with which it was stored*/
             int planlib_id_ = -1;
 
-            
+            /*Index in queue of partial plans (just for online planning mode) wrt. current global target and plans execution*/
+            int planqueue_index_ = -1;
 
     };  // class ManagedPlan
 
