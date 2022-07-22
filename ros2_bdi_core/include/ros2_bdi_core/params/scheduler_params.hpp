@@ -31,6 +31,7 @@
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
 #define JAVAFF_SEARCH_TOPIC "javaff_search/plan"
+#define JAVAFF_EXEC_STATUS_TOPIC "javaff_search/exec_status"
 #define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
 #define JAVAFF_UNEXPECTED_STATE_SRV "javaff_server/unexpected_state"
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"

@@ -33,6 +33,7 @@ using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 using javaff_interfaces::msg::SearchResult;
+using javaff_interfaces::msg::ExecutionStatus;
 
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
@@ -64,6 +65,8 @@ void SchedulerOnline::init()
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
         JAVAFF_SEARCH_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
+
+    exec_status_to_planner_publisher_ = this->create_publisher<ExecutionStatus>(JAVAFF_EXEC_STATUS_TOPIC, 10);
     
     // open connection to plan library and init. tables, if not already present
     planlib_conn_ok_ = planlib_db_.initPlanLibrary();
@@ -173,8 +176,31 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
         current_plan_exec_info_ = planExecInfo;
         current_plan_.setUpdatedInfo(planExecInfo);
         string targetDesireName = planTargetDesire.getName();
-        if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
+        
+        if(planExecInfo.status == planExecInfo.RUNNING)
         {
+
+            for(auto actionExecInfo: current_plan_.getActionsExecInfo())
+            {   
+                string argsJoin = "";
+                for(auto arg : actionExecInfo.args)
+                    argsJoin+=arg + " ";
+
+                if(actionExecInfo.status == actionExecInfo.RUNNING)
+                {
+                    auto exec_action_msg = ExecutionStatus{};
+                    exec_action_msg.executing_action = actionExecInfo.name + " " + argsJoin;
+                    exec_action_msg.executing_plan_index = current_plan_.getPlanQueueIndex();
+                    exec_status_to_planner_publisher_->publish(exec_action_msg);
+                }
+                
+            }
+        }
+        
+        else
+        {   
+            // plan not running anymore
+            
             bool callUnexpectedState = false;
 
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
