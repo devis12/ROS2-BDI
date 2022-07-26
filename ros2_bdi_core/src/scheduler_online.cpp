@@ -297,7 +297,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
                 allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
                 ManagedPlan firstPPlanToExec = ManagedPlan{
-                    msg->plans[i].index, 
+                    msg->plans[i].plan.plan_index, 
                     fulfilling_desire_, 
                     ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
                     ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
@@ -327,9 +327,9 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 {
                     int queueHighestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : 0;
                     //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
-                    if(waiting_plans_.empty() && msg->plans[i].index > executing_pplan_index_ || msg->plans[i].index > queueHighestPPlanId)//should be enqueued
+                    if(waiting_plans_.empty() && msg->plans[i].plan.plan_index > executing_pplan_index_ || msg->plans[i].plan.plan_index > queueHighestPPlanId)//should be enqueued
                     {
-                        ManagedPlan computedMPP = ManagedPlan{msg->plans[i].index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                        ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
                         storeEnqueuePlan(computedMPP);
                     }
                 }

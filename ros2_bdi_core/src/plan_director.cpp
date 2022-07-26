@@ -349,7 +349,7 @@ bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr r
     }    
 
     auto plan = request->plan;
-    if(plan.actions.size() == 0)
+    if(plan.psys2_plan.items.size() == 0)
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Plan request with empty plan");
@@ -360,7 +360,7 @@ bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr r
         psys2_comm_errors_++;
     else
     {
-        for(auto planItemObj : plan.actions)
+        for(auto planItemObj : plan.psys2_plan.items)
         {
             vector<string> actionItems = PDDLUtils::extractPlanItemActionElements(planItemObj.action);
             if(actionItems.size() == 0)
@@ -426,7 +426,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
 
     string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
-    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan " + std::to_string(request->plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\"");
+    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan " + std::to_string(request->plan.psys2_plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\"");
     ManagedDesire mdPlan = ManagedDesire{request->plan.target};
     ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
     ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
@@ -434,7 +434,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     if(request->request == request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
     {
         //when aborting do not check preconditions and/or context... plan executed considered equivalent regardless of that
-        ManagedPlan mp_abort = ManagedPlan{request->plan.plan_index, mdPlan, request->plan.actions};
+        ManagedPlan mp_abort = ManagedPlan{request->plan.psys2_plan.plan_index, mdPlan, request->plan.psys2_plan.items};
 
         if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
         {
@@ -444,7 +444,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
     else if(request->request == request->EXECUTE && state_ == READY)//no plan currently in exec
     {
-        ManagedPlan requestedPlan = ManagedPlan{request->plan.plan_index, mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
+        ManagedPlan requestedPlan = ManagedPlan{request->plan.psys2_plan.plan_index, mdPlan, request->plan.psys2_plan.items, mdPlanPrecondition, mdPlanContext};
         // verify precondition before actually trying triggering executor
         if(requestedPlan.getPrecondition().isSatisfied(belief_set_))
         {

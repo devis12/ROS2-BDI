@@ -127,8 +127,7 @@ BDIPlan ManagedPlan::toPlan() const
 {
     BDIPlan p = BDIPlan();
     p.target = plan_target_->toDesire();
-    p.actions = toPsys2Plan().items;
-    p.plan_index = planqueue_index_;
+    p.psys2_plan = toPsys2Plan();
     p.precondition = precondition_.toConditionsDNF();
     p.context = context_.toConditionsDNF();
 

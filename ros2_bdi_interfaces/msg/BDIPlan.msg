@@ -7,8 +7,7 @@
 # @precondition -> condition to be checked before the plan exec. is initiated (DNF expression)
 # @context      -> conditions to be checked over all the plan exec. (DNF expression)
 
-int16                       plan_index
 Desire                      target
-plansys2_msgs/PlanItem[]    actions
+plansys2_msgs/Plan          psys2_plan
 ConditionsDNF               precondition
 ConditionsDNF               context
