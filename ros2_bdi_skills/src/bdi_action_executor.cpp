@@ -98,8 +98,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     ExecutionStatus exec_status_msg = ExecutionStatus();
     exec_status_msg.executing_plan_index = get_executing_plan_index();
     exec_status_msg.executing_action = getFullActionName(true); //name+args separated by spaces enclosed by parenthesis (saluti da A.Z.)
+    exec_status_msg.planned_start_time = get_planned_start_time();
     exec_status_to_planner_publisher_->publish(exec_status_msg);
-
+    
     return ActionExecutorClient::on_activate(previous_state);
   }
 
