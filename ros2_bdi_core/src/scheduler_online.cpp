@@ -33,7 +33,6 @@ using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 using javaff_interfaces::msg::SearchResult;
-using javaff_interfaces::msg::ExecutionStatus;
 
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
@@ -65,8 +64,6 @@ void SchedulerOnline::init()
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
         JAVAFF_SEARCH_TOPIC, 10,
             bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
-
-    exec_status_to_planner_publisher_ = this->create_publisher<ExecutionStatus>(JAVAFF_EXEC_STATUS_TOPIC, 10);
     
     // open connection to plan library and init. tables, if not already present
     planlib_conn_ok_ = planlib_db_.initPlanLibrary();
@@ -177,27 +174,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
         current_plan_.setUpdatedInfo(planExecInfo);
         string targetDesireName = planTargetDesire.getName();
         
-        if(planExecInfo.status == planExecInfo.RUNNING)
-        {
-
-            for(auto actionExecInfo: current_plan_.getActionsExecInfo())
-            {   
-                string argsJoin = "";
-                for(auto arg : actionExecInfo.args)
-                    argsJoin+=arg + " ";
-
-                if(actionExecInfo.status == actionExecInfo.RUNNING)
-                {
-                    auto exec_action_msg = ExecutionStatus{};
-                    exec_action_msg.executing_action = actionExecInfo.name + " " + argsJoin;
-                    exec_action_msg.executing_plan_index = current_plan_.getPlanQueueIndex();
-                    exec_status_to_planner_publisher_->publish(exec_action_msg);
-                }
-                
-            }
-        }
-        
-        else
+        if(planExecInfo.status != planExecInfo.RUNNING)
         {   
             // plan not running anymore
             
@@ -319,10 +296,12 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 // make union of high level desire precondition and subplan precondition
                 ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
                 allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
-                ManagedPlan firstPPlanToExec = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
-                firstPPlanToExec.setPlanQueueIndex(msg->plans[i].index);
+                ManagedPlan firstPPlanToExec = ManagedPlan{
+                    msg->plans[i].index, 
+                    fulfilling_desire_, 
+                    ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
+                    ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
                 storePlan(firstPPlanToExec);
-
                 //launch plan execution
                 if(firstPPlanToExec.getActionsExecInfo().size() > 0)
                 {   
@@ -350,8 +329,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                     //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
                     if(waiting_plans_.empty() && msg->plans[i].index > executing_pplan_index_ || msg->plans[i].index > queueHighestPPlanId)//should be enqueued
                     {
-                        ManagedPlan computedMPP = ManagedPlan{fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
-                        computedMPP.setPlanQueueIndex(msg->plans[i].index);//set plan queue index retrieved by planner
+                        ManagedPlan computedMPP = ManagedPlan{msg->plans[i].index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
                         storeEnqueuePlan(computedMPP);
                     }
                 }

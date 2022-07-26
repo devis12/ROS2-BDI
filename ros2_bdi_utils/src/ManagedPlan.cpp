@@ -71,7 +71,8 @@ ManagedPlan::ManagedPlan():
         plan_target_ = final_target_;
     }
 
-ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems):
+ManagedPlan::ManagedPlan(const int16_t& plan_index, const ManagedDesire& md, const vector<PlanItem>& planitems):
+    planqueue_index_(plan_index),
     actions_exec_info_(computeActionsExecInfo(planitems)),
     precondition_(ManagedConditionsDNF{}),
     context_(ManagedConditionsDNF{})
@@ -81,8 +82,9 @@ ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planit
         planned_deadline_ = computePlannedDeadline();
     }
 
-ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planitems, 
+ManagedPlan::ManagedPlan(const int16_t& plan_index, const ManagedDesire& md, const vector<PlanItem>& planitems, 
     const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
+    planqueue_index_(plan_index),
     actions_exec_info_(computeActionsExecInfo(planitems)),
     precondition_(precondition),
     context_(context)
@@ -92,8 +94,9 @@ ManagedPlan::ManagedPlan(const ManagedDesire& md, const vector<PlanItem>& planit
         planned_deadline_ = computePlannedDeadline();
     }
 
-ManagedPlan::ManagedPlan(const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
+ManagedPlan::ManagedPlan(const int16_t& plan_index, const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
     const vector<PlanItem>& planitems, const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context):
+    planqueue_index_(plan_index),
     actions_exec_info_(computeActionsExecInfo(planitems)),
     precondition_(precondition),
     context_(context)
@@ -106,6 +109,7 @@ ManagedPlan::ManagedPlan(const ManagedDesire& finalDesire, const ManagedDesire& 
 Plan ManagedPlan::toPsys2Plan() const
 {
     Plan p = Plan();
+    p.plan_index = planqueue_index_;
     p.items =  vector<PlanItem>();
     for(BDIActionExecutionInfo bdi_ai : actions_exec_info_)
     {
@@ -124,7 +128,7 @@ BDIPlan ManagedPlan::toPlan() const
     BDIPlan p = BDIPlan();
     p.target = plan_target_->toDesire();
     p.actions = toPsys2Plan().items;
-
+    p.plan_index = planqueue_index_;
     p.precondition = precondition_.toConditionsDNF();
     p.context = context_.toConditionsDNF();
 

@@ -286,8 +286,7 @@ void PlanDirector::cancelCurrentPlanExecution()
 bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
 {
     // prepare plansys2 msg for plan execution
-    Plan plan_to_execute = Plan();
-    plan_to_execute.items = mp.toPsys2Plan().items;
+    Plan plan_to_execute = mp.toPsys2Plan();
 
     // select current_plan_ which will start execution
     current_plan_ = mp;
@@ -427,7 +426,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
 
     string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
-    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan fulfilling desire \"" + request->plan.target.name + "\"");
+    RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan " + std::to_string(request->plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\"");
     ManagedDesire mdPlan = ManagedDesire{request->plan.target};
     ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
     ManagedConditionsDNF mdPlanContext = ManagedConditionsDNF{request->plan.context};
@@ -435,7 +434,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     if(request->request == request->ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
     {
         //when aborting do not check preconditions and/or context... plan executed considered equivalent regardless of that
-        ManagedPlan mp_abort = ManagedPlan{mdPlan, request->plan.actions};
+        ManagedPlan mp_abort = ManagedPlan{request->plan.plan_index, mdPlan, request->plan.actions};
 
         if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
         {
@@ -445,7 +444,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
     else if(request->request == request->EXECUTE && state_ == READY)//no plan currently in exec
     {
-        ManagedPlan requestedPlan = ManagedPlan{mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
+        ManagedPlan requestedPlan = ManagedPlan{request->plan.plan_index, mdPlan, request->plan.actions, mdPlanPrecondition, mdPlanContext};
         // verify precondition before actually trying triggering executor
         if(requestedPlan.getPrecondition().isSatisfied(belief_set_))
         {

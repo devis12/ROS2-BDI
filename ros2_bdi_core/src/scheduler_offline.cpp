@@ -112,7 +112,7 @@ void SchedulerOffline::reschedule()
             {
                 computedPlan = true;
 
-                ManagedPlan mp = ManagedPlan{md, opt_p.value().items, md.getPrecondition(), md.getContext()};
+                ManagedPlan mp = ManagedPlan{0, md, opt_p.value().items, md.getPrecondition(), md.getContext()};
                 // does computed deadline for this plan respect desire deadline?
                 if(mp.getPlannedDeadline() <= md.getDeadline()) 
                 {

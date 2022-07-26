@@ -24,10 +24,10 @@ namespace BDIManaged
         public:
             /* Constructor methods */
             ManagedPlan();
-            ManagedPlan(const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems);
-            ManagedPlan(const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems, 
+            ManagedPlan(const int16_t& plan_index, const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems);
+            ManagedPlan(const int16_t& plan_index, const ManagedDesire& md, const std::vector<plansys2_msgs::msg::PlanItem>& planitems, 
                 const ManagedConditionsDNF& precondition, const ManagedConditionsDNF& context);
-            ManagedPlan(const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
+            ManagedPlan(const int16_t& plan_index, const ManagedDesire& finalDesire, const ManagedDesire& intermediateDesire,
                 const std::vector<plansys2_msgs::msg::PlanItem>& planitems, const ManagedConditionsDNF& precondition, 
                 const ManagedConditionsDNF& context);
             
@@ -39,8 +39,7 @@ namespace BDIManaged
             int getPlanLibID() const {return planlib_id_;}
             void setPlanLibID(const int& id) {planlib_id_ = id;}
 
-            int getPlanQueueIndex() const {return planqueue_index_;}
-            void setPlanQueueIndex(const int& id) {planqueue_index_ = id;}
+            int16_t getPlanQueueIndex() const {return planqueue_index_;}
 
             void setUpdatedInfo(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo& planExecInfo)
             {
@@ -132,7 +131,7 @@ namespace BDIManaged
             int planlib_id_ = -1;
 
             /*Index in queue of partial plans (just for online planning mode) wrt. current global target and plans execution*/
-            int planqueue_index_ = -1;
+            int16_t planqueue_index_ = -1;
 
     };  // class ManagedPlan
 

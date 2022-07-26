@@ -2,7 +2,6 @@
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
 #include "javaff_interfaces/msg/search_result.hpp"
-#include "javaff_interfaces/msg/execution_status.hpp"
 
 #include "ros2_bdi_utils/BDIPlanLibrary.hpp"
 
@@ -166,7 +165,4 @@ private:
 
     // Index of executing partial plan in the queue of executions for current global target in fulfillment 
     int executing_pplan_index_;
-
-    // Publish updated exec action status to online planner
-    rclcpp::Publisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
 };

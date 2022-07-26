@@ -29,6 +29,8 @@
 
 #include "plansys2_executor/ActionExecutorClient.hpp"
 
+#include "javaff_interfaces/msg/execution_status.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -72,6 +74,16 @@ protected:
     std::vector<std::string> getArguments() {return get_arguments();}
     /*returns current progress state of the action*/
     float getProgress() {return progress_;} 
+
+    /*returns full action name*/
+    std::string getFullActionName(const bool& withParenthesis=true)
+    {
+      std::string argsJoin = "";
+          for(auto arg : getArguments())
+              argsJoin+= " " + arg;
+      std::string fullName = get_action_name() + argsJoin; 
+      return withParenthesis? "(" + fullName + ")" : fullName;
+    }
 
     /*
       Method regularly called at the frequency specified in the constructor to handle the advancement of the action,
@@ -172,6 +184,9 @@ private:
 
     // progress of the current action execution
     float progress_;
+
+    // Publish updated exec action status to online planner
+    rclcpp_lifecycle::LifecyclePublisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
 };
 
 #endif  // BDI_ACTION_EXECUTOR_H_
