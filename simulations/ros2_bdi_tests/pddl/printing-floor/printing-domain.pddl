@@ -94,7 +94,7 @@
 
     (:durative-action docking
         :parameters (?r - robot ?d - dock ?room - room)
-        :duration (= ?duration 1)
+        :duration (= ?duration 6)
         :condition (and
             (at start (not_r_docked ?r))
             (over all (active ?r))
@@ -109,7 +109,7 @@
 
     (:durative-action undocking
         :parameters (?r - robot ?d - dock ?room - room)
-        :duration (= ?duration 1)
+        :duration (= ?duration 6)
         :condition (and
             (at start (r_docked ?r))
             (over all (active ?r))

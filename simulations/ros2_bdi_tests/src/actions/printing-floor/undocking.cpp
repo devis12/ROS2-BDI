@@ -5,12 +5,12 @@ class Undocking : public BDIActionExecutor
 {
     public:
         Undocking()
-        : BDIActionExecutor("undocking", 4)
+        : BDIActionExecutor("undocking", 2)
         {}
 
         float advanceWork()
         {
-            return 0.250f;            
+            return 0.084f;            
         }
 
     private:

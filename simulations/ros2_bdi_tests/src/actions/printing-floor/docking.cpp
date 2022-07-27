@@ -5,12 +5,12 @@ class Docking : public BDIActionExecutor
 {
     public:
         Docking()
-        : BDIActionExecutor("docking", 4)
+        : BDIActionExecutor("docking", 2)
         {}
 
         float advanceWork()
         {
-            return 0.250f;            
+            return 0.084f;            
         }
 
     private:

@@ -17,8 +17,7 @@ public:
     void init() override;
 
 
-private:
-    
+private:    
     /*
         Store plan in plan library && enqueue in waiting_plans
     */
@@ -96,6 +95,13 @@ private:
                 return i;
         return -1;
     }
+
+
+    /*
+        Increment counter for aborted plans that aimed at fulfilling desire x
+        DelDesire (and group) in case threshold is reached
+    */
+    void abortedPlanHandler();
 
     /*
         Specific behaviour of scheduler after desire successful addition, based on its selected mode    

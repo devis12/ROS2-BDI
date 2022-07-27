@@ -217,25 +217,10 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 }
             }
 
-            if(planExecInfo.status == planExecInfo.ABORT)
+            if(callUnexpectedState || planExecInfo.status == planExecInfo.ABORT)
             {
                 callUnexpectedState = true;
-
-                string targetDesireName = fulfilling_desire_.getName();
-                //current plan execution has been aborted
-                int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
-                aborted_plan_desire_map_[targetDesireName]++;
-                
-                RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
-                    "\" has been aborted for the %d time (max attempts: %d)", 
-                        aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
-                
-                if(aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
-                    delDesire(fulfilling_desire_, true);
-                }
+                abortedPlanHandler();//increment counter for aborted plans that aimed at fulfilling desire x
             }
 
             if(callUnexpectedState)//handle the following with unexpected state srv
@@ -249,6 +234,25 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     forcedReschedule();//if service call failed, just reschedule from scratch solution!!!
             }
         }
+    }
+}
+
+void SchedulerOnline::abortedPlanHandler()
+{
+    string targetDesireName = fulfilling_desire_.getName();
+    //current plan execution has been aborted
+    int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
+    aborted_plan_desire_map_[targetDesireName]++;
+    
+    RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
+        "\" has been aborted for the %d time (max attempts: %d)", 
+            aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
+    
+    if(aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
+        delDesire(fulfilling_desire_, true);
     }
 }
 
@@ -314,6 +318,7 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
 
                     if(!triggered)// just reschedule from scratch
                     {
+                       abortedPlanHandler();
                        forcedReschedule();
                        return;
                     }
