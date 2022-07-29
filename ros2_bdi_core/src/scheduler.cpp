@@ -110,6 +110,10 @@ void Scheduler::init()
     //Desire set publisher
     desire_set_publisher_ = this->create_publisher<DesireSet>(DESIRE_SET_TOPIC, 10);
 
+    //Belief publisher
+    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, rclcpp::QoS(5).reliable());
+    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, rclcpp::QoS(5).reliable());
+
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
 
@@ -261,6 +265,20 @@ void Scheduler::step()
     step_counter_++;
 }
 
+/*
+    Publish target goal info to belief set
+*/
+void Scheduler::publishTargetGoalInfo(const GoalBeliefOp& op)
+{
+    for(auto belief : current_plan_.getFinalTarget().getValue())
+    {
+        if(op == ADD_GOAL_BELIEFS)
+            add_belief_publisher_->publish(belief.toFulfillmentBelief());
+        else if(op == DEL_GOAL_BELIEFS)
+            del_belief_publisher_->publish(belief.toFulfillmentBelief());
+    }
+}
+
 /*Build updated LifecycleStatus msg*/
 LifecycleStatus Scheduler::getLifecycleStatus()
 {
@@ -378,7 +396,10 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
     //trigger plan execution
     bool triggered = plan_exec_srv_client_->triggerPlanExecution(selectedPlan.toPlan());
     if(triggered)
+    {
         current_plan_ = selectedPlan;// selectedPlan can now be set as currently executing plan
+        publishTargetGoalInfo(ADD_GOAL_BELIEFS);
+    }
 
     if(this->get_parameter(PARAM_DEBUG).as_bool())
     {
@@ -401,6 +422,7 @@ bool Scheduler::abortCurrentPlanExecution()
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getPlanTarget().getName());
         
+        publishTargetGoalInfo(DEL_GOAL_BELIEFS);//goal disactivated -> upd belief set
         current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
     }  
     return aborted;

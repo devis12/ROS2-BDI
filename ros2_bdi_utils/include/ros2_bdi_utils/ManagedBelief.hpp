@@ -46,6 +46,11 @@ namespace BDIManaged
             /*  convert instance to ros2_bdi_interfaces::msg::Belief format */
             ros2_bdi_interfaces::msg::Belief toBelief() const;
 
+
+            /*  convert instance to ros2_bdi_interfaces::msg::Belief format substituting name with respective fulfilling name, which
+                indicates we're currently pursuing x (e.g. "f_x" for "x")*/
+            ros2_bdi_interfaces::msg::Belief toFulfillmentBelief() const;
+
             /*
                 Try to parse a managed belief from a string, format is the following
                 assuming delimiters = ['(', ')']

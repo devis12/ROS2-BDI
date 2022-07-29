@@ -64,6 +64,9 @@ namespace BDIManaged
 
             // return true if empty target or if target appears to be achieved in the passed bset
             bool isFulfilled(const std::set<ManagedBelief>& bset);
+            
+            // return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
+            bool equivalentValue(const ManagedDesire& otherDesire);
         private:
             /*name of the desire*/
             std::string name_;

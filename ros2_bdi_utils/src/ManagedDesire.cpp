@@ -132,6 +132,26 @@ Desire ManagedDesire::toDesire() const
     return d;
 }
 
+// return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
+bool ManagedDesire::equivalentValue(const ManagedDesire& otherDesire)
+{
+    // create a set with target value of the "original" MD instance
+    set<ManagedBelief> targetSet = set<ManagedBelief>();
+    for(auto mb : value_)
+        targetSet.insert(mb);
+
+    //loop over all MB in otherDesire's value and check if they are all in "original" target value
+    set<ManagedBelief> otherTargetSet = set<ManagedBelief>();
+    for(auto mb : otherDesire.getValue())
+        if(targetSet.count(mb) == 1)
+            otherTargetSet.insert(mb);
+        else
+            return false;//otherDesire contains a diff predicate which is not in original
+    
+    return otherTargetSet.size() == targetSet.size();
+    
+}
+
 bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
 {
     for(ManagedBelief targetb : value_)

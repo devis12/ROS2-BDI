@@ -1,6 +1,8 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
+#include "plansys2_domain_expert/DomainReader.hpp"
+
 #include <boost/algorithm/string.hpp>
 
 #define INSTANCE_S PDDLBDIConstants::INSTANCE_TYPE
@@ -64,6 +66,16 @@ Belief ManagedBelief::toBelief() const
     b.pddl_type = pddl_type_;
     b.params = params_;
     b.value = value_;
+    return b;
+}
+
+/*  convert instance to ros2_bdi_interfaces::msg::Belief format substituting name with respective fulfilling name, which
+                indicates we're currently pursuing x (e.g. "f_x" for "x")*/
+Belief ManagedBelief::toFulfillmentBelief() const
+{
+    Belief b = toBelief();
+    b.name = FULFILLMENT_PREFIX + name_;
+
     return b;
 }
 

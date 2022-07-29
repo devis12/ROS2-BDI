@@ -39,6 +39,8 @@
 typedef enum {STARTING, SCHEDULING, PAUSE} StateType;          
 typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} TargetBeliefAcceptance;
 
+typedef enum {ADD_GOAL_BELIEFS, DEL_GOAL_BELIEFS} GoalBeliefOp;
+
 class Scheduler : public rclcpp::Node
 {
 public:
@@ -172,9 +174,9 @@ protected:
     TargetBeliefAcceptance desireAcceptanceCheck(const BDIManaged::ManagedDesire& md);
 
     /*
-        Received update on current online plan search
+        Publish target goal info to belief set
     */
-    //void updateComputedPartialPlans(const javaff_interfaces::msg::PartialPlans::SharedPtr msg);
+    void publishTargetGoalInfo(const GoalBeliefOp& op);
 
     /*
         Given the current knowledge of the belief set, decide if a given desire
@@ -353,6 +355,10 @@ protected:
     rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr add_desire_subscriber_;//add desire notify on topic
     rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_subscriber_;//del desire notify on topic
     rclcpp::Publisher<ros2_bdi_interfaces::msg::DesireSet>::SharedPtr desire_set_publisher_;//desire set publisher
+
+    // belief set publisher (to publish info wrt. currently active desire)
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;//add belief publisher
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr del_belief_publisher_;//del belief publisher
 
     // belief set subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscriber_;//belief set sub.

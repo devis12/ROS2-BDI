@@ -203,17 +203,20 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     }
                 }
                 else
-                {   
-                    current_plan_ = ManagedPlan{};//no plan executing rn
-                    executing_pplan_index_ = -1;//will put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
-        
+                {           
                     //no plan left to execute
                     ManagedDesire finalTarget = current_plan_.getFinalTarget();
                     mtx_iter_dset_.lock();
                     bool desireAchieved = isDesireSatisfied(finalTarget);
                     if(desireAchieved)
+                    {
+                        publishTargetGoalInfo(DEL_GOAL_BELIEFS);
                         delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
+                    }
                     mtx_iter_dset_.unlock();
+                    
+                    current_plan_ = ManagedPlan{};//no plan executing rn
+                    executing_pplan_index_ = -1;//will put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
                 }
             }
 

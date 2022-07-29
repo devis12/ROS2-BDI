@@ -93,11 +93,11 @@ void SchedulerOffline::reschedule()
             continue;
 
         //desire currently fulfilling
-        if(current_plan_.getPlanTarget() == md)
+        if(current_plan_.getFinalTarget() == md)
             continue;
         
         //plan in exec has higher priority than this one, skip this desire
-        if(planinExec && current_plan_.getPlanTarget().getPriority() > md.getPriority())
+        if(planinExec && current_plan_.getFinalTarget().getPriority() > md.getPriority())
             continue;
         
         bool computedPlan = false;//flag to mark plan for desire as computable
@@ -241,7 +241,7 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
     auto planExecInfo = (*msg);
     ManagedDesire targetDesire = ManagedDesire{planExecInfo.target};
 
-    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getPlanTarget().getName())//current plan selected in execution update
+    if(!noPlanExecuting() && planExecInfo.target.name == current_plan_.getFinalTarget().getName())//current plan selected in execution update
     {
         current_plan_exec_info_ = planExecInfo;
         current_plan_.setUpdatedInfo(planExecInfo);
@@ -252,8 +252,11 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
             mtx_iter_dset_.lock();
             bool desireAchieved = isDesireSatisfied(targetDesire);
             if(desireAchieved)
+            {
+                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
                 delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
-            
+            }
+
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
@@ -375,7 +378,7 @@ void SchedulerOffline::checkForSatisfiedDesires()
 float SchedulerOffline::computePlanProgressStatus()
 {   
     // not exeuting any plan or last update not related to currently triggered plan
-    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getPlanTarget().getName())
+    if(noPlanExecuting() || current_plan_exec_info_.target.name != current_plan_.getFinalTarget().getName())
         return 0.0f;
 
     float progress_sum = 0.0f;

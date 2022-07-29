@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(plansys2_msgs REQUIRED)
 find_package(plansys2_planner REQUIRED)
 find_package(plansys2_problem_expert REQUIRED)
+find_package(plansys2_domain_expert REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 
 include_directories(include)
@@ -33,7 +34,7 @@ set(UTILS-SOURCES
 )
 
 add_library(${PROJECT_NAME} SHARED ${UTILS-SOURCES})
-ament_target_dependencies(${PROJECT_NAME} plansys2_msgs plansys2_problem_expert plansys2_planner ros2_bdi_interfaces)
+ament_target_dependencies(${PROJECT_NAME} plansys2_msgs plansys2_problem_expert plansys2_domain_expert plansys2_planner ros2_bdi_interfaces)
 
 install(DIRECTORY include/
   DESTINATION include/
