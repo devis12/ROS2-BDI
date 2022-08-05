@@ -105,6 +105,22 @@ ament_target_dependencies(pf_undocking ${bdi_act_client_dep})
 add_executable(pf_unload_printed_docs src/actions/printing-floor/unload_printed_docs.cpp)
 ament_target_dependencies(pf_unload_printed_docs ${bdi_act_client_dep})
 
+add_executable(gripper_move_bdi src/actions/gripper_bdi/gripper_move.cpp)
+ament_target_dependencies(gripper_move_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_pickup_bdi src/actions/gripper_bdi/gripper_pickup.cpp)
+ament_target_dependencies(gripper_pickup_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_putdown_bdi src/actions/gripper_bdi/gripper_move.cpp)
+ament_target_dependencies(gripper_putdown_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_put_on_carrier_bdi src/actions/gripper_bdi/gripper_put_on_carrier.cpp)
+ament_target_dependencies(gripper_put_on_carrier_bdi ${bdi_act_client_dep})
+
+add_executable(req_carrier_to_come_bdi src/actions/gripper_bdi/req_carrier_to_come.cpp)
+ament_target_dependencies(req_carrier_to_come_bdi ${bdi_act_client_dep})
+
+
 install(TARGETS
   movetoward
   recharge
@@ -125,6 +141,12 @@ install(TARGETS
   pf_recharge
   pf_undocking
   pf_unload_printed_docs
+
+  gripper_move_bdi
+  gripper_pickup_bdi
+  gripper_putdown_bdi
+  gripper_put_on_carrier_bdi
+  req_carrier_to_come_bdi
 
   DESTINATION lib/${PROJECT_NAME}
 )
