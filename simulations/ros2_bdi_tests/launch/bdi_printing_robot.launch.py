@@ -79,7 +79,7 @@ def generate_launch_description():
             'exec_plan_tries': 4,
             'planning_mode':'online',
             'search_interval': 150,
-            'debug_log_active': ['javaff', 'scheduler', 'plan_director']
+            'debug_log_active': ['javaff', 'scheduler']
         },
         actions=[pf_action_move, pf_action_docking, pf_action_printing, pf_action_undocking, pf_action_recharge, pf_action_unload_printed_docs],
         sensors=[],

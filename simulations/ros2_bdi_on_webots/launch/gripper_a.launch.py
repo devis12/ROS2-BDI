@@ -85,6 +85,7 @@ def generate_launch_description():
             'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_bset_gripper_a.yaml'),
             'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_dset_gripper_a.yaml'),
             'init_reactive_rules_set': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_rrules_gripper_a.yaml'),
+            'debug_log_active': ['belief_manager']
         },
         actions=[move_gripper, gripper_pickup, gripper_putdown, gripper_put_on_carrier, 
                 req_carrier_to_come1, 
