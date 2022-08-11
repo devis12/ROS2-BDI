@@ -5,12 +5,12 @@ class GripperPickup : public BDIActionExecutor
 {
     public:
         GripperPickup()
-        : BDIActionExecutor("gripper_pickup", 4)
+        : BDIActionExecutor("gripper_pickup", 3)
         {}
 
         float advanceWork()
         {
-            return 0.0625f;            
+            return 0.112f;            
         }
 
     private:

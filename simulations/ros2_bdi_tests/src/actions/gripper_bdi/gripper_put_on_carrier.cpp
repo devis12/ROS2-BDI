@@ -5,12 +5,12 @@ class GripperPutOnCarrier : public BDIActionExecutor
 {
     public:
         GripperPutOnCarrier()
-        : BDIActionExecutor("gripper_put_on_carrier", 4)
+        : BDIActionExecutor("gripper_put_on_carrier", 3)
         {}
 
         float advanceWork()
         {
-            return 0.0625f;            
+            return 0.112f;            
         }
 
     private:

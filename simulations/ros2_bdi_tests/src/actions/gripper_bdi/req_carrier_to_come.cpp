@@ -5,12 +5,12 @@ class ReqCarrierToCome : public BDIActionExecutor
 {
     public:
         ReqCarrierToCome()
-        : BDIActionExecutor("req_carrier_to_come", 4,false)
+        : BDIActionExecutor("req_carrier_to_come", 3,false)
         {}
 
         float advanceWork()
         {
-            return 0.0625f;            
+            return 0.056f;            
         }
 
     private:

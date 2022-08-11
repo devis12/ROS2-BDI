@@ -1,16 +1,16 @@
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-class GripperPutdown : public BDIActionExecutor
+class ReqCarrierToGo : public BDIActionExecutor
 {
     public:
-        GripperPutdown()
-        : BDIActionExecutor("gripper_putdown", 3)
+        ReqCarrierToGo()
+        : BDIActionExecutor("req_carrier_to_go", 3, false)
         {}
 
         float advanceWork()
         {
-            return 0.112f;            
+            return 0.056f;            
         }
 
     private:
@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
-  auto actionNode = std::make_shared<GripperPutdown>();
+  auto actionNode = std::make_shared<ReqCarrierToGo>();
   rclcpp::spin(actionNode->get_node_base_interface());
 
   rclcpp::shutdown();

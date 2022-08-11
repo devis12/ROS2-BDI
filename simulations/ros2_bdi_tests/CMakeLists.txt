@@ -120,6 +120,12 @@ ament_target_dependencies(gripper_put_on_carrier_bdi ${bdi_act_client_dep})
 add_executable(req_carrier_to_come_bdi src/actions/gripper_bdi/req_carrier_to_come.cpp)
 ament_target_dependencies(req_carrier_to_come_bdi ${bdi_act_client_dep})
 
+add_executable(req_carrier_to_go_bdi src/actions/gripper_bdi/req_carrier_to_go.cpp)
+ament_target_dependencies(req_carrier_to_go_bdi ${bdi_act_client_dep})
+
+add_executable(carrier_unload_bdi src/actions/gripper_bdi/carrier_unload.cpp)
+ament_target_dependencies(carrier_unload_bdi ${bdi_act_client_dep})
+
 
 install(TARGETS
   movetoward
@@ -147,6 +153,8 @@ install(TARGETS
   gripper_putdown_bdi
   gripper_put_on_carrier_bdi
   req_carrier_to_come_bdi
+  req_carrier_to_go_bdi
+  carrier_unload_bdi
 
   DESTINATION lib/${PROJECT_NAME}
 )

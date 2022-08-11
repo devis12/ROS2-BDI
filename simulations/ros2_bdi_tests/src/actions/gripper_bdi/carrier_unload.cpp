@@ -1,11 +1,11 @@
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-class GripperPutdown : public BDIActionExecutor
+class CarrierUnload : public BDIActionExecutor
 {
     public:
-        GripperPutdown()
-        : BDIActionExecutor("gripper_putdown", 3)
+        CarrierUnload()
+        : BDIActionExecutor("carrier_unload", 3, false)
         {}
 
         float advanceWork()
@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
-  auto actionNode = std::make_shared<GripperPutdown>();
+  auto actionNode = std::make_shared<CarrierUnload>();
   rclcpp::spin(actionNode->get_node_base_interface());
 
   rclcpp::shutdown();
