@@ -9,6 +9,11 @@
 #include <tuple>
 #include <map>
 
+#include "plansys2_problem_expert/ProblemExpertClient.hpp"
+#include "plansys2_executor/ExecutorClient.hpp"
+#include "plansys2_executor/ActionExecutorClient.hpp"
+
+
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -27,8 +32,7 @@
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
 #include "ros2_bdi_core/params/core_common_params.hpp"
 
-#include "plansys2_executor/ActionExecutorClient.hpp"
-
+#include "javaff_interfaces/msg/action_execution_status.hpp"
 #include "javaff_interfaces/msg/execution_status.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -74,6 +78,9 @@ protected:
     std::vector<std::string> getArguments() {return get_arguments();}
     /*returns current progress state of the action*/
     float getProgress() {return progress_;} 
+
+    /* Communicate execution status*/
+    void communicateExecStatus(const uint8_t& status);
 
     /*returns full action name*/
     std::string getFullActionName(const bool& withParenthesis=true)
@@ -129,6 +136,8 @@ protected:
     // method to be called when the execution successfully comes to completion (specific success msg added)
     void execSuccess(const std::string& success_log)
     {
+      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().SUCCESS);
+
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Action execution success: " + success_log);
       finish(true, 1.0, action_name_ + " successful execution" + ((success_log == "")? ": action performed" : ": " + success_log));
@@ -187,6 +196,9 @@ private:
 
     // Publish updated exec action status to online planner
     rclcpp_lifecycle::LifecyclePublisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
+
+    // problem expert instance to call the problem expert api
+    std::shared_ptr<plansys2::ProblemExpertClient> problem_expert_;
 };
 
 #endif  // BDI_ACTION_EXECUTOR_H_

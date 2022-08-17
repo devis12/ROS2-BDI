@@ -89,7 +89,7 @@ def generate_launch_description():
         init_params={
             'pddl_file': bdi_tests_share_dir + '/pddl/gripper/gripper-domain_no_fluent_in_german.pddl',
             'init_bset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_bset_no_fluent_in_german.yaml',
-            'init_dset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_dset.yaml',
+            'init_dset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_dset_no_fluent_in_german.yaml',
             'belief_ck': [],   
             'belief_w':  [],   
             'desire_ck': [],   

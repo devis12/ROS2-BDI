@@ -20,6 +20,9 @@ using std::placeholders::_1;
 using std::mutex;
 using std::optional;
 
+using plansys2::ProblemExpertClient;
+using plansys2::ExecutorClient;
+
 using ros2_bdi_interfaces::msg::Belief;            
 using ros2_bdi_interfaces::msg::BeliefSet;            
 using ros2_bdi_interfaces::msg::Desire;  
@@ -28,6 +31,7 @@ using ros2_bdi_interfaces::srv::UpdBeliefSet;
 using ros2_bdi_interfaces::srv::CheckDesire;  
 using ros2_bdi_interfaces::srv::UpdDesireSet;  
 
+using javaff_interfaces::msg::ActionExecutionStatus;
 using javaff_interfaces::msg::ExecutionStatus;
 
 using BDIManaged::ManagedBelief;
@@ -88,20 +92,35 @@ BDIActionExecutor::BDIActionExecutor(const string action_name, const int working
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   BDIActionExecutor::on_activate(const rclcpp_lifecycle::State & previous_state)
   {
+    //problem expert client to communicate with problem expert node of plansys2
+    problem_expert_ = std::make_shared<ProblemExpertClient>();
+
     progress_ = 0.0f;
     if(this->get_parameter(PARAM_DEBUG).as_bool())
       RCLCPP_INFO(this->get_logger(), "Action executor controller for \"" + action_name_ + "\" ready for execution");
     
     exec_status_to_planner_publisher_->on_activate();
     
+    communicateExecStatus(ActionExecutionStatus().RUNNING);
+    
+    return ActionExecutorClient::on_activate(previous_state);
+  }
+
+  void BDIActionExecutor::communicateExecStatus(const uint8_t& status)
+  {
     //notify javaff about executing status (action is about to start)
     ExecutionStatus exec_status_msg = ExecutionStatus();
     exec_status_msg.executing_plan_index = get_executing_plan_index();
-    exec_status_msg.executing_action = getFullActionName(true); //name+args separated by spaces enclosed by parenthesis (saluti da A.Z.)
-    exec_status_msg.planned_start_time = get_planned_start_time();
+    exec_status_msg.pddl_problem = problem_expert_->getProblem();
+
+    //Put just info wrt this action execution and not others (NOT needed)
+    ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
+    action_exec_status_msg.executing_action = getFullActionName(true); //name+args separated by spaces enclosed by parenthesis (saluti da A.Z.)
+    action_exec_status_msg.planned_start_time = get_planned_start_time();
+    action_exec_status_msg.status = status;
+    exec_status_msg.executing_actions.push_back(action_exec_status_msg);
+
     exec_status_to_planner_publisher_->publish(exec_status_msg);
-    
-    return ActionExecutorClient::on_activate(previous_state);
   }
 
 /*
@@ -111,6 +130,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
     BDIActionExecutor::on_deactivate(const rclcpp_lifecycle::State & previous_state) 
   {
+    if(problem_expert_.use_count() > 0)
+      problem_expert_.reset();
+    
     monitored_bsets_.clear();
     for(auto monitor_desire : monitored_desires_)
       std::get<2>(monitor_desire).reset();//should allow to cancel subscription to topic (https://answers.ros.org/question/354792/rclcpp-how-to-unsubscribe-from-a-topic/)

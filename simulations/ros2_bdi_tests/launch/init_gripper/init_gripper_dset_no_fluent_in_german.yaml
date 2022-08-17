@@ -16,3 +16,4 @@
       pddl_type: 2
       params:
         - "box_c2"
+        - "deposit_c"
