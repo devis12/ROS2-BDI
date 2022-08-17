@@ -95,13 +95,18 @@ private:
                 return i;
         return -1;
     }
-
+    
+    /*
+        Increment counter for failed computation of plans that aimed at fulfilling desire x
+        DelDesire (and group) in case threshold is reached
+    */
+    void planCompFailureHandler(const BDIManaged::ManagedDesire& md, const bool handleDelete = true);
 
     /*
         Increment counter for aborted plans that aimed at fulfilling desire x
         DelDesire (and group) in case threshold is reached
     */
-    void abortedPlanHandler();
+    void abortedPlanHandler(const bool handleDelete = true);
 
     /*
         Specific behaviour of scheduler after desire successful addition, based on its selected mode    

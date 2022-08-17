@@ -119,19 +119,35 @@ void SchedulerOnline::reschedule()
     
     BDIManaged::ManagedDesire selDesire;
 
+    vector<ManagedDesire> discarded_desires;
+
     mtx_iter_dset_.lock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
 
     for(ManagedDesire md : desire_set_)
     {   
         // FIRST BASIC RESCHEDULING selects highest priority desire which passes acceptance check, precondition check && has the highest priority atm
-        if(Scheduler::desireAcceptanceCheck(md) == ACCEPTED && 
+        TargetBeliefAcceptance validDesire = Scheduler::desireAcceptanceCheck(md);
+        if(validDesire == ACCEPTED && 
             md.getPrecondition().isSatisfied(belief_set_) && 
             md.getPriority() > selDesire.getPriority())
             selDesire = md;
+        
+        else if(validDesire == UNKNOWN_INSTANCES)
+        {
+            planCompFailureHandler(md, false);//might still be valid in the future
+            if(computed_plan_desire_map_[md.getName()] == this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int())
+                discarded_desires.push_back(md);
+        }
+        else if (validDesire == SYNTAX_ERROR || validDesire == UNKNOWN_PREDICATE)
+            discarded_desires.push_back(md);//bound to be invalid desires
     }
 
     mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
     
+    //removed discarded desires
+    for(ManagedDesire md : discarded_desires)
+        delDesire(md);
+
     // I'm already searching for this
     if(searching_ && selDesire == fulfilling_desire_)
         return;
@@ -145,6 +161,42 @@ void SchedulerOnline::reschedule()
         RCLCPP_INFO(this->get_logger(), "Search started for the fullfillment of Alex's desire to " + selDesire.getName());
         fulfilling_desire_ = selDesire; 
     }
+}
+
+void SchedulerOnline::abortedPlanHandler(const bool handleDelete)
+{
+    string targetDesireName = fulfilling_desire_.getName();
+    //current plan execution has been aborted
+    int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
+    aborted_plan_desire_map_[targetDesireName]++;
+    
+    RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
+        "\" has been aborted for the %d time (max attempts: %d)", 
+            aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
+    
+    if(handleDelete && aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
+    {
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
+        delDesire(fulfilling_desire_, true);
+    }
+}
+
+/*
+    Increment counter for failed computation of plans that aimed at fulfilling desire x
+    DelDesire (and group) in case threshold is reached
+*/
+void SchedulerOnline::planCompFailureHandler(const BDIManaged::ManagedDesire& md, const bool handleDelete)
+{
+    int invCounter = ++computed_plan_desire_map_[md.getName()]; //increment invalid counter for this desire
+    int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
+    string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+        RCLCPP_INFO(this->get_logger(), "Desire \"" + md.getName() + "\" (or its preconditions): plan search failed; " +
+        desireOperation + " (invalid counter = %d/%d).", invCounter, maxTries);
+
+    if(handleDelete && invCounter >= maxTries)//desire needs to be discarded, because a plan has tried to be unsuccessfully computed for it too many times
+        delDesire(md, true);
 }
 
 /*
@@ -255,25 +307,6 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
     }
 }
 
-void SchedulerOnline::abortedPlanHandler()
-{
-    string targetDesireName = fulfilling_desire_.getName();
-    //current plan execution has been aborted
-    int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
-    aborted_plan_desire_map_[targetDesireName]++;
-    
-    RCLCPP_INFO(this->get_logger(), "Plan execution for fulfilling desire \"" + targetDesireName + 
-        "\" has been aborted for the %d time (max attempts: %d)", 
-            aborted_plan_desire_map_[targetDesireName], maxPlanExecAttempts);
-    
-    if(aborted_plan_desire_map_[targetDesireName] >= maxPlanExecAttempts)
-    {
-        if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
-        delDesire(fulfilling_desire_, true);
-    }
-}
-
 /*
     Received update on current plan search
 */
@@ -286,17 +319,8 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
 
         if(msg->status == msg->FAILED)
         {
-            //search has failed!! FORCED a reschedule
-            int invCounter = ++computed_plan_desire_map_[fulfilling_desire_.getName()]; //increment invalid counter for this desire
-            int maxTries = this->get_parameter(PARAM_MAX_TRIES_COMP_PLAN).as_int();
-            string desireOperation = (invCounter < maxTries)? "desire will be rescheduled later" : "desire will be deleted from desire set";
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Desire \"" + fulfilling_desire_.getName() + "\" (or its preconditions): plan search failed; " +
-                desireOperation + " (invalid counter = %d/%d).", invCounter, maxTries);
-        
-            if(invCounter >= maxTries)//desire needs to be discarded, because a plan has tried to be unsuccessfully computed for it too many times
-                delDesire(fulfilling_desire_, true);
-            
+            //search has failed!! increment counter, del desire if threshold reached and FORCE a reschedule
+            planCompFailureHandler(fulfilling_desire_, true);
             forcedReschedule();
             return;
         }
