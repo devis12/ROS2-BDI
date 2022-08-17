@@ -199,6 +199,9 @@ private:
 
     // problem expert instance to call the problem expert api
     std::shared_ptr<plansys2::ProblemExpertClient> problem_expert_;
+
+    // executor client instance to call the executor client api
+    std::shared_ptr<plansys2::ExecutorClient> executor_client_;
 };
 
 #endif  // BDI_ACTION_EXECUTOR_H_

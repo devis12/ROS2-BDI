@@ -95,6 +95,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     //problem expert client to communicate with problem expert node of plansys2
     problem_expert_ = std::make_shared<ProblemExpertClient>();
 
+    //executor client to communicate with executor node of plansys2
+    executor_client_ = std::make_shared<ExecutorClient>();
+
     progress_ = 0.0f;
     if(this->get_parameter(PARAM_DEBUG).as_bool())
       RCLCPP_INFO(this->get_logger(), "Action executor controller for \"" + action_name_ + "\" ready for execution");
@@ -114,12 +117,42 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     exec_status_msg.pddl_problem = problem_expert_->getProblem();
 
     //Put just info wrt this action execution and not others (NOT needed)
-    ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
-    action_exec_status_msg.executing_action = getFullActionName(true); //name+args separated by spaces enclosed by parenthesis (saluti da A.Z.)
-    action_exec_status_msg.planned_start_time = get_planned_start_time();
-    action_exec_status_msg.status = status;
-    exec_status_msg.executing_actions.push_back(action_exec_status_msg);
-
+    plansys2_msgs::action::ExecutePlan::Feedback actionsFeedback = executor_client_->getFeedBack(true);
+    for(auto actionExecInfo: actionsFeedback.action_execution_status){
+      ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
+      std::size_t par1Pos = actionExecInfo.action_full_name.find("(");
+      std::size_t par2Pos = actionExecInfo.action_full_name.find(")");
+      std::size_t colPos = actionExecInfo.action_full_name.find(":");
+      std::string actionFullNameNoTime = actionExecInfo.action_full_name.substr(par1Pos, (par2Pos+1)-par1Pos);
+      action_exec_status_msg.executing_action = actionFullNameNoTime;
+      action_exec_status_msg.planned_start_time = std::stof(actionExecInfo.action_full_name.substr(colPos+1))/1000.0f;
+      if(actionFullNameNoTime==getFullActionName(true))
+        action_exec_status_msg.status = status;
+      else
+      {
+        switch(actionExecInfo.status)
+        {
+          case actionExecInfo.NOT_EXECUTED:
+            action_exec_status_msg.status = actionExecInfo.at_start_applied? action_exec_status_msg.RUNNING : action_exec_status_msg.WAITING;
+            break;
+          case actionExecInfo.EXECUTING:
+            action_exec_status_msg.status = action_exec_status_msg.RUNNING;
+            break;
+          case actionExecInfo.FAILED:
+          case actionExecInfo.CANCELLED:
+            action_exec_status_msg.status = action_exec_status_msg.FAILURE;
+            break;
+          case actionExecInfo.SUCCEEDED:
+            action_exec_status_msg.status = action_exec_status_msg.SUCCESS;
+            break;
+          default:
+            action_exec_status_msg.status = action_exec_status_msg.FAILURE;
+            break;
+        }
+      }
+      exec_status_msg.executing_actions.push_back(action_exec_status_msg);
+    }
+    
     exec_status_to_planner_publisher_->publish(exec_status_msg);
   }
 
@@ -132,6 +165,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   {
     if(problem_expert_.use_count() > 0)
       problem_expert_.reset();
+
+    if(executor_client_.use_count() > 0)
+      executor_client_.reset();
     
     monitored_bsets_.clear();
     for(auto monitor_desire : monitored_desires_)

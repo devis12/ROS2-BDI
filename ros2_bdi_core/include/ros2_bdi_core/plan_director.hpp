@@ -165,7 +165,7 @@ private:
     /*
     Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
     */
-    std::string getPlanExecutionStatus();
+    int16_t getPlanExecutionStatus();
 
 
     /*

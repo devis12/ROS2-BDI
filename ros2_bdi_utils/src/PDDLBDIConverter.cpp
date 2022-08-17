@@ -183,10 +183,10 @@ namespace PDDLBDIConverter
   /*
     Get from plansys2 action feedback BDIActionExecutionInfo status
   */
-  std::string getBDIActionExecutionStatus(const ActionExecutionInfo& psys2_action_feed)
+  int16_t getBDIActionExecutionStatus(const ActionExecutionInfo& psys2_action_feed)
   {
     BDIActionExecutionInfo bdi_ai = BDIActionExecutionInfo();
-    std::string res = bdi_ai.UNKNOWN;
+    int16_t res = bdi_ai.UNKNOWN;
     //switch(psys2_action_feed.status)
     //{
       if(psys2_action_feed.status == psys2_action_feed.CANCELLED) 

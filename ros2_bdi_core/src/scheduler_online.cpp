@@ -63,7 +63,7 @@ void SchedulerOnline::init()
 
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
         JAVAFF_SEARCH_TOPIC, 10,
-            bind(&SchedulerOnline::updatedIncrementalPlan, this, _1));
+            bind(&SchedulerOnline::updatedSearchResult, this, _1));
     
     // open connection to plan library and init. tables, if not already present
     planlib_conn_ok_ = planlib_db_.initPlanLibrary();
@@ -310,7 +310,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 /*
     Received update on current plan search
 */
-void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
+void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
 {
     if(searching_)
     {
@@ -332,69 +332,98 @@ void SchedulerOnline::updatedIncrementalPlan(const SearchResult::SharedPtr msg)
                 if(abortCurrentPlanExecution())//if aborted is correctly performed, clean away the current waiting list as well, exploiting new msg to build the new one, for new instantiated search
                     waiting_plans_ = vector<ManagedPlan>();
             }
-            
-            int i = 0;
-            // store incremental partial plans 
-            // as soon as you have the first, trigger plan execution
-            int highestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : executing_pplan_index_;
-            while(i<msg->plans.size() && msg->plans[i].plan.plan_index <= highestPPlanId){i++;}//go over all the search result till you reach the new ones
-            //TODO check for plan exec and waiting queue inconsistencies, if detected, take action
 
-            if(noPlanExecuting() && msg->plans[i].plan.items.size() > 0)
-            {  
-                // make union of high level desire precondition and subplan precondition
-                ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
-                allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
-                ManagedPlan firstPPlanToExec = ManagedPlan{
-                    msg->plans[i].plan.plan_index, 
-                    fulfilling_desire_, 
-                    ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
-                    ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
-                storePlan(firstPPlanToExec);
-                //launch plan execution
-                if(firstPPlanToExec.getActionsExecInfo().size() > 0)
-                {   
-                    bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
-                    if(triggered)
-                        std::cout << "Executing plan with index " << msg->plans[i].plan.plan_index << std::flush << std::endl;//TODO remove these logs
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    {
-                        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-                        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
-                    }
-
-                    if(!triggered)// just reschedule from scratch
-                    {
-                       abortedPlanHandler();
-                       forcedReschedule();
-                       return;
-                    }
-                    else
-                        executing_pplan_index_ = firstPPlanToExec.getPlanQueueIndex();
-                }
-            
-            }else if(msg->plans[i].plan.items.size() > 0){
-                for(; i<msg->plans.size(); i++)//avoid considering first pplan which is demanded for execution in the if branch above
-                {
-                    highestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : executing_pplan_index_;
-                    //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
-                    if(msg->plans[i].plan.plan_index > highestPPlanId)//should be enqueued
-                    {
-                        ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
-                        storeEnqueuePlan(computedMPP);
-                        //TODO remove these logs
-                        std::cout << "Enqueued plan with index " << msg->plans[i].plan.plan_index << std::flush << std::endl;
-                        std::cout << "Current waiting queue status: ";
-                        for(int i=0; i<waiting_plans_.size(); i++)
-                            std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
-                        std::cout << std::flush << std::endl;
-                    }
-                }
-                
+            if(msg->search_baseline.executing_plan_index < 0 && msg->search_baseline.executing_actions.empty())
+            {
+                // received incremental plans obtained through "search from scratch" or search with same search base line as last enqueued plan
+                processIncrementalSearchResult(msg);
             }
+            else
+            {
+                // received sub plan with a different search baseline wrt previous notification
+                processSearchResultWithNewBaseline(msg);
+            }
+            
         }
     }   
 }
+
+/*
+    Regular process of updated search result with same search baseline as previous msgs or "original" status, when search was launched from scratch
+*/
+void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::msg::SearchResult::SharedPtr msg)
+{
+    int i = 0;
+    // store incremental partial plans 
+    // as soon as you have the first, trigger plan execution
+    int highestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : executing_pplan_index_;
+    while(i<msg->plans.size() && msg->plans[i].plan.plan_index <= highestPPlanId){i++;}//go over all the search result till you reach the new ones
+    //TODO check for plan exec and waiting queue inconsistencies, if detected, take action
+
+    if(noPlanExecuting() && msg->plans[i].plan.items.size() > 0)
+    {  
+        // make union of high level desire precondition and subplan precondition
+        ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
+        allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
+        ManagedPlan firstPPlanToExec = ManagedPlan{
+            msg->plans[i].plan.plan_index, 
+            fulfilling_desire_, 
+            ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
+            ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+        storePlan(firstPPlanToExec);
+        //launch plan execution
+        if(firstPPlanToExec.getActionsExecInfo().size() > 0)
+        {   
+            bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
+            if(triggered)
+                std::cout << "Executing plan with index " << msg->plans[i].plan.plan_index << std::flush << std::endl;//TODO remove these logs
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+            {
+                if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
+                else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+            }
+
+            if(!triggered)// just reschedule from scratch
+            {
+                abortedPlanHandler();
+                forcedReschedule();
+                return;
+            }
+            else
+                executing_pplan_index_ = firstPPlanToExec.getPlanQueueIndex();
+        }
+    
+    }else if(msg->plans[i].plan.items.size() > 0){
+        for(; i<msg->plans.size(); i++)//avoid considering first pplan which is demanded for execution in the if branch above
+        {
+            highestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : executing_pplan_index_;
+            //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
+            if(msg->plans[i].plan.plan_index > highestPPlanId)//should be enqueued
+            {
+                ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                storeEnqueuePlan(computedMPP);
+                //TODO remove these logs
+                std::cout << "Enqueued plan with index " << msg->plans[i].plan.plan_index << std::flush << std::endl;
+                std::cout << "Current waiting queue status: ";
+                for(int i=0; i<waiting_plans_.size(); i++)
+                    std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
+                std::cout << std::flush << std::endl;
+            }
+        }
+        
+    }
+}
+
+/*
+    Process updated search result presenting a new search baseline compared to previous msgs of the same type
+*/
+void SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces::msg::SearchResult::SharedPtr msg)
+{
+    // TODO implement this 
+    //      check if still feasible wrt. search_baseline and request early abort.
+    //      If early abort success -> replace waiting_plan with new search result
+}
+
 
 /*
     Launch a new plan search

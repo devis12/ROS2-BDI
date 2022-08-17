@@ -148,7 +148,17 @@ private:
     /*
         Received update on current plan search
     */
-    void updatedIncrementalPlan(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
+    void updatedSearchResult(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
+
+    /*
+        Regular process of updated search result with same search baseline as previous msgs or "original" status, when search was launched from scratch
+    */
+    void processIncrementalSearchResult(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
+
+    /*
+        Process updated search result presenting a new search baseline compared to previous msgs of the same type
+    */
+    void processSearchResultWithNewBaseline(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
 
     /*
         Call JavaFF for triggering the search for a plan fulfilling @selDesire

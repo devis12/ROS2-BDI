@@ -630,9 +630,9 @@ BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::Ex
 /*
     Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
 */
-string PlanDirector::getPlanExecutionStatus()
+int16_t PlanDirector::getPlanExecutionStatus()
 {
-    string result = BDIPlanExecutionInfo().RUNNING;
+    int16_t result = BDIPlanExecutionInfo().RUNNING;
     if (!executor_client_->execute_and_check_plan() && executor_client_->getResult()) //plan stopped
     {      
         if(executor_client_->getResult().value().success)//successful  run

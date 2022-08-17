@@ -10,14 +10,14 @@
 # @estimated_deadline   -> run time estimated deadline in seconds
 # @status               -> plan status
 
-string RUNNING="0"
-string ABORT="1"
-string SUCCESSFUL="2"
-string WAITING="3"
+int16 RUNNING=0
+int16 ABORT=1
+int16 SUCCESSFUL=2
+int16 WAITING=3
 
 Desire target
 BDIActionExecutionInfo[] actions_exec_info
 float32     current_time
 float32     planned_deadline
 float32     estimated_deadline
-string      status
+int16      status

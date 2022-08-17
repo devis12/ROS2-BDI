@@ -12,11 +12,11 @@
 # @progress                 -> progress status percentage in [0.0-1.0] of the current action execution 
 # @status                   -> action exec. status code
 
-string RUNNING="0"
-string FAILED="1"
-string SUCCESSFUL="2"
-string WAITING="3"
-string UNKNOWN="4"
+int16 RUNNING=0
+int16 FAILED=1
+int16 SUCCESSFUL=2
+int16 WAITING=3
+int16 UNKNOWN=4
 
 int16      index
 int16[]    wait_action_indexes
@@ -27,4 +27,4 @@ float32     actual_start
 float32     exec_time
 float32     duration
 float32     progress
-string      status
+int16      status
