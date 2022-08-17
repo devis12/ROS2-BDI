@@ -7,12 +7,13 @@
       params:
         - "gripper_a"
         - "start"
-    - name: "box_stored"
+    - name: "carrier_moving"
       pddl_type: 2
       params:
+        - "carrier_a"
         - "box_a2"
-        - "deposit_a"
-    - name: "box_stored"
+    - name: "carrier_moving"
       pddl_type: 2
       params:
+        - "carrier_c"
         - "box_c2"
