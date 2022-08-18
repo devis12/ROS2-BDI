@@ -126,8 +126,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
       std::string actionFullNameNoTime = actionExecInfo.action_full_name.substr(par1Pos, (par2Pos+1)-par1Pos);
       action_exec_status_msg.executing_action = actionFullNameNoTime;
       action_exec_status_msg.planned_start_time = std::stof(actionExecInfo.action_full_name.substr(colPos+1))/1000.0f;
+      
       if(actionFullNameNoTime==getFullActionName(true))
+      {
         action_exec_status_msg.status = status;
+        if(status == action_exec_status_msg.SUCCESS)// check whether at end effects already applied in this case(they shouldn't, hence mark it as hybrid state RUN_SUC)
+          action_exec_status_msg.status = actionExecInfo.at_end_applied? status : action_exec_status_msg.RUN_SUC;
+      }
       else
       {
         switch(actionExecInfo.status)
@@ -143,13 +148,14 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             action_exec_status_msg.status = action_exec_status_msg.FAILURE;
             break;
           case actionExecInfo.SUCCEEDED:
-            action_exec_status_msg.status = action_exec_status_msg.SUCCESS;
+            action_exec_status_msg.status = actionExecInfo.at_end_applied? action_exec_status_msg.SUCCESS : action_exec_status_msg.RUN_SUC;
             break;
           default:
             action_exec_status_msg.status = action_exec_status_msg.FAILURE;
             break;
         }
       }
+      
       exec_status_msg.executing_actions.push_back(action_exec_status_msg);
     }
     

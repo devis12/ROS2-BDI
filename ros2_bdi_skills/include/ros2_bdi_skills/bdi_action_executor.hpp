@@ -152,6 +152,7 @@ protected:
     //method to be called when the execution fail (specific error to be given)
     void execFailed(const std::string& err_log)
     {
+      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().FAILURE);
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + err_log);
       finish(false, progress_, action_name_ + " failed execution" + ((err_log == "")? ": generic error" : ": " + err_log));
