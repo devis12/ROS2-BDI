@@ -28,11 +28,11 @@ def generate_launch_description():
     )
     
     # perform gripper putdown action
-    gripper_putdown = AgentAction(
-        package='ros2_bdi_tests',
-        executable='gripper_putdown_bdi',
-        name='gripper_putdown'
-    )
+    # gripper_putdown = AgentAction(
+    #     package='ros2_bdi_tests',
+    #     executable='gripper_putdown_bdi',
+    #     name='gripper_putdown'
+    # )
 
     # perform gripper_put_on_carrier action
     gripper_put_on_carrier = AgentAction(
@@ -104,7 +104,7 @@ def generate_launch_description():
         },
         actions=[
             gripper_move, gripper_pickup, 
-            gripper_putdown, gripper_put_on_carrier, 
+            gripper_put_on_carrier, 
             req_carrier_to_come1, req_carrier_to_come2,
             req_carrier_to_go1, req_carrier_to_go2,
             carrier_unload1, carrier_unload2,
