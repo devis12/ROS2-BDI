@@ -13,7 +13,7 @@ rosidl_generate_interfaces( ${PROJECT_NAME}
   "msg/Belief.msg"
   "msg/BeliefSet.msg"
   "msg/Desire.msg"
-  "msg/DesireBoost.msg"
+ # "msg/DesireBoost.msg"
   "msg/DesireSet.msg"
   "msg/Condition.msg"
   "msg/ConditionsConjunction.msg"

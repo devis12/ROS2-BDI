@@ -49,6 +49,7 @@ using ros2_bdi_interfaces::msg::Desire;
 using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIPlan;
 
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
@@ -341,7 +342,7 @@ void PlanDirector::resetWorkTimer(const int& ms)
 bool PlanDirector::validPlanRequest(const BDIPlanExecution::Request::SharedPtr request)
 {
     auto req = request->request;
-    if(req != request->ABORT && req != request->EXECUTE)//invalid request
+    if(req != request->ABORT && req != request->EXECUTE && req != request->EARLY_ABORT)//invalid request
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Plan request operation = %d not valid", request->request);
@@ -444,7 +445,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     }
     else if(request->request == request->EARLY_ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
     {
-        
+        done = executor_client_->early_arrest_request(request->plan.psys2_plan);
     }
     else if(request->request == request->EXECUTE && state_ == READY)//no plan currently in exec
     {

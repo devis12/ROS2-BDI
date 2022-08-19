@@ -9,6 +9,8 @@
 #include "ros2_bdi_utils/BDIPDDLConverter.hpp"
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
+#include "ros2_bdi_interfaces/msg/bdi_plan.hpp"
+
 using std::string;
 using std::vector;
 using std::set;
@@ -30,6 +32,7 @@ using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIPlan;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 using javaff_interfaces::msg::SearchResult;
@@ -59,9 +62,6 @@ void SchedulerOnline::init()
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
-    // initializing executor client for psys2
-    executor_client_ = std::make_shared<plansys2::ExecutorClient>();
-    
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
@@ -444,7 +444,12 @@ void SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
     }
     std::cout << log  << std::flush << std::endl;
 
-    bool early_abort_request_success = executor_client_->early_arrest_request(psys2_current_plan);
+    BDIPlan early_abort_bdiplan = BDIPlan{};
+    early_abort_bdiplan.target = current_plan_.getPlanTarget().toDesire();
+    early_abort_bdiplan.precondition = current_plan_.getPrecondition().toConditionsDNF();
+    early_abort_bdiplan.psys2_plan = psys2_current_plan;
+    early_abort_bdiplan.context = current_plan_.getContext().toConditionsDNF();
+    bool early_abort_request_success = plan_exec_srv_client_->earlyArrestRequest(early_abort_bdiplan);
 
     std::cout << "early_arrest_request=" << early_abort_request_success << std::flush << std::endl;
     if(early_abort_request_success)

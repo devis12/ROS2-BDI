@@ -21,6 +21,9 @@ class TriggerPlanClient
         /* Return true if operation is successful */
         bool abortPlanExecution(const ros2_bdi_interfaces::msg::BDIPlan& bdiPlan);
 
+        /* Return true if operation is successful */
+        bool earlyArrestRequest(const ros2_bdi_interfaces::msg::BDIPlan& bdiPlan);
+
     private:
 
         /* 

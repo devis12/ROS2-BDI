@@ -117,7 +117,7 @@ Plan ManagedPlan::toPsys2Plan() const
         pi.time = bdi_ai.planned_start;
         pi.duration = bdi_ai.duration;
         pi.action = ManagedPlan::computeActionFullName(bdi_ai);
-
+        pi.committed = true;
         p.items.push_back(pi);
     }
     return p;

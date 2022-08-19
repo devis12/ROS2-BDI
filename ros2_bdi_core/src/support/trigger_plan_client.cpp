@@ -35,6 +35,14 @@ bool TriggerPlanClient::abortPlanExecution(const BDIPlan& bdiPlan)
     return makePlanExecutionRequest(req);
 }
 
+/* Return true if operation is successful */
+bool TriggerPlanClient::earlyArrestRequest(const BDIPlan& bdiPlan)
+{
+    auto req = std::make_shared<BDIPlanExecution::Request>();
+    req->plan = bdiPlan;
+    req->request = req->EARLY_ABORT;
+    return makePlanExecutionRequest(req);
+}
 /* 
     Manage the request call toward the plan_execution service, so that the public functions
     for triggering/aborting plan execution are just wrappers for it avoiding code duplication
