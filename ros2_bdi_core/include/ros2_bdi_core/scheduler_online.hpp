@@ -7,6 +7,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+#include "plansys2_executor/ExecutorClient.hpp"
+
 
 class SchedulerOnline : public Scheduler
 {
@@ -186,4 +188,7 @@ private:
 
     // Index of executing partial plan in the queue of executions for current global target in fulfillment 
     int executing_pplan_index_;
+
+    // instance to ExecutorClient for early abort request management
+    std::shared_ptr<plansys2::ExecutorClient> executor_client_;
 };

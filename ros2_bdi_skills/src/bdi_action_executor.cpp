@@ -115,9 +115,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     ExecutionStatus exec_status_msg = ExecutionStatus();
     exec_status_msg.executing_plan_index = get_executing_plan_index();
     exec_status_msg.pddl_problem = problem_expert_->getProblem();
-
+    
     //Put just info wrt this action execution and not others (NOT needed)
     plansys2_msgs::action::ExecutePlan::Feedback actionsFeedback = executor_client_->getFeedBack(true);
+    exec_status_msg.early_abort_accepted = actionsFeedback.early_abort_accepted;
+    
     for(auto actionExecInfo: actionsFeedback.action_execution_status){
       ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
       std::size_t par1Pos = actionExecInfo.action_full_name.find("(");

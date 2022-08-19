@@ -442,6 +442,10 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
             done = executingNoPlan();
         }
     }
+    else if(request->request == request->EARLY_ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
+    {
+        
+    }
     else if(request->request == request->EXECUTE && state_ == READY)//no plan currently in exec
     {
         ManagedPlan requestedPlan = ManagedPlan{request->plan.psys2_plan.plan_index, mdPlan, request->plan.psys2_plan.items, mdPlanPrecondition, mdPlanContext};

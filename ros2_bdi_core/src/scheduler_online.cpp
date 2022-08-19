@@ -59,6 +59,9 @@ void SchedulerOnline::init()
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
+    // initializing executor client for psys2
+    executor_client_ = std::make_shared<plansys2::ExecutorClient>();
+    
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
@@ -86,6 +89,13 @@ void SchedulerOnline::storeEnqueuePlan(BDIManaged::ManagedPlan&mp)
             planlib_db_.markSuccessors(waitingPlansBack().value(), mp);
     }
     enqueuePlan(mp);
+
+    //TODO remove these logs
+    std::cout << "Enqueued plan with index " << mp.getPlanQueueIndex() << std::flush << std::endl;
+    std::cout << "Current waiting queue status: ";
+    for(int i=0; i<waiting_plans_.size(); i++)
+        std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
+    std::cout << std::flush << std::endl;
 }
 
 /*
@@ -312,6 +322,9 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 */
 void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
 {
+    if(msg->search_baseline.executing_plan_index >= 0 && !msg->search_baseline.committed_actions.empty())//TODO change check
+        searching_ = true;
+
     if(searching_)
     {
         if(msg->status != msg->SEARCHING)
@@ -333,7 +346,7 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
                     waiting_plans_ = vector<ManagedPlan>();
             }
 
-            if(msg->search_baseline.executing_plan_index < 0 && msg->search_baseline.executing_actions.empty())
+            if(msg->search_baseline.executing_plan_index < 0 && msg->search_baseline.committed_actions.empty())//TODO change check
             {
                 // received incremental plans obtained through "search from scratch" or search with same search base line as last enqueued plan
                 processIncrementalSearchResult(msg);
@@ -402,12 +415,6 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
             {
                 ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
                 storeEnqueuePlan(computedMPP);
-                //TODO remove these logs
-                std::cout << "Enqueued plan with index " << msg->plans[i].plan.plan_index << std::flush << std::endl;
-                std::cout << "Current waiting queue status: ";
-                for(int i=0; i<waiting_plans_.size(); i++)
-                    std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
-                std::cout << std::flush << std::endl;
             }
         }
         
@@ -422,6 +429,40 @@ void SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
     // TODO implement this 
     //      check if still feasible wrt. search_baseline and request early abort.
     //      If early abort success -> replace waiting_plan with new search result
+    
+    Plan psys2_current_plan = current_plan_.toPsys2Plan();
+    if(psys2_current_plan.items.size() != msg->search_baseline.committed_actions.size())
+        return; // plans do not match: cannot be handled
+
+    std::string log = "SchedulerOnline::processSearchResultWithNewBaseline\n";
+    log += "pindex: " + std::to_string(msg->search_baseline.executing_plan_index);
+    for(int i=0; i<psys2_current_plan.items.size(); i++)
+    {
+        auto ea = msg->search_baseline.committed_actions[i];
+        psys2_current_plan.items[i].committed = ea.committed;
+        log += "\n- " + psys2_current_plan.items[i].action + ":"+std::to_string(psys2_current_plan.items[i].time)+"\t" + std::to_string(psys2_current_plan.items[i].committed);
+    }
+    std::cout << log  << std::flush << std::endl;
+
+    bool early_abort_request_success = executor_client_->early_arrest_request(psys2_current_plan);
+
+    std::cout << "early_arrest_request=" << early_abort_request_success << std::flush << std::endl;
+    if(early_abort_request_success)
+    {
+        // substitute 
+        waiting_plans_.clear();
+        int i = msg->base_plan_index;
+        if(i < msg->plans.size())
+        {
+            ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, 
+                fulfilling_desire_, 
+                ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
+                ManagedConditionsDNF{msg->plans[i].target.precondition}, 
+                fulfilling_desire_.getContext()};
+           storeEnqueuePlan(computedMPP);
+           //TODO handle new search baseline info, so that I'm ready to accept further plans to be executed after computedMPP
+        }
+    }
 }
 
 

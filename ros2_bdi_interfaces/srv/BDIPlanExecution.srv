@@ -8,6 +8,7 @@
 # @success      -> request successfully fulfilled
 
 int8 ABORT=-1
+int8 EARLY_ABORT=0
 int8 EXECUTE=1
 
 BDIPlan     plan

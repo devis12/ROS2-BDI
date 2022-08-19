@@ -110,6 +110,7 @@ ament_target_dependencies(scheduler_online
   ${common_dependencies} 
   ${pddl_experts}
   plansys2_planner
+  plansys2_executor
   javaff_interfaces
 )
 # link scheduler_offline to ros2_bdi_core library since it makes usage of trigger_plan_client 
