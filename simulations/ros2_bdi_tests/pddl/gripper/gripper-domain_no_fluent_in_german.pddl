@@ -15,7 +15,7 @@
         ( in ?sb1 - box_or_stackbase ?sb2 - box_or_stackbase )
         ( clear ?b - box_or_stackbase )
         ( holding ?g - gripper ?b - box )
-        ( stored ?b - box ?dep - deposit )
+        
 
         (arm_free ?g - gripper)
 

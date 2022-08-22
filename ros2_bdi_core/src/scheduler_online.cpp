@@ -35,6 +35,7 @@ using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlan;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
+using javaff_interfaces::msg::CommittedStatus;
 using javaff_interfaces::msg::SearchResult;
 
 using BDIManaged::ManagedDesire;
@@ -168,6 +169,7 @@ void SchedulerOnline::reschedule()
     if(selDesire.getValue().size() > 0 && launchPlanSearch(selDesire))//a desire has effectively been selected && a search for it has been launched
     {    
         searching_ = true;
+        search_baseline_ = emptySearchBaseline();
         RCLCPP_INFO(this->get_logger(), "Search started for the fullfillment of Alex's desire to " + selDesire.getName());
         fulfilling_desire_ = selDesire; 
     }
@@ -322,8 +324,9 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 */
 void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
 {
-    if(msg->search_baseline.executing_plan_index >= 0 && !msg->search_baseline.committed_actions.empty())//TODO change check
-        searching_ = true;
+    bool matching_baseline = matchingBaseline(msg->search_baseline);
+    if(!matching_baseline)// search baseline is NOT matching with previously received search result
+        searching_ = true;// search has been started directly by javaff, because it detected the need to do it (e.g. non predicted changes which affects current plan execution)
 
     if(searching_)
     {
@@ -346,13 +349,14 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
                     waiting_plans_ = vector<ManagedPlan>();
             }
 
-            if(msg->search_baseline.executing_plan_index < 0 && msg->search_baseline.committed_actions.empty())//TODO change check
+            if(matching_baseline) // search baseline is matching with previously received search result
             {
                 // received incremental plans obtained through "search from scratch" or search with same search base line as last enqueued plan
                 processIncrementalSearchResult(msg);
             }
             else
-            {
+            {   // search baseline is NOT matching with previously received search results
+                search_baseline_ = msg->search_baseline;//update search baseline
                 // received sub plan with a different search baseline wrt previous notification
                 processSearchResultWithNewBaseline(msg);
             }

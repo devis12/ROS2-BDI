@@ -167,6 +167,34 @@ private:
     */
     bool launchPlanSearch(const BDIManaged::ManagedDesire selDesire);
 
+    /* build empty search baseline method */
+    javaff_interfaces::msg::CommittedStatus emptySearchBaseline()
+    {
+        javaff_interfaces::msg::CommittedStatus sb = javaff_interfaces::msg::CommittedStatus{};
+        sb.executing_plan_index = -1;
+        return sb;
+    }
+
+    /* compare passed search baseline with current one */
+    bool matchingBaseline(javaff_interfaces::msg::CommittedStatus sb)
+    {
+        if(search_baseline_.executing_plan_index != sb.executing_plan_index)// compare executing plan index
+            return false;
+        
+        if(search_baseline_.committed_actions.size() != sb.committed_actions.size()) // diff plans' sizes
+            return false;
+        
+        for(int i = 0; i < search_baseline_.committed_actions.size(); i++)//check action by action committed status
+            if( search_baseline_.committed_actions[i].committed_action != sb.committed_actions[i].committed_action
+                    ||
+                search_baseline_.committed_actions[i].planned_start_time != sb.committed_actions[i].planned_start_time
+                    ||
+                search_baseline_.committed_actions[i].committed != sb.committed_actions[i].committed)
+                return false;
+        
+        return true;
+    }
+
     // queue of waiting_plans for execution (LAST element of the vector is the first one that has been pushed)
     std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
@@ -175,6 +203,9 @@ private:
 
     // search is progressing
     bool searching_;
+
+    // committed status of ongoing search result
+    javaff_interfaces::msg::CommittedStatus search_baseline_;
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.

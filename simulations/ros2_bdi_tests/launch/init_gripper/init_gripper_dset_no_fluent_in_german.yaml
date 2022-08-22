@@ -17,3 +17,8 @@
       params:
         - "box_c2"
         - "deposit_c"
+    - name: "box_stored"
+      pddl_type: 2
+      params:
+        - "box_c1"
+        - "deposit_c"
