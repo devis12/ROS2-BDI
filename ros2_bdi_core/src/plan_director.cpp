@@ -451,7 +451,8 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     {
         ManagedPlan requestedPlan = ManagedPlan{request->plan.psys2_plan.plan_index, mdPlan, request->plan.psys2_plan.items, mdPlanPrecondition, mdPlanContext};
         // verify precondition before actually trying triggering executor
-        if(requestedPlan.getPrecondition().isSatisfied(belief_set_))
+        if(requestedPlan.getPrecondition().isSatisfied(belief_set_) && 
+            (requestedPlan.getPlanQueueIndex() == 0 && requestedPlan.getFinalTarget().getPrecondition().isSatisfied(belief_set_))) // check again user defined precondition just for first subplan
         {
             bool started = startPlanExecution(requestedPlan);
             done = started && state_ == EXECUTING;

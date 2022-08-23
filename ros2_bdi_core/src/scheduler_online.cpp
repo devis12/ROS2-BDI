@@ -379,14 +379,14 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
 
     if(noPlanExecuting() && msg->plans[i].plan.items.size() > 0)
     {  
-        // make union of high level desire precondition and subplan precondition
-        ConditionsDNF allPreconditions = fulfilling_desire_.getPrecondition().toConditionsDNF();
-        allPreconditions.clauses.insert(allPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
+        // insert subplan precondition as received by planner, desire precondition checked in scheduling
+        ConditionsDNF planPreconditions = ConditionsDNF{};
+        planPreconditions.clauses.insert(planPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
         ManagedPlan firstPPlanToExec = ManagedPlan{
             msg->plans[i].plan.plan_index, 
             fulfilling_desire_, 
             ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
-            ManagedConditionsDNF{allPreconditions}, fulfilling_desire_.getContext()};
+            ManagedConditionsDNF{planPreconditions}, fulfilling_desire_.getContext()};
         storePlan(firstPPlanToExec);
         //launch plan execution
         if(firstPPlanToExec.getActionsExecInfo().size() > 0)
@@ -469,7 +469,6 @@ void SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
                 ManagedConditionsDNF{msg->plans[i].target.precondition}, 
                 fulfilling_desire_.getContext()};
            storeEnqueuePlan(computedMPP);
-           //TODO handle new search baseline info, so that I'm ready to accept further plans to be executed after computedMPP
         }
     }
 }
