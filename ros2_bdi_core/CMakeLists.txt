@@ -120,6 +120,7 @@ target_link_libraries(event_listener
 )
 ament_target_dependencies(event_listener 
   ${common_dependencies}
+  plansys2_domain_expert
 )
 # link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
 target_link_libraries(event_listener

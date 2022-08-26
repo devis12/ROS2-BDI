@@ -36,6 +36,12 @@ namespace BDIManaged
 
             // convert instance to ros2_bdi_interfaces::msg::Condition msg
             ros2_bdi_interfaces::msg::Condition toCondition() const;
+            
+            // return true if the instance contains any kind of placeholder
+            bool containsPlaceholders();
+
+            /* substitute placeholders as per assignments map and return a new ManagedCondition instance*/
+            ManagedCondition applySubstitution(const std::map<std::string, std::string> assignments) const;
 
             /*
                 return true iff FOR EVERY CONDITION in ManagedCondition vector 

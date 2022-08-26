@@ -1,5 +1,4 @@
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "F"
@@ -22,11 +21,10 @@
       operation: ADD
       value:
         name: "clear"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "base_a"
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "F"
@@ -49,11 +47,10 @@
       operation: ADD
       value:
         name: "clear"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "base_b"
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "F"
@@ -76,6 +73,6 @@
       operation: ADD
       value:
         name: "clear"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "base_c"

@@ -1,35 +1,25 @@
--
-  name: "bathroom"
+- name: "bathroom"
   pddl_type: 1
-  params: 
-    - "waypoint"
--
-  name: "kitchen"
-  pddl_type: 1 
-  params: 
-    - "waypoint"
--
-  name: "bedroom"
+  type: "waypoint"
+- name: "kitchen"
   pddl_type: 1
-  params: 
-    - "waypoint"
--
-  name: "recharging_station"
-  pddl_type: 2 
-  params: 
+  type: "waypoint"
+- name: "bedroom"
+  pddl_type: 1
+  type: "waypoint"
+- name: "recharging_station"
+  pddl_type: 2
+  params:
     - "s_dock"
--
-  name: "workfree"
-  pddl_type: 2 
-  params: 
+- name: "workfree"
+  pddl_type: 2
+  params:
     - "sweeper"
--
-  name: "in"
-  pddl_type: 2 
-  params: 
+- name: "in"
+  pddl_type: 2
+  params:
     - "sweeper"
     - "s_dock"
--
-  name: "battery_charge"
+- name: "battery_charge"
   pddl_type: 3
-  value:  60
+  value: 60

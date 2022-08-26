@@ -64,6 +64,10 @@ namespace BDIManaged
 
             // return true if empty target or if target appears to be achieved in the passed bset
             bool isFulfilled(const std::set<ManagedBelief>& bset);
+
+
+            /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
+            ManagedDesire applySubstitution(const std::map<std::string, std::string> assignments) const;
         private:
             /*name of the desire*/
             std::string name_;

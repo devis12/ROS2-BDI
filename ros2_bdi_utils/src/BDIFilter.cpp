@@ -226,5 +226,14 @@ namespace BDIFilter
       
   }
 
+  set<ManagedBelief> filterMGBeliefInstances(const set<ManagedBelief>& belief_set, const string& type)
+  {
+    set<ManagedBelief> belief_set_filtered;
+    for(ManagedBelief mb : belief_set)
+      if(mb.pddlType() == Belief().INSTANCE_TYPE && (type == "" || type == mb.type()))
+        belief_set_filtered.insert(mb);
+    return belief_set_filtered;
+  }
+  
 
 }

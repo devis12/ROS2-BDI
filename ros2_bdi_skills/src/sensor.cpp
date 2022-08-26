@@ -20,7 +20,7 @@ using ros2_bdi_interfaces::msg::Belief;
 while @proto_belief defines the prototype for the accepted sensed belief operations performed by the sensor node
 Specifically:
     - proto_belief.pddl_type == 1 (INSTANCE) -> can sense just instances of the same type, 
-        i.e. params[0] has to remain always the same, given the fact that it's the type of the instance
+        i.e. type has to remain always the same, given the fact that it's the type of the instance
 
     - proto_belief.pddl_type == 2 (PREDICATE) -> can sense exclusively predicates of a given type, 
         i.e. name && params.size() has to remain always the same
@@ -46,6 +46,7 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
 
     proto_belief_.name = proto_belief.name;
     proto_belief_.params = proto_belief.params;
+    proto_belief_.type = proto_belief.type;
 
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
@@ -149,9 +150,7 @@ void Sensor::publishSensing(const UpdOperation& op)
 */
 bool Sensor::sensedInstance(const Belief& new_belief)
 {
-    bool do_upd = new_belief.pddl_type == Belief().INSTANCE_TYPE && new_belief.params.size() == 1  //only 1 param which indicates the type
-    && proto_belief_.params[0] == new_belief.params[0];
-    
+    bool do_upd = new_belief.pddl_type == Belief().INSTANCE_TYPE && proto_belief_.type == new_belief.type;
     if(do_upd) //only 1 param which indicates the type which has to remain the same
         last_sensed_ = new_belief;
     return do_upd;

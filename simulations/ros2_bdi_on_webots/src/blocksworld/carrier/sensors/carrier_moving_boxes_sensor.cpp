@@ -25,6 +25,7 @@ using ros2_bdi_interfaces::msg::Belief;
 using geometry_msgs::msg::Point;
 using geometry_msgs::msg::PointStamped;        
 
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
 class CarrierMovingBoxesSensor : public Sensor
@@ -119,7 +120,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
 
-  Belief b_proto = (ManagedBelief::buildMBFunction("moving_boxes", {""}, 0)).toBelief();
+  Belief b_proto = (ManagedBelief::buildMBFunction("moving_boxes", {ManagedParam{"?c", "carrier"}}, 0)).toBelief();
   auto node = std::make_shared<CarrierMovingBoxesSensor>("moving_boxes_sensor", b_proto);
   rclcpp::spin(node);
 

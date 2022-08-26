@@ -1,8 +1,10 @@
 #ifndef MANAGED_CONDITIONS_DNF_H_
 #define MANAGED_CONDITIONS_DNF_H_
 
+#include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <iostream>
 
 #include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
@@ -36,7 +38,18 @@ class ManagedConditionsDNF
 
         // convert instance to ros2_bdi_interfaces::msg::ConditionsDNF
         ros2_bdi_interfaces::msg::ConditionsDNF toConditionsDNF() const;
-        
+
+        // return true if the instance contains any kind of placeholder
+        bool containsPlaceholders();
+
+        // return all mg beliefs containing at least a placeholder, e.g. {x}
+        std::set<ManagedBelief> getBeliefsWithPlaceholders();
+
+        // extract assigment for all placeholders in mgconditions dnf
+        std::map<std::string, std::vector<ManagedBelief>> extractAssignmentsMap(const std::set<BDIManaged::ManagedBelief>& belief_set);
+
+        /* substitute placeholders as per assignments map and return a new ManagedConditionsDNF instance*/
+        ManagedConditionsDNF applySubstitution(const std::map<std::string, std::string> assignments) const;
     private:
         /* A single clause needs to be satisfied, being this a disjunction among them */
         std::vector<ManagedConditionsConjunction> clauses_;

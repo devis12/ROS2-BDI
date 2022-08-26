@@ -6,6 +6,7 @@
 
 using std::string;
 using std::vector;
+using std::map;
 using std::set;
 
 using ros2_bdi_interfaces::msg::Belief;
@@ -130,6 +131,31 @@ Desire ManagedDesire::toDesire() const
     }
 
     return d;
+}
+
+/* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
+ManagedDesire ManagedDesire::applySubstitution(const map<string, string> assignments) const
+{
+    string new_name = string{name_};
+    for(auto it = assignments.begin(); it != assignments.end(); ++it)
+        if(new_name.find(it->first) != string::npos)
+            new_name.replace(new_name.find(it->first), it->first.length(), it->second);//replace name with placeholder assignment
+    
+    vector<ManagedBelief> new_value;
+    for(ManagedBelief mb : value_)
+        new_value.push_back(mb.applySubstitution(assignments));
+
+    vector<ManagedBelief> new_rollback_beliefs_add;
+    for(ManagedBelief mb : rollback_belief_add_)
+        new_rollback_beliefs_add.push_back(mb.applySubstitution(assignments));
+
+    vector<ManagedBelief> new_rollback_beliefs_del;
+    for(ManagedBelief mb : rollback_belief_del_)
+        new_rollback_beliefs_del.push_back(mb.applySubstitution(assignments));
+    
+    return ManagedDesire{new_name, new_value, priority_, deadline_,
+                precondition_.applySubstitution(assignments), context_.applySubstitution(assignments),
+                new_rollback_beliefs_add, new_rollback_beliefs_del};
 }
 
 bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)

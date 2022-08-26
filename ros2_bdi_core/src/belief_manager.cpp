@@ -37,6 +37,7 @@ using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::PlanSys2State;
 
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
 
@@ -193,7 +194,7 @@ void BeliefManager::tryInitBeliefSet()
     string init_bset_filepath = "/tmp/"+this->get_parameter(PARAM_AGENT_ID).as_string()+"/"+INIT_BELIEF_SET_FILENAME;
     
     try{
-        vector<ManagedBelief> init_mgbeliefs = BDIYAMLParser::extractMGBeliefs(init_bset_filepath);
+        vector<ManagedBelief> init_mgbeliefs = BDIYAMLParser::extractMGBeliefs(init_bset_filepath, domain_expert_);
         for(ManagedBelief initMGBelief : init_mgbeliefs)
             addBeliefSyncPDDL(initMGBelief);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
@@ -280,7 +281,10 @@ bool BeliefManager::addOrModifyBeliefs(const vector<Belief>& beliefs, const bool
         if(count_bs == 0)//not found
         {
             RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + mb.getParamsJoined() + " (value = " + std::to_string(mb.getValue()) +")");
+                mb.getName() + " " + ((mb.pddlType() == Belief().INSTANCE_TYPE)? mb.type() : mb.getParamsJoined()) +
+                ((mb.pddlType() == Belief().FUNCTION_TYPE)?
+                    " (value = " + std::to_string(mb.getValue()) +")" : "")
+                );
             
             addBelief(bel);
             modified = true;//there is an alteration, notify it
@@ -378,9 +382,6 @@ bool BeliefManager::removedPredicateBeliefs(const vector<Belief>& beliefs)
 void BeliefManager::addBeliefTopicCallBack(const Belief::SharedPtr msg)
 {
     ManagedBelief mb = ManagedBelief{*msg};
-    // if(this->get_parameter(PARAM_DEBUG).as_bool())
-    //     RCLCPP_INFO(this->get_logger(), "add_belief callback for " + mb.pddlTypeString() + ": " + mb.getName() + " " 
-    //             + mb.getParamsJoined() +  " (value = " + std::to_string(mb.getValue()) +")");
     if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
         addBeliefSyncPDDL(mb);
 }
@@ -444,13 +445,13 @@ vector<bool> BeliefManager::computeMissingInstancesPos(const ManagedBelief& mb)
 {
     vector<bool> missing_pos = vector<bool>();
     vector<Instance> instances = problem_expert_->getInstances();
-    for(string mb_par : mb.getParams())
+    for(ManagedParam mb_par : mb.getParams())
     {    
         bool found = false;
 
         for(Instance ins : instances)
         {
-            if(mb_par == ins.name)
+            if(mb_par.name == ins.name)
             {
                 found = true;//instance already defined
                 break;
@@ -487,10 +488,10 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {   
-                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i], pred.parameters[i].type);
+                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, pred.parameters[i].type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.getParams()[0]);
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -512,10 +513,10 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {
-                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i], function.parameters[i].type);
+                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, function.parameters[i].type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.getParams()[0]);
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -592,7 +593,10 @@ void BeliefManager::addBelief(const ManagedBelief& mb)
     belief_set_.insert(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + mb.getParamsJoined() + " (value = " + std::to_string(mb.getValue()) +")");
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+                ((mb.pddlType() == Belief().FUNCTION_TYPE)?
+                " (value = " + std::to_string(mb.getValue()) +")" : "")
+            );
                     
 }
 
@@ -607,7 +611,10 @@ void BeliefManager::modifyBelief(const ManagedBelief& mb)
         belief_set_.insert(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + mb.getParamsJoined() + " (value = " + std::to_string(mb.getValue()) +")");
+                mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+                ((mb.pddlType() == Belief().FUNCTION_TYPE)?
+                " (value = " + std::to_string(mb.getValue()) +")" : "")
+            );
     }
 }
 
@@ -619,7 +626,10 @@ void BeliefManager::delBelief(const ManagedBelief& mb)
     belief_set_.erase(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + mb.getParamsJoined() + " (value = " + std::to_string(mb.getValue()) +")");
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+            ((mb.pddlType() == Belief().FUNCTION_TYPE)?
+                " (value = " + std::to_string(mb.getValue()) +")" : "")
+            );
 }
 
 int main(int argc, char ** argv)

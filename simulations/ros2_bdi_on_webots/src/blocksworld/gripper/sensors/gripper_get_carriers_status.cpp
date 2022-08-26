@@ -16,6 +16,7 @@ using std::shared_ptr;
 using std::bind;
 
 using ros2_bdi_interfaces::msg::Belief;     
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
 
@@ -103,10 +104,10 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto executor = rclcpp::executors::SingleThreadedExecutor();
 
-  Belief b_proto_carr_in_dep = (ManagedBelief::buildMBPredicate("carrier_in_deposit", {"", ""})).toBelief();
+  Belief b_proto_carr_in_dep = (ManagedBelief::buildMBPredicate("carrier_in_deposit", {ManagedParam{"?c","carrier"}, ManagedParam{"?dep","deposit"}})).toBelief();
   auto node_carr_dep = std::make_shared<CarrierInDepositSensor>("carrier_in_deposit_sensor", b_proto_carr_in_dep);
   
-  Belief b_proto_carr_in_base = (ManagedBelief::buildMBPredicate("carrier_in_base", {"", ""})).toBelief();
+  Belief b_proto_carr_in_base = (ManagedBelief::buildMBPredicate("carrier_in_base", {ManagedParam{"?c","carrier"}, ManagedParam{"?sb","stackbase"}})).toBelief();
   auto node_carr_base = std::make_shared<CarrierInBaseSensor>("carrier_in_base_sensor", b_proto_carr_in_base);
   
   executor.add_node(node_carr_dep);

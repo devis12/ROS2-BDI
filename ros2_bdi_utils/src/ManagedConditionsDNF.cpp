@@ -1,11 +1,19 @@
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
+#include "ros2_bdi_utils/BDIFilter.hpp"
+
+using std::string;
 using std::vector;
 using std::set;
+using std::map;
 
+using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
 
+
+using BDIManaged::ManagedParam;
+using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedCondition;
 using BDIManaged::ManagedConditionsConjunction;
 using BDIManaged::ManagedConditionsDNF;
@@ -40,6 +48,73 @@ bool ManagedConditionsDNF::isSatisfied(const set<ManagedBelief>& mbSet){
             return true;
     
     return clauses_.size() == 0;// empty clause or no single clause is satisfied
+}
+
+bool ManagedConditionsDNF::containsPlaceholders(){
+    for(ManagedConditionsConjunction mcc : clauses_)
+        if(mcc.containsPlaceholders())
+            return true;
+    
+    return false;// no placeholder found
+}
+
+set<ManagedBelief> ManagedConditionsDNF::getBeliefsWithPlaceholders(){
+    set<ManagedBelief> placeholder_beliefs = set<ManagedBelief>();
+    for(ManagedConditionsConjunction mcc : clauses_)
+        placeholder_beliefs.merge(mcc.getBeliefsWithPlaceholders());
+    
+    return placeholder_beliefs;
+}
+
+/* substitute placeholders as per assignments map and return a new ManagedConditionsDNF instance*/
+ManagedConditionsDNF ManagedConditionsDNF::applySubstitution(const map<string, string> assignments) const
+{
+    vector<ManagedConditionsConjunction> new_clauses;
+    for(ManagedConditionsConjunction mcc : clauses_)
+        new_clauses.push_back(mcc.applySubstitution(assignments));
+    
+    return ManagedConditionsDNF{new_clauses};
+}
+
+map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(const set<ManagedBelief>& belief_set)
+{
+    map<string, vector<ManagedBelief>> assignments;
+    set<ManagedBelief> placeholder_beliefs = getBeliefsWithPlaceholders();
+    if (placeholder_beliefs.size() > 0)
+    {
+        for(ManagedBelief mb : placeholder_beliefs)
+        {
+            if(mb.pddlType() == Belief().PREDICATE_TYPE || mb.pddlType() == Belief().FUNCTION_TYPE)
+            {
+                for(ManagedParam mp : mb.getParams())
+                {
+                    if(mp.isPlaceholder() && assignments.count(mp.name) == 0)
+                    {
+                        assignments[mp.name] = vector<ManagedBelief>();//empty matching instances
+                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mp.type))//filter belief instances by type of the plaholder param
+                        {
+                            assignments[mp.name].push_back(mb);//found some matching instances
+                        }
+                    }
+                            
+                }
+            }
+            else if(mb.pddlType() == Belief().INSTANCE_TYPE)
+            {
+                string instance_name = mb.getName();
+                if(instance_name.find("{") == 0 && instance_name.find("}") == instance_name.length()-1)
+                {
+                    if(assignments.count(instance_name) == 0)
+                    {
+                        assignments[instance_name] = vector<ManagedBelief>();//empty matching instances
+                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mb.type()))//filter belief instances by type of the plaholder param
+                            assignments[instance_name].push_back(mb);
+                    }
+                }
+            }
+        }
+    }
+    return assignments;
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)

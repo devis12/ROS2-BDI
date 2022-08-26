@@ -15,6 +15,7 @@ using std::placeholders::_1;
 using ros2_bdi_interfaces::msg::Belief;    
 using webots_ros2_simulations_interfaces::msg::MoveStatus;        
 
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
 class CarrierWPSensor : public Sensor
@@ -60,7 +61,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
 
-  Belief b_proto = (ManagedBelief::buildMBPredicate("in", {"", ""})).toBelief();
+  Belief b_proto = (ManagedBelief::buildMBPredicate("in", {ManagedParam{"?c", "carrier"},ManagedParam{"?wp", "waypoint"}})).toBelief();
   auto node = std::make_shared<CarrierWPSensor>("wp_sensor", b_proto);
   rclcpp::spin(node);
 

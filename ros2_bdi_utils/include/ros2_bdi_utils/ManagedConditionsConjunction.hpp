@@ -35,6 +35,15 @@ namespace BDIManaged
             // convert instance to ros2_bdi_interfaces::msg::ConditionsConjunction format
             ros2_bdi_interfaces::msg::ConditionsConjunction toConditionsConjunction() const;
 
+            // return true if the instance contains any kind of placeholder
+            bool containsPlaceholders();
+
+            // return all mg beliefs containing at least a placeholder, e.g. {x}
+            std::set<ManagedBelief> getBeliefsWithPlaceholders();
+
+            /* substitute placeholders as per assignments map and return a new ManagedConditionsConjunction instance*/
+            ManagedConditionsConjunction applySubstitution(const std::map<std::string, std::string> assignments) const;
+
         private:
             /* All literals need to be satisfied being this a conjunction among them */
             std::vector<ManagedCondition> literals_;

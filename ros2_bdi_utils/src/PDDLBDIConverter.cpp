@@ -29,8 +29,7 @@ namespace PDDLBDIConverter
     b.name = instance.name;
     b.pddl_type = Belief().INSTANCE_TYPE;
 
-    vector<string> params = vector<string>({instance.type});
-    b.params = params;
+    b.type = instance.type;
     
     b.value = 0.0f;// has NO meaning in Instance type
     
