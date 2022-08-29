@@ -250,7 +250,10 @@ bool ManagedCondition::verifyAllManagedConditions(
 {
     for(ManagedCondition mc : mcArray)
         if(!mc.performCheckAgainstBeliefs(mbSet))//one condition not valid and/or not verified
+        {
+            std::cout << "NOT SAT: " << mc.getMGBelief() << std::flush << std::endl;
             return false;
+        }
             
     return true;
 }

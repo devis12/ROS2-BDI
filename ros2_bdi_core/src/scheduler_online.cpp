@@ -52,7 +52,7 @@ void SchedulerOnline::init()
     Scheduler::init();
 
     //init SchedulerOffline specific props
-    fulfilling_desire_ = ManagedDesire{};
+    fulfilling_desire_ = std::make_shared<ManagedDesire>(ManagedDesire{});
     waiting_plans_ = vector<ManagedPlan>();
     current_plan_ = ManagedPlan{};
 
@@ -63,10 +63,15 @@ void SchedulerOnline::init()
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
+    //Topic where a desire to be augmented to currently active goal or added to the desire set is published
+    boost_desire_subscriber_ = this->create_subscription<Desire>(
+                BOOST_DESIRE_TOPIC, rclcpp::QoS(10).reliable(),
+                bind(&SchedulerOnline::boostDesireTopicCallBack, this, _1));
+
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
-        JAVAFF_SEARCH_TOPIC, 10,
+        JAVAFF_SEARCH_TOPIC, rclcpp::QoS(10).reliable(),
             bind(&SchedulerOnline::updatedSearchResult, this, _1));
     
     // open connection to plan library and init. tables, if not already present
@@ -160,7 +165,7 @@ void SchedulerOnline::reschedule()
         delDesire(md);
 
     // I'm already searching for this
-    if(searching_ && selDesire == fulfilling_desire_)
+    if(searching_ && selDesire == *fulfilling_desire_)
         return;
     
     RCLCPP_INFO(this->get_logger(), "Starting search for the fullfillment of Alex's desire to " + selDesire.getName());
@@ -171,13 +176,13 @@ void SchedulerOnline::reschedule()
         searching_ = true;
         search_baseline_ = emptySearchBaseline();
         RCLCPP_INFO(this->get_logger(), "Search started for the fullfillment of Alex's desire to " + selDesire.getName());
-        fulfilling_desire_ = selDesire; 
+        fulfilling_desire_ = std::make_shared<ManagedDesire>(selDesire); 
     }
 }
 
 void SchedulerOnline::abortedPlanHandler(const bool handleDelete)
 {
-    string targetDesireName = fulfilling_desire_.getName();
+    string targetDesireName = fulfilling_desire_->getName();
     //current plan execution has been aborted
     int maxPlanExecAttempts = this->get_parameter(PARAM_MAX_TRIES_EXEC_PLAN).as_int();
     aborted_plan_desire_map_[targetDesireName]++;
@@ -190,7 +195,7 @@ void SchedulerOnline::abortedPlanHandler(const bool handleDelete)
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Desire \"" + targetDesireName + "\" will be removed because it doesn't seem feasible to fulfill it: too many plan abortions!");
-        delDesire(fulfilling_desire_, true);
+        delDesire(*fulfilling_desire_, true);
     }
 }
 
@@ -212,15 +217,24 @@ void SchedulerOnline::planCompFailureHandler(const BDIManaged::ManagedDesire& md
 }
 
 /*
-    Init all info related to current desire in pursuit & plan to fulfill it, then launch reschedule
+    Init all info related to current desire in pursuit & plan to fulfill it
 */
-void SchedulerOnline::forcedReschedule()
+void SchedulerOnline::resetSearchInfo()
 {
+    fulfilling_desire_ = std::make_shared<ManagedDesire>(ManagedDesire{});
     current_plan_ = ManagedPlan{};//no plan executing rn
     waiting_plans_ = vector<ManagedPlan>();
     searching_ = false;//saluti da T.V.
     executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
 
+}
+
+/*
+    Init all info related to current desire in pursuit & plan to fulfill it, then launch reschedule
+*/
+void SchedulerOnline::forcedReschedule()
+{
+    resetSearchInfo();
     reschedule();
 }
 
@@ -290,7 +304,8 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     }
                     mtx_iter_dset_.unlock();
                     
-                    executing_pplan_index_ = -1;//will put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
+                    // reset all search related info
+                    resetSearchInfo();
                 }
                 else
                 {
@@ -336,14 +351,14 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
         if(msg->status == msg->FAILED)
         {
             //search has failed!! increment counter, del desire if threshold reached and FORCE a reschedule
-            planCompFailureHandler(fulfilling_desire_, true);
+            planCompFailureHandler(*fulfilling_desire_, true);
             forcedReschedule();
             return;
         }
         else
         {
             //search is progressing
-            if(!noPlanExecuting() && current_plan_.getFinalTarget() != fulfilling_desire_)//started a new search for a different desire -> should abort old executing plan
+            if(!noPlanExecuting() && current_plan_.getFinalTarget() != *fulfilling_desire_)//started a new search for a different desire -> should abort old executing plan
             {    
                 if(abortCurrentPlanExecution())//if aborted is correctly performed, clean away the current waiting list as well, exploiting new msg to build the new one, for new instantiated search
                     waiting_plans_ = vector<ManagedPlan>();
@@ -384,9 +399,9 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
         planPreconditions.clauses.insert(planPreconditions.clauses.end(), msg->plans[i].target.precondition.clauses.begin(),msg->plans[i].target.precondition.clauses.end());
         ManagedPlan firstPPlanToExec = ManagedPlan{
             msg->plans[i].plan.plan_index, 
-            fulfilling_desire_, 
+            *fulfilling_desire_, 
             ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
-            ManagedConditionsDNF{planPreconditions}, fulfilling_desire_.getContext()};
+            ManagedConditionsDNF{planPreconditions}, fulfilling_desire_->getContext()};
         storePlan(firstPPlanToExec);
         //launch plan execution
         if(firstPPlanToExec.getActionsExecInfo().size() > 0)
@@ -417,7 +432,7 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
             //to be enqueued must be higher than last waiting plan in queue or if queue is empty must be higher than the one currently in execution
             if(msg->plans[i].plan.plan_index > highestPPlanId)//should be enqueued
             {
-                ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
+                ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, *fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_->getContext()};
                 storeEnqueuePlan(computedMPP);
             }
         }
@@ -464,10 +479,10 @@ void SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
         if(i < msg->plans.size())
         {
             ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, 
-                fulfilling_desire_, 
+                *fulfilling_desire_, 
                 ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, 
                 ManagedConditionsDNF{msg->plans[i].target.precondition}, 
-                fulfilling_desire_.getContext()};
+                fulfilling_desire_->getContext()};
            storeEnqueuePlan(computedMPP);
         }
     }
@@ -555,6 +570,56 @@ void SchedulerOnline::checkForSatisfiedDesires()
         delDesire(md, true);//you're deleting satisfied desires -> delete all the ones in the same group
 
     mtx_iter_dset_.unlock();//to sync between iteration in checkForSatisfiedDesires( ) && reschedule()
+}
+
+/*
+    Process desire boost request for active goal augmentation
+*/
+void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
+{
+    ManagedDesire mdBoost = ManagedDesire{(*msg)};
+    if(fulfilling_desire_->getValue().size() == 0)
+    {
+        //no currently active desire
+        addDesire(mdBoost);
+    }
+    else if (mdBoost.getName() == fulfilling_desire_->getName())
+    {
+        bool boosted = false;
+        if(mdBoost.getPrecondition().isSatisfied(belief_set_) && mdBoost.getContext().isSatisfied(belief_set_))
+        {
+            // perform online boost
+            boosted = fulfilling_desire_->boostDesire(mdBoost);
+            if(boosted)
+            {
+                //inform planner
+            }
+        }
+        
+        if(!boosted)
+        {
+            int16_t instance_counter = 2;
+            while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) == 0) instance_counter++;
+            string new_name = mdBoost.getName()+std::to_string(instance_counter);
+            mdBoost.setName(new_name); // set new name, to distinguish it from the original, by putting the first av. number at the end
+            addDesire(mdBoost);//then add it as a separate desire
+        }
+    }
+    else if(computed_plan_desire_map_.count(mdBoost.getName()) == 0)
+    {
+        // it does not match the currently active desire nor any other desire in the desire set, simply add it to the desire set
+        addDesire(mdBoost);
+    }
+    else
+    {
+        // it does match a desire in the desire set which is currently not active, perform offline boost
+        for(ManagedDesire md : desire_set_)
+            if(md.getName() == mdBoost.getName())
+            {
+                md.boostDesire(mdBoost);
+                break;
+            }
+    }
 }
 
 

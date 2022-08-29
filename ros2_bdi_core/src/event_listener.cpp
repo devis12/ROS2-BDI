@@ -43,8 +43,8 @@ bool EventListener::init()
 { 
     //agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
 
 
     // initializing domain expert
@@ -76,21 +76,21 @@ bool EventListener::init()
 
     //Lifecycle status subscriber
     lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
-                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
                 bind(&EventListener::callbackLifecycleStatus, this, _1));
 
     //Receive belief set update notification to keep the event listener belief set mirror up to date
     belief_set_subscription_ = this->create_subscription<BeliefSet>(
-                BELIEF_SET_TOPIC, qos_keep_all,
+                BELIEF_SET_TOPIC, qos_reliable,
                 bind(&EventListener::updBeliefSetCallback, this, _1));
 
     // add/del belief publishers init.
-    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, qos_keep_all);
-    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, qos_keep_all);
+    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, qos_reliable);
+    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, qos_reliable);
 
     // add/del desire publishers init.
-    add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, qos_keep_all);
-    del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_keep_all);
+    add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, qos_reliable);
+    del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_reliable);
 
     return true;
 }

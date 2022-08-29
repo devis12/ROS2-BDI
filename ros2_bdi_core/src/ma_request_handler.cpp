@@ -67,8 +67,8 @@ void MARequestHandler::init()
   accepted_server_ = this->create_service<IsAcceptedOperation>(IS_ACCEPTED_OP_SRV, 
       bind(&MARequestHandler::handleIsAcceptedGroup, this, _1, _2));
 
-  rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-  qos_keep_all.keep_all();
+  rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+  qos_reliable.reliable();
 
   //lifecycle status init
   auto lifecycle_status = LifecycleStatus{};
@@ -88,7 +88,7 @@ void MARequestHandler::init()
 
   //Lifecycle status subscriber
   lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
-              LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+              LIFECYCLE_STATUS_TOPIC, qos_reliable,
               bind(&MARequestHandler::callbackLifecycleStatus, this, _1));
 
   // to make the belief/desire set subscription callbacks to run on different threads of execution wrt srv callbacks
@@ -98,12 +98,12 @@ void MARequestHandler::init()
 
   //register to belief set updates to have the mirroring of the last published version of it
   belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-              BELIEF_SET_TOPIC, qos_keep_all,
+              BELIEF_SET_TOPIC, qos_reliable,
               bind(&MARequestHandler::updatedBeliefSet, this, _1), sub_opt);
   
   //register to desire set updates to have the mirroring of the last published version of it
   desire_set_subscriber_ = this->create_subscription<DesireSet>(
-              DESIRE_SET_TOPIC, qos_keep_all,
+              DESIRE_SET_TOPIC, qos_reliable,
               bind(&MARequestHandler::updatedDesireSet, this, _1), sub_opt);
 
   // init server for handling check belief requests from other agents

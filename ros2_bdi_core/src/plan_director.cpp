@@ -98,8 +98,8 @@ void PlanDirector::init()
     // initializing problem expert client for psys2
     problem_expert_client_ = std::make_shared<plansys2::ProblemExpertClient>();
 
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
 
     //lifecycle status init
     auto lifecycle_status = LifecycleStatus{};
@@ -119,7 +119,7 @@ void PlanDirector::init()
 
     //Lifecycle status subscriber
     lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
-                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
                 bind(&PlanDirector::callbackLifecycleStatus, this, _1));
 
     //Check for plansys2 active state flags init to false
@@ -128,12 +128,12 @@ void PlanDirector::init()
     psys2_executor_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
-                PSYS_STATE_TOPIC, qos_keep_all,
+                PSYS_STATE_TOPIC, qos_reliable,
                 bind(&PlanDirector::callbackPsys2State, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                BELIEF_SET_TOPIC, qos_keep_all,
+                BELIEF_SET_TOPIC, qos_reliable,
                 bind(&PlanDirector::updatedBeliefSet, this, _1));
 
     // belief add + belief del publishers
@@ -451,14 +451,20 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
     {
         ManagedPlan requestedPlan = ManagedPlan{request->plan.psys2_plan.plan_index, mdPlan, request->plan.psys2_plan.items, mdPlanPrecondition, mdPlanContext};
         // verify precondition before actually trying triggering executor
-        if(requestedPlan.getPrecondition().isSatisfied(belief_set_) && 
-            (requestedPlan.getPlanQueueIndex() == 0 && requestedPlan.getFinalTarget().getPrecondition().isSatisfied(belief_set_))) // check again user defined precondition just for first subplan
+        if(requestedPlan.getPrecondition().isSatisfied(belief_set_)) // check again user defined precondition just for first subplan
         {
-            bool started = startPlanExecution(requestedPlan);
-            done = started && state_ == EXECUTING;
-            if(done)
-                checkPlanExecution();// 1st checkPlanExecution for this plan (if started)
-        } 
+            bool desire_precondition_check = requestedPlan.getPlanQueueIndex() > 0;// no need to check target precondition here, executing an intermediate plan
+            if(requestedPlan.getPlanQueueIndex() == 0)
+                desire_precondition_check = requestedPlan.getFinalTarget().getPrecondition().isSatisfied(belief_set_);
+            
+            if(desire_precondition_check)
+            {
+                bool started = startPlanExecution(requestedPlan);
+                done = started && state_ == EXECUTING;
+                if(done)
+                    checkPlanExecution();// 1st checkPlanExecution for this plan (if started)
+            }
+        }
     }
         
     response->success = done;

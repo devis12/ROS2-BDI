@@ -15,7 +15,7 @@
         ( in ?sb1 - box_or_stackbase ?sb2 - box_or_stackbase )
         ( clear ?b - box_or_stackbase )
         ( holding ?g - gripper ?b - box )
-        ( stored ?b - box ?dep - deposit )
+        ( box_stored ?b - box ?dep - deposit )
 
         ( carrier_in_base ?c - carrier ?sb - stackbase)
         ( carrier_in_deposit ?c - carrier ?dp - deposit)
@@ -64,6 +64,34 @@
             (at start (not (carrier_in_deposit ?c ?dep)))
             (at end (not(clear ?base)))
             (at end (carrier_in_base ?c ?base))
+        )
+    )
+
+    (:durative-action req_carrier_to_go
+        :parameters (?c - carrier ?base - stackbase ?dep - deposit)
+        :duration (= ?duration 6)
+        :condition (and
+            (at start (carrier_in_base ?c ?base))
+            (over all (carrier_can_go ?c ?dep))
+        )
+        :effect (and
+            (at start (not (carrier_in_base ?c ?base)))
+            (at start (clear ?base))
+            (at end (carrier_in_deposit ?c ?dep))
+        )
+    )
+
+    (:durative-action carrier_unload
+        :parameters (?c - carrier ?b - box ?dep - deposit)
+        :duration (= ?duration 3)
+        :condition (and
+            (at start (carrier_moving ?c ?b))
+            (over all (carrier_in_deposit ?c ?dep))
+        )
+        :effect (and
+            (at end (not(carrier_moving ?c ?b)))
+            (at end (decrease (moving_boxes ?c) 1))
+            (at end (box_stored ?b ?dep))
         )
     )
 

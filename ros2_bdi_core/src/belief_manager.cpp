@@ -87,8 +87,8 @@ void BeliefManager::init()
     //Belief set publisher
     belief_set_publisher_ = this->create_publisher<BeliefSet>(BELIEF_SET_TOPIC, 10);
     
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
 
     //lifecycle status init
     auto lifecycle_status = LifecycleStatus{};
@@ -108,7 +108,7 @@ void BeliefManager::init()
 
     //Lifecycle status subscriber
     lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
-                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
                 bind(&BeliefManager::callbackLifecycleStatus, this, _1));
 
     //Check for plansys2 active state flags init to false
@@ -117,16 +117,16 @@ void BeliefManager::init()
 
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
-                PSYS_STATE_TOPIC, qos_keep_all,
+                PSYS_STATE_TOPIC, qos_reliable,
                 bind(&BeliefManager::callbackPsys2State, this, _1));
 
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
-                ADD_BELIEF_TOPIC, qos_keep_all,
+                ADD_BELIEF_TOPIC, qos_reliable,
                 bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
-                DEL_BELIEF_TOPIC, qos_keep_all,
+                DEL_BELIEF_TOPIC, qos_reliable,
                 bind(&BeliefManager::delBeliefTopicCallBack, this, _1));
 
     //problem_expert update subscriber

@@ -115,8 +115,8 @@ void Scheduler::init()
     add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, rclcpp::QoS(5).reliable());
     del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, rclcpp::QoS(5).reliable());
 
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
 
     //lifecycle status init
     auto lifecycle_status = LifecycleStatus{};
@@ -133,7 +133,7 @@ void Scheduler::init()
 
     //Lifecycle status subscriber
     lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
-                LIFECYCLE_STATUS_TOPIC, qos_keep_all,
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
                 bind(&Scheduler::callbackLifecycleStatus, this, _1));
 
     //Check for plansys2 active state flags init to false
@@ -142,22 +142,22 @@ void Scheduler::init()
     psys2_problem_expert_active_ = false;
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
     plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
-                PSYS_STATE_TOPIC, qos_keep_all,
+                PSYS_STATE_TOPIC, qos_reliable,
                 bind(&Scheduler::callbackPsys2State, this, _1));
 
     //Desire to be added notification
     add_desire_subscriber_ = this->create_subscription<Desire>(
-                ADD_DESIRE_TOPIC, qos_keep_all,
+                ADD_DESIRE_TOPIC, qos_reliable,
                 bind(&Scheduler::addDesireTopicCallBack, this, _1));
 
     //Desire to be removed notification
     del_desire_subscriber_ = this->create_subscription<Desire>(
-                DEL_DESIRE_TOPIC, qos_keep_all,
+                DEL_DESIRE_TOPIC, qos_reliable,
                 bind(&Scheduler::delDesireTopicCallBack, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                BELIEF_SET_TOPIC, qos_keep_all,
+                BELIEF_SET_TOPIC, qos_reliable,
                 bind(&Scheduler::updatedBeliefSet, this, _1));
 
     plan_exec_srv_client_ = std::make_shared<TriggerPlanClient>(PLAN_EXECUTION_SRV + string("_s_caller"));
@@ -378,6 +378,9 @@ TargetBeliefAcceptance Scheduler::targetBeliefAcceptanceCheck(const ManagedBelie
 */
 TargetBeliefAcceptance Scheduler::desireAcceptanceCheck(const ManagedDesire& md)
 {
+    if(md.getName().length() == 0 || md.getValue().size() == 0)//cannot consider valid a desire with no value or empty name
+        return SYNTAX_ERROR;
+
     for(ManagedBelief mb : md.getValue())
     {
         auto acceptance = targetBeliefAcceptanceCheck(mb);

@@ -187,6 +187,12 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
     return true;//all target conditions already met    
 }
 
+// return true if otherDesire is augmented to the current one
+bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
+{
+    return true;
+}
+
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedDesire& md)
 {
     os << "\n" << md.getName();

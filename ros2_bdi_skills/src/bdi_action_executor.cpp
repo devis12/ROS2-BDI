@@ -75,7 +75,7 @@ BDIActionExecutor::BDIActionExecutor(const string action_name, const int working
 
       // lifecycle publisher to communicate exec status to online planner
       exec_status_to_planner_publisher_ = this->create_publisher<ExecutionStatus>("/"+agent_id_+"/"+JAVAFF_EXEC_STATUS_TOPIC, 
-                rclcpp::QoS(1).keep_all());
+                rclcpp::QoS(1).reliable());
 
       this->set_parameter(rclcpp::Parameter("action_name", action_name_));
       this->set_parameter(rclcpp::Parameter("specialized_arguments", specialized_arguments));
@@ -273,11 +273,11 @@ bool BDIActionExecutor::isMonitoredDesireFulfilled(const std::string& agent_ref,
 */
 void BDIActionExecutor::monitor(const string& agent_ref, const Desire& desire)
 {
-  rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-  qos_keep_all.keep_all();
+  rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+  qos_reliable.reliable();
 
   rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr agent_belief_set_subscriber = this->create_subscription<BeliefSet>(
-            "/"+agent_ref+"/"+BELIEF_SET_TOPIC, qos_keep_all,
+            "/"+agent_ref+"/"+BELIEF_SET_TOPIC, qos_reliable,
             bind(&BDIActionExecutor::agentBeliefSetCallback, this, _1));
 
   monitored_desires_.push_back(std::make_tuple(agent_ref, ManagedDesire{desire}, agent_belief_set_subscriber));

@@ -7,6 +7,7 @@
 
 #define DESIRE_SET_TOPIC "desire_set"
 #define ADD_DESIRE_TOPIC "add_desire"
+#define BOOST_DESIRE_TOPIC "boost_desire"
 #define DEL_DESIRE_TOPIC "del_desire"
 
 #define INIT_DESIRE_SET_FILENAME "init_dset.yaml"

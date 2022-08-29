@@ -36,6 +36,7 @@ namespace BDIManaged
 
             /* Getter/setter methods for ManagedDesire instance properties*/
             
+            void setName(const std::string& name){name_ = std::string{name};};
             std::string getName() const {return name_;};
             std::vector<ManagedBelief> getValue() const {return value_;};
             float getPriority() const {return priority_;}
@@ -68,6 +69,8 @@ namespace BDIManaged
             // return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
             bool equivalentValue(const ManagedDesire& otherDesire);
 
+            // return true if otherDesire is augmented to the current one
+            bool boostDesire(const ManagedDesire& otherDesire);
 
             /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
             ManagedDesire applySubstitution(const std::map<std::string, std::string> assignments) const;

@@ -129,6 +129,11 @@ private:
         Init all info related to current desire in pursuit & plan to fulfill it, then launch reschedule
     */
     void forcedReschedule();
+
+    /*
+        Init all info related to current desire in pursuit & plan to fulfill it
+    */
+    void resetSearchInfo();
     
     /*
         wrt the current plan execution...
@@ -161,6 +166,11 @@ private:
         Process updated search result presenting a new search baseline compared to previous msgs of the same type
     */
     void processSearchResultWithNewBaseline(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
+
+    /*
+        Process desire boost request for active goal augmentation
+    */
+    void boostDesireTopicCallBack(const ros2_bdi_interfaces::msg::Desire::SharedPtr msg);
 
     /*
         Call JavaFF for triggering the search for a plan fulfilling @selDesire
@@ -199,13 +209,16 @@ private:
     std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
     // fulfilling desire 
-    BDIManaged::ManagedDesire fulfilling_desire_;
+    std::shared_ptr<BDIManaged::ManagedDesire> fulfilling_desire_;
 
     // search is progressing
     bool searching_;
 
     // committed status of ongoing search result
     javaff_interfaces::msg::CommittedStatus search_baseline_;
+
+    
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr boost_desire_subscriber_;//boost desire notify on topic
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.

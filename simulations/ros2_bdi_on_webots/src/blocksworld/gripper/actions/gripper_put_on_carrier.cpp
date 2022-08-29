@@ -35,10 +35,10 @@ class GripperPutOnCarrier : public BDIActionExecutor
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
 
-            gripper_pose_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
-            gripper_status_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
+            gripper_pose_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).reliable());
+            gripper_status_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).reliable());
             move_gripper_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_motors_pose", 
-                rclcpp::QoS(1).keep_all());
+                rclcpp::QoS(1).reliable());
 
             gripper_move_status_subscriber_ = this->create_subscription<MoveStatus>("/"+robot_name_+"/motors_move_status", 
                 rclcpp::QoS(5).best_effort(),

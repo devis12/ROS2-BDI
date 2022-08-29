@@ -20,8 +20,8 @@ class GripperPutdown : public BDIActionExecutor
         : BDIActionExecutor("gripper_putdown", 3)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
-            gripper_pose_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).keep_all());
-            gripper_status_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).keep_all());
+            gripper_pose_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_pose", rclcpp::QoS(1).reliable());
+            gripper_status_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_gripper_status", rclcpp::QoS(1).reliable());
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn

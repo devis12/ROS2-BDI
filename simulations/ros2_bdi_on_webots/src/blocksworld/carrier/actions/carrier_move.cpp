@@ -19,7 +19,7 @@ class CarrierMove : public BDIActionExecutor
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
             move_carrier_cmd_publisher_ = this->create_publisher<String>("/"+robot_name_+"/cmd_target", 
-                rclcpp::QoS(1).keep_all());
+                rclcpp::QoS(1).reliable());
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
