@@ -15,11 +15,14 @@
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedReactiveRule;
 using std::string;
+using std::vector;
 using std::set;
+using std::map;
 using std::bind;
 using std::placeholders::_1;
 
@@ -110,7 +113,7 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     set<ManagedReactiveRule> rules;
 
     try{
-        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath);//TODO test
+        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath, domain_expert_);//TODO test
 
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Reactive rules initialization performed through " + init_reactive_rules_filepath);

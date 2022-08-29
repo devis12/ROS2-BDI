@@ -1,83 +1,63 @@
 - name: "box_a1"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "box_a2"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "box_b1"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "box_b2"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "box_c1"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "box_c2"
   pddl_type: 1
-  params:
-    - "box"
+  type: "box"
 - name: "start"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_1"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_2"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_3"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_a"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_b"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "base_c"
   pddl_type: 1
-  params:
-    - "stackbase"
+  type: "stackbase"
 - name: "carrier_a"
   pddl_type: 1
-  params:
-    - "carrier"
+  type: "carrier"
 - name: "deposit_a"
   pddl_type: 1
-  params:
-    - "deposit"
+  type: "deposit"
 - name: "carrier_b"
   pddl_type: 1
-  params:
-    - "carrier"
+  type: "carrier"
 - name: "deposit_b"
   pddl_type: 1
-  params:
-    - "deposit"
+  type: "deposit"
 - name: "carrier_c"
   pddl_type: 1
-  params:
-    - "carrier"
+  type: "carrier"
 - name: "deposit_c"
   pddl_type: 1
-  params:
-    - "deposit"
+  type: "deposit"
 - name: "gripper_a"
   pddl_type: 1
-  params:
-    - "gripper"
+  type: "gripper"
 - name: "upon"
   pddl_type: 2
   params:

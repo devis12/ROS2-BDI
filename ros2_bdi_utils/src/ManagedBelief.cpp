@@ -170,9 +170,12 @@ std::optional<ManagedBelief> ManagedBelief::parseMGBelief(std::string mg_belief,
             //retrieve elements
             int pddl_type = atoi(items[0].c_str());
             string name = items[1];
-            vector<string> params;
-            boost::split(params, items[2], [](char c){return c == ' ';});//split string
-            
+            vector<string> params_string;
+            vector<ManagedParam> params;
+            boost::split(params_string, items[2], [](char c){return c == ' ';});//split string
+            for(string par : params_string)
+                params.push_back(ManagedParam{par, ""});//TODO fix this
+
             float value = 0.0f;
             if(pddl_type == Belief().FUNCTION_TYPE && items.size() == 4)
                 value = atof(items[3].c_str());
