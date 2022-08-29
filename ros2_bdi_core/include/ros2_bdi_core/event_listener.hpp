@@ -6,7 +6,9 @@
 #include <map>
 #include <utility>
 #include <memory>
-#include <mutex>  
+#include <mutex> 
+
+#include "plansys2_domain_expert/DomainExpertClient.hpp" 
 
 #include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
@@ -95,6 +97,14 @@ class EventListener : public rclcpp::Node
 
         /*Iterate over the rules and check if any of them applies, if yes enforces it*/
         void check_if_any_rule_apply();
+        
+        /*Apply reactive rule, by publishing to the right topic belief/desire set updates as defined in reactive_rule*/
+        void apply_rule(const BDIManaged::ManagedReactiveRule& reactive_rule);
+
+        /*Apply satisfying rules starting from extracted possible assignments for the placeholders*/
+        void apply_satisfying_rules(const BDIManaged::ManagedReactiveRule& reactive_rule, 
+            const std::map<std::string, std::vector<BDIManaged::ManagedBelief>>& assignments, 
+            const std::set<BDIManaged::ManagedBelief>& belief_set);
 
         // internal state of the node
         StateType state_; 
@@ -109,6 +119,10 @@ class EventListener : public rclcpp::Node
 
         //policy rules set
         std::set<BDIManaged::ManagedReactiveRule> reactive_rules_;
+
+
+        // domain expert instance to call the plansys2 domain expert api
+        std::shared_ptr<plansys2::DomainExpertClient> domain_expert_;
 
         std::set<BDIManaged::ManagedBelief> belief_set_;
 

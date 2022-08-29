@@ -55,6 +55,7 @@ using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedPlan;
@@ -317,7 +318,7 @@ void Scheduler::tryInitDesireSet()
 {
     string init_dset_filepath = "/tmp/"+this->get_parameter(PARAM_AGENT_ID).as_string() + "/" + INIT_DESIRE_SET_FILENAME; 
     try{
-        vector<ManagedDesire> init_mgdesires = BDIYAMLParser::extractMGDesires(init_dset_filepath);
+        vector<ManagedDesire> init_mgdesires = BDIYAMLParser::extractMGDesires(init_dset_filepath, domain_expert_);
         for(ManagedDesire initMGDesire : init_mgdesires)
             if(initMGDesire.getValue().size() > 0)
                     addDesire(initMGDesire);
@@ -351,11 +352,11 @@ TargetBeliefAcceptance Scheduler::targetBeliefAcceptanceCheck(const ManagedBelie
     Predicate predDef = optPredDef.value();
     if(predDef.parameters.size() != mb.getParams().size())
         return SYNTAX_ERROR;
-        
-    vector<string> params = mb.getParams();
+    
+    vector<ManagedParam> params = mb.getParams();
     for(int i=0; i<params.size(); i++)
     {
-        string instanceName = params[i];
+        string instanceName = params[i].name;
         optional<Instance> opt_ins = problem_expert_->getInstance(instanceName);
         
         if(!opt_ins.has_value())//found a not valid instance in one of the goal predicates       

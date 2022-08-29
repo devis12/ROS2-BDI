@@ -19,6 +19,7 @@
         (full_recharged ?r - robot)
         (pred_a ?v - void)
         (pred_b ?v - void)
+        (done ?v - void)
     )
 
     (:functions
@@ -73,6 +74,19 @@
             (at end (workfree ?r))
             (at end (assign (battery_charge ?r) 100))
             (at end (full_recharged ?r))
+        )
+    )
+
+     (:durative-action do_nothing
+        :parameters (?r - robot ?v - void)
+        :duration (= ?duration 4)
+        :condition (and
+            (at start (workfree ?r))
+        )
+        :effect (and
+            (at start (not(workfree ?r)))
+            (at end (workfree ?r))
+            (at end (done ?v))
         )
     )
 

@@ -1,6 +1,7 @@
 #ifndef BDIFILTER__UTILS_H_
 #define BDIFILTER__UTILS_H_
 
+#include <string>
 #include <vector>
 #include <set>
 
@@ -91,6 +92,11 @@ namespace BDIFilter
   */      
   std::vector<BDIManaged::ManagedDesire> conditionsToMGDesire(const BDIManaged::ManagedConditionsDNF& conditionsDNF, 
                   const std::string& desireBaseName, const float& desirePriority, const float& desireDeadline);
+
+  /*
+    Extract managed belief instances, filtering by type if provided
+  */
+  std::set<BDIManaged::ManagedBelief> filterMGBeliefInstances(const std::set<BDIManaged::ManagedBelief>& belief_set, const std::string& type = "");
   
 }  // namespace BDIFilter
 

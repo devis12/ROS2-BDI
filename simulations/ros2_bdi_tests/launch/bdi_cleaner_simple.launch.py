@@ -34,6 +34,13 @@ def generate_launch_description():
         name='recharge'
     )
 
+    # do_nothing action
+    action_do_nothing = AgentAction(
+        package='ros2_bdi_tests',
+        executable='do_nothing_bdi',
+        name='do_nothing'
+    )
+
     # waypoint sensor 
     wp_sensor = AgentSensor(
         package='ros2_bdi_tests',
@@ -58,7 +65,7 @@ def generate_launch_description():
             'planning_mode': 'offline',
             'debug_log_active': ['belief_manager', 'scheduler', 'plan_director']
         },
-        actions=[action_movetoward, action_doclean, action_recharge],
+        actions=[action_movetoward, action_doclean, action_recharge, action_do_nothing],
         sensors=[wp_sensor],
         run_only_psys2=False
     ) 

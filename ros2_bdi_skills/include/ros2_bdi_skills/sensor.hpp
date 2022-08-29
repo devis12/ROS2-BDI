@@ -19,7 +19,7 @@ public:
     while @proto_belief defines the prototype for the accepted sensed belief operations performed by the sensor node
     Specifically:
       - proto_belief.pddl_type == 1 (INSTANCE) -> can sense just instances of the same type, 
-          i.e. params[0] has to remain always the same, given the fact that it's the type of the instance
+          i.e. type has to remain always the same, given the fact that it's the type of the instance
 
       - proto_belief.pddl_type == 2 (PREDICATE) -> can sense exclusively predicates of a given type, 
           i.e. name && params.size() has to remain always the same

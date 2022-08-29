@@ -2,12 +2,15 @@
 
 #include <algorithm>
 
+using std::string;
 using std::vector;
 using std::set;
+using std::map;
 
 using ros2_bdi_interfaces::msg::Condition;
 using ros2_bdi_interfaces::msg::ConditionsConjunction;
 
+using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedCondition;
 using BDIManaged::ManagedConditionsConjunction;
 
@@ -29,6 +32,33 @@ ConditionsConjunction ManagedConditionsConjunction::toConditionsConjunction() co
         literals.push_back(mc.toCondition());
     cc.literals = literals;
     return cc;
+}
+
+bool ManagedConditionsConjunction::containsPlaceholders(){
+    for(ManagedCondition mc : literals_)
+        if(mc.containsPlaceholders())
+            return true;
+    
+    return false;// no placeholder found
+}
+
+set<ManagedBelief> ManagedConditionsConjunction::getBeliefsWithPlaceholders(){
+    set<ManagedBelief> placeholder_beliefs = set<ManagedBelief>();
+    for(ManagedCondition mc : literals_)
+        if(mc.containsPlaceholders())
+            placeholder_beliefs.insert(mc.getMGBelief());
+    
+    return placeholder_beliefs;
+}
+
+/* substitute placeholders as per assignments map and return a new ManagedConditionsConjunction instance*/
+ManagedConditionsConjunction ManagedConditionsConjunction::applySubstitution(const map<string, string> assignments) const
+{
+    vector<ManagedCondition> new_literals;
+    for(ManagedCondition mc : literals_)
+        new_literals.push_back(mc.applySubstitution(assignments));
+    
+    return ManagedConditionsConjunction{new_literals};
 }
 
 ManagedConditionsConjunction::ManagedConditionsConjunction(const vector<ManagedCondition>& literals):

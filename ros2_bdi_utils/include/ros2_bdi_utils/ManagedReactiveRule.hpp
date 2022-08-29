@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <memory>
 #include <iostream>
 
@@ -41,6 +42,8 @@ namespace BDIManaged
             BDIManaged::ManagedConditionsDNF getMGCondition() const{return dnf_condition_;}
             std::set<MGBeliefOp> getBeliefRules() const{return belief_rules_;}
             std::set<MGDesireOp> getDesireRules() const{return desire_rules_;}
+
+            static ManagedReactiveRule applySubstitution(const ManagedReactiveRule& baseline_reactive_rule, const std::map<std::string, std::string> assignments);
         private:
 
             uint8_t ai_id_;//auto generated in init -> used to put all the rules in a set easily

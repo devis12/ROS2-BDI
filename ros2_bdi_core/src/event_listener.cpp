@@ -1,4 +1,5 @@
-#include <string>
+#include <vector>
+#include <map>
 
 // header file for Event listener node
 #include "ros2_bdi_core/event_listener.hpp"
@@ -11,17 +12,17 @@
 
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
-using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
 
+using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedReactiveRule;
 using std::string;
 using std::set;
-using std::map;
 using std::bind;
 using std::placeholders::_1;
+
 
 EventListener::EventListener()
     : rclcpp::Node(EVENT_LISTENER_NODE_NAME)//, state_(STARTING)
@@ -41,6 +42,10 @@ bool EventListener::init()
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
     rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
     qos_keep_all.keep_all();
+
+
+    // initializing domain expert
+    domain_expert_ = std::make_shared<plansys2::DomainExpertClient>();
 
     // init rules set
     reactive_rules_ = init_reactive_rules();
@@ -105,7 +110,7 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     set<ManagedReactiveRule> rules;
 
     try{
-        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath);
+        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath);//TODO test
 
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Reactive rules initialization performed through " + init_reactive_rules_filepath);
@@ -124,54 +129,126 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
 }
 
 
+/*Apply satisfying rules starting from extracted possible assignments for the placeholders*/
+void EventListener::apply_satisfying_rules(const ManagedReactiveRule& reactive_rule, const map<string, vector<ManagedBelief>>& assignments, const set<ManagedBelief>& belief_set)
+{
+    vector<int> current_choices = vector<int>(assignments.size(),0); // init current_choices as {0,0,0,...} with length == num of placeholders
+    
+    vector<int> limit_choices = vector<int>(assignments.size(),0); // init limit_choices with max value per each digit, e.g. {3, 4, 6}
+    
+    bool reached_end = false;
+    int i = 0;
+    for(auto it = assignments.begin(); !reached_end && it != assignments.end(); ++it)
+    {
+        limit_choices[i] = it->second.size();
+        if(limit_choices[i] > 0)//there seems to be at least a combination to evaluate
+            reached_end = false;
+        else
+            reached_end = true;//stop immediately, a placeholder has no possible actual replacement with an instance
+        i++;
+    }
+
+    while(!reached_end) // keep iterating while there is a combination to evaluate
+    {
+        // use current choice and apply them to replace placeholder in reactive_rule with actual values from possible assignments
+        map<string, string> actual_assignments;
+        i = 0;
+        for(auto it = assignments.begin(); it != assignments.end(); ++it)
+        {
+            actual_assignments[it->first] = it->second[current_choices[i]].getName();
+            i++;
+        }
+
+        ManagedReactiveRule reactive_rule_subs = ManagedReactiveRule::applySubstitution(reactive_rule, actual_assignments);
+        if(reactive_rule_subs.getMGCondition().isSatisfied(belief_set_))
+            apply_rule(reactive_rule_subs);
+
+        // try to update current choice
+        bool upd = false;
+        // increment one
+        for(int i = 0; i<current_choices.size(); i++)
+        {
+            if(current_choices[i] < limit_choices[i] - 1)
+            {
+                current_choices[i]++;
+                if(i>0)
+                {
+                    int j = 0;
+                    while(j<i)
+                    {
+                        current_choices[j] = 0;
+                        j++;
+                    }
+                }
+                upd = true;
+                i = current_choices.size(); //exit immediately
+            }
+        }
+        reached_end = !upd;//if upd made -> not reached end yet
+    }
+}
+
+
 /*Iterate over the rules and check if any of them applies, if yes enforces it*/
 void EventListener::check_if_any_rule_apply()
 {
     for(auto reactive_rule : reactive_rules_)
-    {
-        if(reactive_rule.getMGCondition().isSatisfied(belief_set_))
+    {  
+        map <string, vector<ManagedBelief>> assignments;//contains variable assigments
+        if(reactive_rule.getMGCondition().containsPlaceholders())
+        {
+            assignments = reactive_rule.getMGCondition().extractAssignmentsMap(belief_set_);
+            apply_satisfying_rules(reactive_rule, assignments, belief_set_);
+        }
+
+        else if(reactive_rule.getMGCondition().isSatisfied(belief_set_))//rule with no placeholders sat -> apply rune as is
         {
             //rule is satisfied! apply effects
+            apply_rule(reactive_rule);
+        }
+    }
+}
 
-            //Belief set updates
-            for(auto bset_upd : reactive_rule.getBeliefRules())
-            {
-                auto bel_to_string = bset_upd.second.getName() + " " + bset_upd.second.getParamsJoined() 
-                    + " value = " + std::to_string (bset_upd.second.getValue()) ;
-                if(bset_upd.first == ReactiveOp::ADD)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Adding belief " + bel_to_string);
+/*Apply reactive rule, by publishing to the right topic belief/desire set updates as defined in reactive_rule*/
+void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_rule)
+{
+    //Belief set updates
+    for(auto bset_upd : reactive_rule.getBeliefRules())
+    {
+        auto bel_to_string = bset_upd.second.getName() + " " + bset_upd.second.getParamsJoined() 
+            + " value = " + std::to_string (bset_upd.second.getValue()) ;
+        if(bset_upd.first == ReactiveOp::ADD)
+        {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Adding belief " + bel_to_string);
 
-                    add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset 
-                }
-                else
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Deleting belief " + bel_to_string);
+            add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset 
+        }
+        else
+        {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Deleting belief " + bel_to_string);
 
-                    del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset
-                }
-            }
+            del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset
+        }
+    }
 
-            //Desire set updates
-            for(auto dset_upd : reactive_rule.getDesireRules())
-            {
-                if(dset_upd.first == ReactiveOp::ADD)
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
+    //Desire set updates
+    for(auto dset_upd : reactive_rule.getDesireRules())
+    {
+        if(dset_upd.first == ReactiveOp::ADD)
+        {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
 
-                    add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
-                }
-                else
-                {
-                    if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());
+            add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
+        }
+        else
+        {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());
 
-                    del_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
-                }
-            }
+            del_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
         }
     }
 }

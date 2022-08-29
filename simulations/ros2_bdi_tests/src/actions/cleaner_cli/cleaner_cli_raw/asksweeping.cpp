@@ -85,11 +85,6 @@ private:
     for(Belief b : sweeperBSet.value)
       if(b.name == "swept" && b.params[0] == waypoint_)
         swept_ = true;
-    /*
-    if(!swept_)
-      std::cout << waypoint_ << " still not swept by sweeper" << std::endl;
-    else
-      std::cout << waypoint_ << " finally swept by sweeper!" << std::endl;*/
   }
 
   // notify waypoint has been swept to cleaner itself

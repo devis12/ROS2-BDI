@@ -67,6 +67,10 @@ namespace BDIManaged
             
             // return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
             bool equivalentValue(const ManagedDesire& otherDesire);
+
+
+            /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
+            ManagedDesire applySubstitution(const std::map<std::string, std::string> assignments) const;
         private:
             /*name of the desire*/
             std::string name_;

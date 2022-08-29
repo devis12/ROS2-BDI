@@ -5,10 +5,13 @@
 
 using std::string;
 using std::vector;
+using std::map;
 using std::set;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Condition;
+
+using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedCondition;
 
@@ -67,15 +70,15 @@ bool wild_pattern_equal(const ManagedBelief& mgBeliefWildPattern, const ManagedB
     if(!krauss_wild_pattern_match(mgBeliefWildPattern.getName(), mgBeliefToCheckAgainst.getName())) // names do not match (considering wild pattern chars)
         return false;
 
-    vector<string> wild_params = mgBeliefWildPattern.getParams();
-    vector<string> text_params = mgBeliefToCheckAgainst.getParams();
+    vector<ManagedParam> wild_params = mgBeliefWildPattern.getParams();
+    vector<ManagedParam> text_params = mgBeliefToCheckAgainst.getParams();
     if(wild_params.size() != mgBeliefToCheckAgainst.getParams().size())// params size differ
         return false;
     
     //check equals param by param (at this point you know the two arrays are the same size)
     for(uint8_t i = 0; i < wild_params.size(); i++)
     {   
-        if(!krauss_wild_pattern_match(wild_params[i],text_params[i])) //params in pos i do not match
+        if(!krauss_wild_pattern_match(wild_params[i].name,text_params[i].name)) //params in pos i do not match
             return false;
     }
     //otherwise equals
@@ -91,6 +94,29 @@ ManagedCondition::ManagedCondition(const Condition& condition):
     condition_to_check_(ManagedBelief{condition.condition_to_check}),
     check_(condition.check)
     {}
+
+
+/* substitute placeholders as per assignments map and return a new ManagedCondition instance*/
+ManagedCondition ManagedCondition::applySubstitution(const map<string, string> assignments) const
+{
+    return ManagedCondition{condition_to_check_.applySubstitution(assignments), check_};
+}
+
+bool ManagedCondition::containsPlaceholders(){
+    if(condition_to_check_.pddlType() == Belief().PREDICATE_TYPE || condition_to_check_.pddlType() == Belief().FUNCTION_TYPE)   
+    {
+        for(ManagedParam arg : condition_to_check_.getParams())
+            if(arg.isPlaceholder())
+               return true;
+    }
+    else if(condition_to_check_.pddlType() == Belief().INSTANCE_TYPE)
+    {
+        string instance_name = condition_to_check_.getName();
+        if(instance_name.find("{") == 0 && instance_name.find("}") == instance_name.length()-1)
+            return true;
+    }
+    return false;// no placeholder found
+}
 
 bool ManagedCondition::performCheckAgainstBelief(const ManagedBelief& mb)
 {

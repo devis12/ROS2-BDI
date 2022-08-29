@@ -77,6 +77,9 @@ ament_target_dependencies(recharge_bdi ${bdi_act_client_dep})
 add_executable(doclean_bdi src/actions/cleaner_cli/cleaner_cli_bdi/doclean.cpp)
 ament_target_dependencies(doclean_bdi ${bdi_act_client_dep})
 
+add_executable(do_nothing_bdi src/actions/cleaner_cli/cleaner_cli_bdi/do_nothing.cpp)
+ament_target_dependencies(do_nothing_bdi ${bdi_act_client_dep})
+
 add_executable(asksweeping_bdi src/actions/cleaner_cli/cleaner_cli_bdi/asksweeping.cpp)
 ament_target_dependencies(asksweeping_bdi ${bdi_act_client_dep})
 
@@ -135,6 +138,7 @@ install(TARGETS
   dosweep
 
   movetoward_bdi
+  do_nothing_bdi
   recharge_bdi
   doclean_bdi
   asksweeping_bdi

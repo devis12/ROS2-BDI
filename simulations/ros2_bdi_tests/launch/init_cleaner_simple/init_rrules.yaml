@@ -1,5 +1,4 @@
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "T"
@@ -14,12 +13,64 @@
       operation: ADD
       value:
         name: "pred_b"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "pippo"
 
-- 
-  condition:
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "pred_a"
+              pddl_type: 2
+              params:
+                - "{x}"
+
+  reactive_rules:
+    - set: belief
+      operation: ADD
+      value:
+        name: "pred_b"
+        pddl_type: 2
+        params:
+          - "{x}"
+
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "pred_a"
+              pddl_type: 2
+              params:
+                - "{x}"
+
+          - check: "F"
+            condition_to_check:
+              name: "pred_a"
+              pddl_type: 2
+              params:
+                - "{y}"
+
+  reactive_rules:
+    - set: desire
+      operation: ADD
+      value:
+        name: "do_{x}_{y}"
+        priority: 0.2
+        deadline: 16.0
+        value:
+          - name: "done"
+            pddl_type: 2
+            params:
+              - "{x}"
+          - name: "done"
+            pddl_type: 2
+            params:
+              - "{y}"
+
+- condition:
     clauses:
       - literals:
           - check: "LE"
@@ -35,11 +86,10 @@
       operation: DEL
       value:
         name: "full_recharged"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "cleaner"
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "LE"
@@ -59,6 +109,6 @@
         deadline: 16.0
         value:
           - name: "full_recharged"
-            pddl_type: 2 
-            params: 
+            pddl_type: 2
+            params:
               - "cleaner"
