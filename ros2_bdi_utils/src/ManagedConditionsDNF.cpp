@@ -41,6 +41,15 @@ ConditionsDNF ManagedConditionsDNF::toConditionsDNF() const
     return c_dnf;
 }
 
+// Clone a MG Conditions DNF
+ManagedConditionsDNF ManagedConditionsDNF::clone()
+{
+    vector<ManagedConditionsConjunction> clauses;
+    for(ManagedConditionsConjunction mcc : clauses_)
+        clauses.push_back(mcc.clone());
+    return ManagedConditionsDNF{clauses};
+}
+
 ManagedConditionsDNF::ManagedConditionsDNF(const vector<ManagedConditionsConjunction>& clauses):
     clauses_(clauses){}
 
@@ -97,6 +106,22 @@ std::optional<ManagedConditionsDNF> ManagedConditionsDNF::parseMGConditionsDNF(s
 
         return ManagedConditionsDNF(clauses);
     }
+}
+
+
+ManagedConditionsDNF ManagedConditionsDNF::mergeMGConditionsDNF(const BDIManaged::ManagedConditionsDNF& otherMGConditionsDNF)
+{
+    vector<ManagedConditionsConjunction> preconditions_clauses;
+    // merge two DNF conditions
+    for(ManagedConditionsConjunction mcc : getClauses())
+        for(ManagedConditionsConjunction other_mcc : otherMGConditionsDNF.getClauses())
+        {
+            ManagedConditionsConjunction merge_mcc;
+            merge_mcc.addLiterals(mcc.getLiterals());
+            merge_mcc.addLiterals(other_mcc.getLiterals());
+            preconditions_clauses.push_back(merge_mcc);
+        }
+    return ManagedConditionsDNF{preconditions_clauses};
 }
 
 /*

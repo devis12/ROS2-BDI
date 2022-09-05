@@ -118,8 +118,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     
     //Put just info wrt this action execution and not others (NOT needed)
     plansys2_msgs::action::ExecutePlan::Feedback actionsFeedback = executor_client_->getFeedBack(true);
-    exec_status_msg.early_abort_accepted = actionsFeedback.early_abort_accepted;
-    
+    exec_status_msg.sim_to_goal = actionsFeedback.early_abort_accepted? exec_status_msg.NO_SIM_TO_GOAL : exec_status_msg.SIM_TO_GOAL;
+
     for(auto actionExecInfo: actionsFeedback.action_execution_status){
       ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
       std::size_t par1Pos = actionExecInfo.action_full_name.find("(");
@@ -129,7 +129,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
       action_exec_status_msg.executing_action = actionFullNameNoTime;
       action_exec_status_msg.planned_start_time = std::stof(actionExecInfo.action_full_name.substr(colPos+1))/1000.0f;
       
-      if(actionFullNameNoTime==getFullActionName(true))
+      if(actionExecInfo.action_full_name==getFullActionName())
       {
         action_exec_status_msg.status = status;
         if(status == action_exec_status_msg.SUCCESS)// check whether at end effects already applied in this case(they shouldn't, hence mark it as hybrid state RUN_SUC)

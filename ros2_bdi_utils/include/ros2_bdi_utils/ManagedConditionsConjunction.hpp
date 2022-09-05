@@ -25,8 +25,16 @@ namespace BDIManaged
             ManagedConditionsConjunction(const ros2_bdi_interfaces::msg::ConditionsConjunction& conditionsConjunction);
             ManagedConditionsConjunction(const std::vector<ManagedCondition>& literals);
             
+            // Clone a MG Conditions Conjunction
+            ManagedConditionsConjunction clone();
+
             /* getter method for ManagedConditionsConjunction instance prop -> literals_ */
             std::vector<ManagedCondition> getLiterals() const {return literals_;}
+
+            void addLiterals(const std::vector<ManagedCondition>& new_literals) {
+                for(ManagedCondition mc : new_literals)
+                    literals_.push_back(mc);
+            }
 
             // returns true if all literals are satisfied against the passed belief set
             // n.b. result is true if literals_ array is empty

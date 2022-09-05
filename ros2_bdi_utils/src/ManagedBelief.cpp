@@ -50,6 +50,32 @@ ManagedBelief::ManagedBelief(const Belief& belief):
             params_.push_back(ManagedParam{p,""});
     }
 
+// Clone a MG Belief DNF
+ManagedBelief ManagedBelief::clone()
+{
+    string name = string{name_};
+    if(pddl_type_ == Belief().INSTANCE_TYPE)
+    {
+        string instance_type = string{type_};
+        return (ManagedBelief::buildMBInstance(name, instance_type));
+    }
+    else if(pddl_type_ == Belief().PREDICATE_TYPE || pddl_type_ == Belief().FUNCTION_TYPE)
+    {
+        vector<ManagedParam> params;
+        for(auto p : params_)
+            params.push_back(ManagedParam{string{p.name}, string{p.type}}); 
+        
+        float value = 0.0f;
+        if(pddl_type_ == Belief().FUNCTION_TYPE)
+            value = value_;
+
+        return pddl_type_ == Belief().PREDICATE_TYPE?
+             (ManagedBelief::buildMBPredicate(name, params))
+             :
+             (ManagedBelief::buildMBFunction(name, params, value));
+    }
+}
+
 ManagedBelief ManagedBelief::buildMBInstance(const string& name, const string& instance_type)
 {
     return ManagedBelief{name, Belief().INSTANCE_TYPE, instance_type};

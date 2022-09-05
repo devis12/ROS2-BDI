@@ -34,6 +34,9 @@ namespace BDIManaged
             
             ManagedDesire(const ros2_bdi_interfaces::msg::Desire& desire);
 
+            // Clone a MG Desire
+            ManagedDesire clone();
+
             /* Getter/setter methods for ManagedDesire instance properties*/
             
             void setName(const std::string& name){name_ = std::string{name};};
@@ -68,6 +71,9 @@ namespace BDIManaged
             
             // return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
             bool equivalentValue(const ManagedDesire& otherDesire);
+
+            // return true if otherDesire presents the same exact name, priority and desire group, belief set should be a subset of the belief set of otherDesire
+            bool equalsOrSupersetIgnoreAdvancedInfo(const ManagedDesire& otherDesire);
 
             // return true if otherDesire is augmented to the current one
             bool boostDesire(const ManagedDesire& otherDesire);

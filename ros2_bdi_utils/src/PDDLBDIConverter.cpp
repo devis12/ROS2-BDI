@@ -156,7 +156,7 @@ namespace PDDLBDIConverter
       
       for(int i = 0; i < current_plan_body.size(); i++)
       {   
-          int plannedStartTimex1000 = (int) (current_plan_body[i].time * 1000);
+          int plannedStartTimex1000 = static_cast<int>(current_plan_body[i].time * 1000);
 
           if(timex1000 == plannedStartTimex1000 && action_full_no_time == current_plan_body[i].action)//same time of start
             return i;

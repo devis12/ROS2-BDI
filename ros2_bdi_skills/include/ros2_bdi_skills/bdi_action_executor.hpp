@@ -83,13 +83,14 @@ protected:
     void communicateExecStatus(const uint8_t& status);
 
     /*returns full action name*/
-    std::string getFullActionName(const bool& withParenthesis=true)
+    std::string getFullActionName()
     {
       std::string argsJoin = "";
           for(auto arg : getArguments())
               argsJoin+= " " + arg;
-      std::string fullName = get_action_name() + argsJoin; 
-      return withParenthesis? "(" + fullName + ")" : fullName;
+      std::string fullName = get_action_name() + argsJoin;
+      std::string timex1000 = std::to_string(static_cast<int>(get_planned_start_time() * 1000)); 
+      return "(" + fullName + ")" + ":" + timex1000;
     }
 
     /*

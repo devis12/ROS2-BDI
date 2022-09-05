@@ -52,7 +52,7 @@ optional<Plan> SchedulerOffline::computePlan(const ManagedDesire& md)
 {   
     //set desire as goal of the pddl_problem
     if(!problem_expert_->setGoal(Goal{BDIPDDLConverter::desireToGoal(md.toDesire())})){
-        psys2_comm_errors_++;//plansys2 comm. errors
+        //psys2_comm_errors_++;//plansys2 comm. errors
         return std::nullopt;
     }
 

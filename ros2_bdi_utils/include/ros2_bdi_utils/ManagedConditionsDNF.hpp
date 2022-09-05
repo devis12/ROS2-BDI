@@ -30,7 +30,10 @@ class ManagedConditionsDNF
         ManagedConditionsDNF();
         ManagedConditionsDNF(const ros2_bdi_interfaces::msg::ConditionsDNF& conditionsDNF);
         ManagedConditionsDNF(const std::vector<ManagedConditionsConjunction>& clauses);
-        
+
+        // Clone a MG Conditions DNF
+        ManagedConditionsDNF clone();
+
         /* getter method for ManagedConditionsDNF instance prop -> clauses_ */
         std::vector<ManagedConditionsConjunction> getClauses() const {return clauses_;}
         
@@ -52,6 +55,14 @@ class ManagedConditionsDNF
 
         /* substitute placeholders as per assignments map and return a new ManagedConditionsDNF instance*/
         ManagedConditionsDNF applySubstitution(const std::map<std::string, std::string> assignments) const;
+
+        /* 
+            Merge two DNF expressions as such:
+            P1 = (A && B) || (C) || (D)
+            P2 = (E && F) || (H)
+            P_MERGE = (A && B && E && F) || (A && B && H) || ...
+        */
+        ManagedConditionsDNF mergeMGConditionsDNF(const BDIManaged::ManagedConditionsDNF& otherMGConditionsDNF);
 
         /*
             Try to parse a ManagedConditionsDNF from a string, format is the following for ConditionsDNF

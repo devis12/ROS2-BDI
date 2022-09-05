@@ -18,7 +18,7 @@ JavaFFClient::JavaFFClient(const string& nodeBasename)
     unexpected_state_client_ = caller_node_->create_client<UnexpectedState>(JAVAFF_UNEXPECTED_STATE_SRV);
 }
 
-bool JavaFFClient::launchPlanSearch(const ros2_bdi_interfaces::msg::Desire fulfilling_desire, const string& problem, const int& interval)
+bool JavaFFClient::launchPlanSearch(const ros2_bdi_interfaces::msg::Desire& fulfilling_desire, const string& problem, const int& interval)
 {
     auto req = std::make_shared<JavaFFPlan::Request>();
     req->fulfilling_desire = fulfilling_desire;

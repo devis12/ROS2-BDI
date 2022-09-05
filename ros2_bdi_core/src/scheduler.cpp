@@ -462,7 +462,16 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     
     //desire still in desire set
     bool desireInDesireSet = desire_set_.count(selectedPlan.getFinalTarget())==1;
-    
+    std::cout << "desireInDesireSet=" << desireInDesireSet << std::flush << std::endl;
+    if(!desireInDesireSet)
+    {
+        std::cout << "Desire set: " << std::flush << std::endl;
+        for(ManagedDesire md : desire_set_)
+            std::cout << md << std::flush << std::endl << std::endl;
+
+        std::cout << "Plan final target: " << selectedPlan.getFinalTarget() << std::flush << std::endl;
+    }
+
     //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
     if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)
         return false;

@@ -95,6 +95,11 @@ ManagedCondition::ManagedCondition(const Condition& condition):
     check_(condition.check)
     {}
 
+// Clone a MG Conditions DNF
+ManagedCondition ManagedCondition::clone()
+{
+    return ManagedCondition{condition_to_check_.clone(), string{check_}};
+}
 
 /* substitute placeholders as per assignments map and return a new ManagedCondition instance*/
 ManagedCondition ManagedCondition::applySubstitution(const map<string, string> assignments) const
@@ -250,10 +255,7 @@ bool ManagedCondition::verifyAllManagedConditions(
 {
     for(ManagedCondition mc : mcArray)
         if(!mc.performCheckAgainstBeliefs(mbSet))//one condition not valid and/or not verified
-        {
-            std::cout << "NOT SAT: " << mc.getMGBelief() << std::flush << std::endl;
             return false;
-        }
             
     return true;
 }

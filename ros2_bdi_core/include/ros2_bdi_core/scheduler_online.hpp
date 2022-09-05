@@ -2,6 +2,7 @@
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
 #include "javaff_interfaces/msg/search_result.hpp"
+#include "javaff_interfaces/msg/execution_status.hpp"
 
 #include "ros2_bdi_utils/BDIPlanLibrary.hpp"
 
@@ -97,7 +98,10 @@ private:
                 return i;
         return -1;
     }
-    
+
+    /* Launch first partial plan execution of a queue of plans which are going to be stored in the waiting list, waiting for their turn */
+    bool launchFirstPPlanExecution(const javaff_interfaces::msg::PartialPlan& firstpplan);
+
     /*
         Increment counter for failed computation of plans that aimed at fulfilling desire x
         DelDesire (and group) in case threshold is reached
@@ -164,8 +168,9 @@ private:
 
     /*
         Process updated search result presenting a new search baseline compared to previous msgs of the same type
+        returns true if new baseline and search results are accepted (i.e. not too late)
     */
-    void processSearchResultWithNewBaseline(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
+    bool processSearchResultWithNewBaseline(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
 
     /*
         Process desire boost request for active goal augmentation
@@ -175,7 +180,7 @@ private:
     /*
         Call JavaFF for triggering the search for a plan fulfilling @selDesire
     */
-    bool launchPlanSearch(const BDIManaged::ManagedDesire selDesire);
+    bool launchPlanSearch(const BDIManaged::ManagedDesire& selDesire);
 
     /* build empty search baseline method */
     javaff_interfaces::msg::CommittedStatus emptySearchBaseline()
@@ -185,31 +190,20 @@ private:
         return sb;
     }
 
-    /* compare passed search baseline with current one */
-    bool matchingBaseline(javaff_interfaces::msg::CommittedStatus sb)
-    {
-        if(search_baseline_.executing_plan_index != sb.executing_plan_index)// compare executing plan index
-            return false;
-        
-        if(search_baseline_.committed_actions.size() != sb.committed_actions.size()) // diff plans' sizes
-            return false;
-        
-        for(int i = 0; i < search_baseline_.committed_actions.size(); i++)//check action by action committed status
-            if( search_baseline_.committed_actions[i].committed_action != sb.committed_actions[i].committed_action
-                    ||
-                search_baseline_.committed_actions[i].planned_start_time != sb.committed_actions[i].planned_start_time
-                    ||
-                search_baseline_.committed_actions[i].committed != sb.committed_actions[i].committed)
-                return false;
-        
-        return true;
-    }
+    /* 
+        compare passed search baseline with current one
+            returns: 
+                -1: if sb is less recent
+                0:  if sb is at the same level (matching baselines)
+                1:  if sb is more recent (more actions committed or greater executing plan index)
+    */
+    int compareBaseline(javaff_interfaces::msg::CommittedStatus sb);
 
     // queue of waiting_plans for execution (LAST element of the vector is the first one that has been pushed)
     std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
     // fulfilling desire 
-    std::shared_ptr<BDIManaged::ManagedDesire> fulfilling_desire_;
+    BDIManaged::ManagedDesire fulfilling_desire_;
 
     // search is progressing
     bool searching_;
@@ -222,6 +216,9 @@ private:
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.
+
+    // publisher to notify javaff of exec status, needed when active goal is augmented, because pddl problem changes
+    rclcpp::Publisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr javaff_exec_status_publisher_;//javaff exec status pub.
 
     // Client to wrap srv call to JavaFFServer
     std::shared_ptr<JavaFFClient> javaff_client_;

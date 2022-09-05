@@ -205,7 +205,7 @@ protected:
         N.B see addDesire(const ManagedDesire mdAdd, const optional<ManagedDesire> necessaryForMd)
         for further explanations
     */
-    bool addDesire(const BDIManaged::ManagedDesire mdAdd)
+    bool addDesire(const BDIManaged::ManagedDesire& mdAdd)
     {
         return addDesire(mdAdd, std::nullopt, "");
     }
@@ -217,7 +217,7 @@ protected:
         for the fulfillment of it (e.g. @mdAdd is derived from preconditions or context)
         @necessaryForMd value (if exists) has to be already in the desire_set_
     */
-    bool addDesire(BDIManaged::ManagedDesire mdAdd, std::optional<BDIManaged::ManagedDesire> necessaryForMD, 
+    bool addDesire(const BDIManaged::ManagedDesire& mdAdd, std::optional<BDIManaged::ManagedDesire> necessaryForMD, 
         const std::string& suffixDesireGroup)
     {   
         auto acceptance = desireAcceptanceCheck(mdAdd);
@@ -229,6 +229,28 @@ protected:
             added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
         mtx_add_del_.unlock();
         return added;
+    }
+
+    /*
+        Replace mdOriginal with mdNew in desire_set_ maitaining the info of the original in the corresponding maps (e.g. comp plans map, aborted plans map, ...)
+    */
+    bool replaceDesire(const BDIManaged::ManagedDesire& mdOriginal, const BDIManaged::ManagedDesire& mdNew)
+    {
+        mtx_add_del_.lock();
+        {
+            if(desire_set_.count(mdOriginal) == 0)
+            {
+                mtx_add_del_.unlock();
+                return false;
+            }
+            else
+            {
+                desire_set_.erase(mdOriginal);
+                desire_set_.insert(mdNew);
+            }
+        }
+        mtx_add_del_.unlock();
+        return desire_set_.count(mdNew) == 1;
     }
 
     /*

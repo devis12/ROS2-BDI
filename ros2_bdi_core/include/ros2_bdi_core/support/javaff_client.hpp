@@ -17,8 +17,7 @@ class JavaFFClient
         /* Constructor for the supporting node for calling javaff services */
         JavaFFClient(const std::string& nodeBasename);
 
-        bool launchPlanSearch(const ros2_bdi_interfaces::msg::Desire fulfilling_desire, const std::string& problem, const int& interval);
-
+        bool launchPlanSearch(const ros2_bdi_interfaces::msg::Desire& fulfilling_desire, const std::string& problem, const int& interval);
         bool callUnexpectedStateSrv(const std::string& pddl_problem);
 
     private:

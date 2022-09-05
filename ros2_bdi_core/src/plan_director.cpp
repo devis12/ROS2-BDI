@@ -426,7 +426,7 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
         return;
     }
 
-    string req_action = (request->request == request->EXECUTE)? "execute" : "abort";
+    string req_action = (request->request == request->EXECUTE)? "execute" : (request->request == request->ABORT)? "abort" : "early_abort";
     RCLCPP_INFO(this->get_logger(), "Received request to " + req_action + " plan " + std::to_string(request->plan.psys2_plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\"");
     ManagedDesire mdPlan = ManagedDesire{request->plan.target};
     ManagedConditionsDNF mdPlanPrecondition = ManagedConditionsDNF{request->plan.precondition};
@@ -596,8 +596,7 @@ BDIPlanExecutionInfo PlanDirector::getPlanExecutionInfo(const ExecutorClient::Ex
 
     // find executing action status
     for (int i=0; i<current_plan_body.size(); i++) {
-        string timex1000s = std::to_string(current_plan_body[i].time * 1000);
-        timex1000s = timex1000s.substr(0, timex1000s.find_first_of("."));
+        string timex1000s = std::to_string(static_cast<int>(current_plan_body[i].time * 1000));
         string action_full_name = current_plan_body[i].action + ":" + timex1000s;
         int aindex_psys2_feed = PDDLBDIConverter::getActionIndex(feedback.action_execution_status,  action_full_name);
         

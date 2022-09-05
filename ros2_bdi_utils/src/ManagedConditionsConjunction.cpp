@@ -24,6 +24,15 @@ ManagedConditionsConjunction::ManagedConditionsConjunction(const ConditionsConju
         literals_.push_back(ManagedCondition{c});  
 }
 
+// Clone a MG Conditions DNF
+ManagedConditionsConjunction ManagedConditionsConjunction::clone()
+{
+    vector<ManagedCondition> literals;
+    for(ManagedCondition mc : literals_)
+        literals.push_back(mc.clone());
+    return ManagedConditionsConjunction{literals};
+}
+
 ConditionsConjunction ManagedConditionsConjunction::toConditionsConjunction() const
 {
     ConditionsConjunction cc = ConditionsConjunction();

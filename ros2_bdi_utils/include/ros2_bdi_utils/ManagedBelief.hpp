@@ -35,6 +35,9 @@ namespace BDIManaged
             ManagedBelief(const std::string& name,const int& pddl_type,const std::vector<ManagedParam>& params, const float& value);
             ManagedBelief(const ros2_bdi_interfaces::msg::Belief& belief);
             
+            // Clone a MG Belief DNF
+            ManagedBelief clone();
+
             /*  Static builder methods for a more intuitive managed belief instance constructor methods distinguished
                 by the belief type
             */
