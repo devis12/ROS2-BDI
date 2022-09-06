@@ -80,7 +80,7 @@ protected:
     float getProgress() {return progress_;} 
 
     /* Communicate execution status*/
-    void communicateExecStatus(const uint8_t& status);
+    void communicateExecStatus(const uint16_t& status);
 
     /*returns full action name*/
     std::string getFullActionName()

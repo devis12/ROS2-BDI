@@ -1,5 +1,4 @@
-- 
-  condition:
+- condition:
     clauses:
       - literals:
           - check: "T"
@@ -21,14 +20,14 @@
       operation: DEL
       value:
         name: "available"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "p1"
 
     - set: belief
       operation: ADD
       value:
         name: "available"
-        pddl_type: 2 
-        params: 
+        pddl_type: 2
+        params:
           - "p2"

@@ -109,7 +109,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     return ActionExecutorClient::on_activate(previous_state);
   }
 
-  void BDIActionExecutor::communicateExecStatus(const uint8_t& status)
+  void BDIActionExecutor::communicateExecStatus(const uint16_t& status)
   {
     //notify javaff about executing status (action is about to start)
     ExecutionStatus exec_status_msg = ExecutionStatus();
@@ -119,6 +119,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     //Put just info wrt this action execution and not others (NOT needed)
     plansys2_msgs::action::ExecutePlan::Feedback actionsFeedback = executor_client_->getFeedBack(true);
     exec_status_msg.sim_to_goal = actionsFeedback.early_abort_accepted? exec_status_msg.NO_SIM_TO_GOAL : exec_status_msg.SIM_TO_GOAL;
+    exec_status_msg.notification_reason = (status == ActionExecutionStatus().RUNNING)? exec_status_msg.NEW_ACTION_STARTED : exec_status_msg.ACTION_FINISHED;
 
     for(auto actionExecInfo: actionsFeedback.action_execution_status){
       ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();

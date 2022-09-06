@@ -532,6 +532,8 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
             committed_counter++;
     }
 
+    bool successful_update = false;// it was possible to process successfully the search result with new baseline (i.e. not too late)
+
     bool early_abort_request_success = false;
     if(committed_counter < psys2_current_plan.items.size())
     {
@@ -547,13 +549,16 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
 
     if(committed_counter == psys2_current_plan.items.size() || early_abort_request_success)
     {
+        successful_update = true;
         int i = msg->base_plan_index;
 
         if(noPlanExecuting() && msg->plans[i].plan.items.size() > 0)
         {  
-            return launchFirstPPlanExecution(msg->plans[i]); 
+            successful_update = launchFirstPPlanExecution(msg->plans[i]); 
+            i++;
         }
-        else
+
+        if(successful_update)
         {
             // substitute waiting queue
             waiting_plans_.clear();
@@ -568,9 +573,10 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
                 i++;
             }
         }
+        
     }
 
-    return early_abort_request_success;
+    return successful_update;
 }
 
 
@@ -693,6 +699,7 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
                     boosted_goal_msg.executing_plan_index = executing_pplan_index_;
                     boosted_goal_msg.pddl_problem = problem_expert_->getProblem();
                     boosted_goal_msg.sim_to_goal = boosted_goal_msg.SIM_TO_GOAL_FORCE_REPLAN;
+                    boosted_goal_msg.notification_reason = boosted_goal_msg.GOAL_BOOST;
                     javaff_exec_status_publisher_->publish(boosted_goal_msg);
                     // Sim to goal should fail, producing an adjust course of actions to tackle and fulfill boosted goal
                 }
