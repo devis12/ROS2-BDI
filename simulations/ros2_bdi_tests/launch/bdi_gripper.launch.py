@@ -87,10 +87,10 @@ def generate_launch_description():
         agent_id=GRIPPER_NAME,
         agent_group=GRIPPER_GROUP_NAME,
         init_params={
-            'pddl_file': bdi_tests_share_dir + '/pddl/gripper/gripper-domain.pddl',
-            'init_bset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_bset.yaml',
-            'init_dset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_dset.yaml',
-            #'init_reactive_rules_set': bdi_tests_share_dir + '/launch/init_gripper/init_rrules.yaml',
+            'pddl_file': bdi_tests_share_dir + '/pddl/gripper/gripper-domain_no_fluent_in_german.pddl',
+            'init_bset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_bset_no_fluent_in_german.yaml',
+            'init_dset': bdi_tests_share_dir + '/launch/init_gripper/init_gripper_dset_no_fluent_in_german.yaml',
+            'init_reactive_rules_set': bdi_tests_share_dir + '/launch/init_gripper/init_rrules.yaml',
             'belief_ck': [],   
             'belief_w':  [],   
             'desire_ck': [],   
@@ -99,6 +99,7 @@ def generate_launch_description():
             'comp_plan_tries': 16,
             'exec_plan_tries': 4,
             'planning_mode':'online',
+            'min_commit_steps': 2,
             'search_interval': 1000,
             'debug_log_active': ['javaff', 'event_listener', 'scheduler'],
 

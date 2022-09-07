@@ -61,6 +61,8 @@ from bdi_agent_core import *
             ** "search_interval": if planning_mode=="online", it is possible to specify the interval search (in ms, min 100, default 500)
                                     which corresponds to the lapse of time in which JavaFF needs to provide an update about its plan search
 
+            ** "min_commit_steps": if planning_mode=="online", it is possible to specify the min number of sequentially committed steps when an action is running
+            (e.g. if b starts running and in the plan we have b->(c||e)->d, with 1 (default) we commit till the starts of (c||d), with 2 commit till the start of d)
 
             ** "debug_log_active": array containing the nodes of which you want to activate the debug log
 '''
@@ -112,11 +114,12 @@ def AgentLaunchDescription(
 
     if planning_mode == 'online': # psys2 won't start its planner (by launch args passed)
         debug_javaff = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('javaff' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+        min_commit_steps_javaff = init_params[MIN_COMMIT_STEPS_PARAM] if (MIN_COMMIT_STEPS_PARAM in init_params) and isinstance(init_params[MIN_COMMIT_STEPS_PARAM], int) else 1
         javaff_nodes = Node(
             package='javaff',
             executable='javaff_nodes',
             name='javaff_nodes',
-            arguments=('!!!debug={}!!!???'+ init_params[PDDL_FILE_PARAM] + '???').format(debug_javaff),
+            arguments=('!!!{}={}!!!@@@{}={}@@@???'+ init_params[PDDL_FILE_PARAM] + '???').format(DEBUG_PARAM, debug_javaff, MIN_COMMIT_STEPS_PARAM, min_commit_steps_javaff),
             namespace=namespace,
             output='screen',
             parameters= []
