@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/init', ['init/problem1.json']),
         ('share/' + package_name + '/asset', ['asset/paper_agent.png']),
         ('share/' + package_name + '/asset', ['asset/plastic_agent.png']),
         ('share/' + package_name + '/asset', ['asset/person.png']),
@@ -28,7 +29,7 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            "litter_world_controller = litter_world.litter_world_controller:main",
+            "litter_world_ros2_controller = litter_world.litter_world_ros2_controller:main",
         ],
     },
 )
