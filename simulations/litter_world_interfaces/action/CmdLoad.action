@@ -1,0 +1,6 @@
+string cmd
+---
+bool performed
+int16 holding
+---
+float32 progress

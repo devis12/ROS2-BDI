@@ -20,7 +20,13 @@ class TkLitterWorldThread (threading.Thread):
         self.tk_litter_world.upd_num(num)
     
     def move_agent(self, agent, cmd_move):
-        self.tk_litter_world.move_agent(agent, cmd_move)
+        return self.tk_litter_world.move_agent(agent, cmd_move)
+    
+    def upd_holding_agent(self, agent, holding_upd):
+        return self.tk_litter_world.upd_holding_agent(agent, holding_upd)
+    
+    def remove_litter(self, x, y):
+        return self.tk_litter_world.remove_litter(x, y)
     
     def parse_to_init_world(self, init_world_json):
         columns = init_world_json["columns"]
