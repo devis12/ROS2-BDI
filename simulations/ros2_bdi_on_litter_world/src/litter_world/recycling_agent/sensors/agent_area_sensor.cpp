@@ -95,13 +95,13 @@ class AgentAreaSensor : public Sensor
 
                 // delete old agent position
                 auto belief_agent_pose_del = proto_belief_agent_pose;
-                belief_agent_pose_del.name = robot_name_;
+                belief_agent_pose_del.params[0] = robot_name_;
                 belief_agent_pose_del.params[1] = buildCellName(last_pose_.x,last_pose_.y);
                 sense(belief_agent_pose_del, UpdOperation::DEL);
 
                 // add new agent position
                 auto belief_agent_pose_add = proto_belief_agent_pose;
-                belief_agent_pose_add.name = robot_name_;
+                belief_agent_pose_add.params[0] = robot_name_;
                 belief_agent_pose_add.params[1] = buildCellName(curr_agent_pose.x,curr_agent_pose.y);
                 sense(belief_agent_pose_add, UpdOperation::ADD);
             }
