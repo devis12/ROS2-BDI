@@ -7,6 +7,8 @@
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 
 using std::string;
+using std::vector;
+using std::map;
 using std::chrono::seconds;
 using std::chrono::milliseconds;
 using std::bind;
@@ -14,6 +16,7 @@ using std::placeholders::_1;
 using std::optional;
 
 using ros2_bdi_interfaces::msg::Belief;  
+using ros2_bdi_interfaces::msg::BeliefSet;
 
 /*
 @sensor_name for the specific name of the node, 
@@ -34,27 +37,49 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     match_param_by_param_(match_param_by_param),
     enable_perform_sensing_(enable_perform_sensing)
 {
-    proto_belief_ = Belief{};
+    this->initPrototypeBsetMap({proto_belief});
+
+    this->initSensing(sensor_name);
+}
+
+Sensor::Sensor(const string& sensor_name, const vector<Belief>& proto_beliefs, const bool match_param_by_param, const bool enable_perform_sensing) 
+    : rclcpp::Node(sensor_name),
+
+    match_param_by_param_(match_param_by_param),
+    enable_perform_sensing_(enable_perform_sensing)
+{
+    this->initPrototypeBsetMap(proto_beliefs);
+
+    this->initSensing(sensor_name);
+}
+
+/*
+    Init prototype belief set map
+*/
+void Sensor::initPrototypeBsetMap(const vector<Belief>& proto_beliefs)
+{
+    proto_belief_map_= map<string, Belief>();
+    Belief proto_belief_checked = Belief();
     last_sensed_op_ = NOP;
 
-    //Erroneous type will generate sensors that do not publish any sensing info
-    if(proto_belief.pddl_type == Belief().INSTANCE_TYPE ||
-        proto_belief.pddl_type == Belief().PREDICATE_TYPE ||
-        proto_belief.pddl_type == Belief().FUNCTION_TYPE
-    )
-        proto_belief_.pddl_type = proto_belief.pddl_type;
+    for(Belief proto_belief : proto_beliefs)
+    {
+        //Erroneous type will generate sensors that do not publish any sensing info
+        if(proto_belief.pddl_type == Belief().INSTANCE_TYPE ||
+            proto_belief.pddl_type == Belief().PREDICATE_TYPE ||
+            proto_belief.pddl_type == Belief().FUNCTION_TYPE
+        )
+            proto_belief_checked.pddl_type = proto_belief.pddl_type;
 
-    proto_belief_.name = proto_belief.name;
-    proto_belief_.params = proto_belief.params;
-    proto_belief_.type = proto_belief.type;
-
-    this->declare_parameter(PARAM_AGENT_ID, "agent0");
-    this->declare_parameter(PARAM_DEBUG, false);
-    this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
-    this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
-    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) // default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
-
-    this->init();
+        proto_belief_checked.name = proto_belief.name;
+        proto_belief_checked.params = proto_belief.params;
+        proto_belief_checked.type = proto_belief.type;
+        
+        if(proto_belief.pddl_type == Belief().INSTANCE_TYPE)
+            proto_belief_map_[proto_belief_checked.type] = proto_belief_checked;
+        if(proto_belief.pddl_type == Belief().PREDICATE_TYPE || proto_belief.pddl_type == Belief().FUNCTION_TYPE)
+            proto_belief_map_[proto_belief_checked.name] = proto_belief_checked;
+    }
 }
 
 /*
@@ -62,16 +87,28 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     Main thing to be added: frequency at which to perform sensing method which publish the
     result in a belief structure after every sensing
 */
-void Sensor::init()
+void Sensor::initSensing(const string& sensor_name)
 { 
+    this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    this->declare_parameter(PARAM_DEBUG, false);
+    this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
+    this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
+    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) // default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
+
     // agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
 
     // Add new belief publisher
     add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, 10);
 
+    // Add set of beliefs publisher
+    add_belief_set_publisher_ = this->create_publisher<BeliefSet>(ADD_BELIEF_SET_TOPIC, 10);
+
     // Del belief publisher
     del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, 10);
+
+    // Del set of beliefs publisher
+    del_belief_set_publisher_ = this->create_publisher<BeliefSet>(DEL_BELIEF_SET_TOPIC, 10);
     
     // retrieve from parameter frequency at which to perform sensing
     float sensing_freq = this->get_parameter(PARAM_SENSING_FREQ).as_double();
@@ -114,19 +151,47 @@ void Sensor::startSensing()
 */
 void Sensor::sense(const Belief& belief, const UpdOperation& op)
 {
-    if(proto_belief_.pddl_type != belief.pddl_type)//sensing not valid 
-        return;
-    
     bool updated = false;
     
-    if(proto_belief_.pddl_type == Belief().INSTANCE_TYPE)
+    if(proto_belief_map_.find(belief.type) != proto_belief_map_.end() && proto_belief_map_[belief.type].pddl_type == Belief().INSTANCE_TYPE)
         updated = sensedInstance(belief);
-    else if(proto_belief_.pddl_type == Belief().PREDICATE_TYPE)
+    else if(proto_belief_map_.find(belief.name) != proto_belief_map_.end() && proto_belief_map_[belief.name].pddl_type == Belief().PREDICATE_TYPE)
         updated = sensedPredicate(belief);
-    else if(proto_belief_.pddl_type == Belief().FUNCTION_TYPE)
+    else if(proto_belief_map_.find(belief.name) != proto_belief_map_.end() && proto_belief_map_[belief.name].pddl_type == Belief().FUNCTION_TYPE)
         updated = sensedFunction(belief);
     if(updated)
         publishSensing(op);
+}
+
+
+
+/*
+    API offered to user so that he can just invoke it within the performSensing() implementation whenever the logic
+    requires to update the belief set in some way, i.e. by adding/updating/removing a new belief
+*/
+void Sensor::senseAll(const BeliefSet& belief_set, const UpdOperation& op)
+{
+    BeliefSet filteredBSetMsg = BeliefSet{};
+    filteredBSetMsg.agent_id = agent_id_;
+    for(Belief belief : belief_set.value)
+    {
+        bool updated = false;
+    
+        if(proto_belief_map_.find(belief.type) != proto_belief_map_.end() && proto_belief_map_[belief.type].pddl_type == Belief().INSTANCE_TYPE)
+            updated = sensedInstance(belief);
+        else if(proto_belief_map_.find(belief.name) != proto_belief_map_.end() && proto_belief_map_[belief.name].pddl_type == Belief().PREDICATE_TYPE)
+            updated = sensedPredicate(belief);
+        else if(proto_belief_map_.find(belief.name) != proto_belief_map_.end() && proto_belief_map_[belief.name].pddl_type == Belief().FUNCTION_TYPE)
+            updated = sensedFunction(belief);
+        
+        if(updated)
+            filteredBSetMsg.value.push_back(belief);
+    }
+
+    if(op == ADD || op == UPD)
+        add_belief_set_publisher_->publish(filteredBSetMsg);
+    else if(op == DEL)
+        del_belief_set_publisher_->publish(filteredBSetMsg);
 }
 
 /*
@@ -160,8 +225,9 @@ void Sensor::publishSensing(const UpdOperation& op)
     SAME type as the prototype (marked within the first and only param in the params array of the prototype)
 */
 bool Sensor::sensedInstance(const Belief& new_belief)
-{
-    bool do_upd = new_belief.pddl_type == Belief().INSTANCE_TYPE && proto_belief_.type == new_belief.type;
+{   
+    bool found = proto_belief_map_.find(new_belief.type) != proto_belief_map_.end();
+    bool do_upd = found && new_belief.pddl_type == Belief().INSTANCE_TYPE && proto_belief_map_[new_belief.type].type == new_belief.type;
     if(do_upd) //only 1 param which indicates the type which has to remain the same
         last_sensed_ = new_belief;
     return do_upd;
@@ -175,8 +241,9 @@ bool Sensor::sensedInstance(const Belief& new_belief)
 */
 bool Sensor::sensedPredicate(const Belief& new_belief)
 {
-    bool do_upd = new_belief.pddl_type == Belief().PREDICATE_TYPE && new_belief.name == proto_belief_.name 
-    && new_belief.params.size() == proto_belief_.params.size(); //same name -> same predicate -> same num of params
+    bool found = proto_belief_map_.find(new_belief.name) != proto_belief_map_.end();
+    bool do_upd = found && new_belief.pddl_type == Belief().PREDICATE_TYPE && new_belief.name == proto_belief_map_[new_belief.name].name 
+    && new_belief.params.size() == proto_belief_map_[new_belief.name].params.size(); //same name -> same predicate -> same num of params
     
     if(do_upd)
         last_sensed_ = new_belief;
@@ -191,13 +258,14 @@ bool Sensor::sensedPredicate(const Belief& new_belief)
 */
 bool Sensor::sensedFunction(const Belief& new_belief)
 {
-    bool do_upd = new_belief.pddl_type == Belief().FUNCTION_TYPE && new_belief.name == proto_belief_.name 
-    && new_belief.params.size() == proto_belief_.params.size(); //same name -> same function -> same params
+    bool found = proto_belief_map_.find(new_belief.name) != proto_belief_map_.end();
+    bool do_upd = found && new_belief.pddl_type == Belief().FUNCTION_TYPE && new_belief.name == proto_belief_map_[new_belief.name].name 
+    && new_belief.params.size() == proto_belief_map_[new_belief.name].params.size(); //same name -> same function -> same params
 
     if(match_param_by_param_)
     {
-        for(int i=0; do_upd && i<proto_belief_.params.size(); i++)//check match param by param
-            if(proto_belief_.params != new_belief.params)
+        for(int i=0; do_upd && i<proto_belief_map_[new_belief.name].params.size(); i++)//check match param by param
+            if(proto_belief_map_[new_belief.name].params != new_belief.params)
                 do_upd = false;
     }
     if(do_upd)

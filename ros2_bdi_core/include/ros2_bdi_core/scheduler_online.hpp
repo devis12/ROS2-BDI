@@ -1,3 +1,6 @@
+#ifndef SCHEDULER_ONLINE_H_
+#define SCHEDULER_ONLINE_H_
+
 #include "ros2_bdi_core/scheduler.hpp"
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
@@ -230,3 +233,5 @@ private:
     // Index of executing partial plan in the queue of executions for current global target in fulfillment 
     int executing_pplan_index_;
 };
+
+#endif // SCHEDULER_ONLINE_H_

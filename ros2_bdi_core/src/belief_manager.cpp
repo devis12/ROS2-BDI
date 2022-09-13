@@ -124,6 +124,17 @@ void BeliefManager::init()
     add_belief_subscriber_ = this->create_subscription<Belief>(
                 ADD_BELIEF_TOPIC, qos_reliable,
                 bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
+
+    //Belief to be added notification
+    add_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                ADD_BELIEF_SET_TOPIC, qos_reliable,
+                bind(&BeliefManager::addBeliefSetTopicCallBack, this, _1));
+
+    //Belief to be added notification
+    del_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                DEL_BELIEF_SET_TOPIC, qos_reliable,
+                bind(&BeliefManager::delBeliefSetTopicCallBack, this, _1));
+
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
                 DEL_BELIEF_TOPIC, qos_reliable,
@@ -426,6 +437,38 @@ void BeliefManager::addBeliefTopicCallBack(const Belief::SharedPtr msg)
     ManagedBelief mb = ManagedBelief{*msg};
     if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
         addBeliefSyncPDDL(mb);
+}
+
+/*  
+    Someone has publish a set of beliefs to be added in the respective topic
+*/
+void BeliefManager::addBeliefSetTopicCallBack(const BeliefSet::SharedPtr msg)
+{
+    if(msg->agent_id == agent_id_)
+    {
+        for(Belief b : msg->value)
+        {
+            ManagedBelief mb = ManagedBelief{b};
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+                addBeliefSyncPDDL(mb);
+        }
+    }
+}
+
+/*  
+    Someone has publish a new set of beliefs to be removed in the respective topic
+*/
+void BeliefManager::delBeliefSetTopicCallBack(const BeliefSet::SharedPtr msg)
+{
+    if(msg->agent_id == agent_id_)
+    {
+        for(Belief b : msg->value)
+        {
+            ManagedBelief mb = ManagedBelief{b};
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+                delBeliefSyncPDDL(mb);
+        }
+    }
 }
 
 /*

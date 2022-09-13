@@ -1,3 +1,6 @@
+#ifndef SCHEDULER_OFFLINE_H_
+#define SCHEDULER_OFFLINE_H_
+
 #include "ros2_bdi_core/scheduler.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -51,3 +54,5 @@ private:
     */
     float computePlanProgressStatus();
 };
+
+#endif // SCHEDULER_OFFLINE_H_

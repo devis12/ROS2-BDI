@@ -4,46 +4,45 @@
   value:
     - name: "upon"
       pddl_type: 2
-      params: 
+      params:
         - "gripper_a"
         - "start"
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_a"
         - "box_a1"
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_a"
         - "box_a2"
-    
+
     # OPTION 1 (all carriers involved)
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_b"
         - "box_b1"
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_b"
         - "box_b2"
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_c"
         - "box_c1"
     - name: "carrier_moving"
       pddl_type: 2
-      params: 
+      params:
         - "carrier_c"
         - "box_c2"
 
     # OPTION 2  (just with gripper and carrier a: less heavy)
     # - name: "in"
     #   pddl_type: 2
-    #   params: 
+    #   params:
     #     - "box_c2"
     #     - "base_3"
-  

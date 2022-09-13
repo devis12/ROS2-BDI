@@ -1,3 +1,6 @@
+#ifndef SCHEDULER_H_
+#define SCHEDULER_H_
+
 #include <optional>
 #include <mutex>
 #include <vector>
@@ -398,3 +401,5 @@ protected:
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
     std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 };
+
+#endif // SCHEDULER_H_

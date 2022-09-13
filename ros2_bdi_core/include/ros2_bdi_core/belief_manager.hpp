@@ -135,6 +135,16 @@ class BeliefManager : public rclcpp::Node
         */
         void addBeliefTopicCallBack(const ros2_bdi_interfaces::msg::Belief::SharedPtr msg);
 
+        /*  
+            Someone has publish a new set of beliefs to be added in the respective topic
+        */
+        void addBeliefSetTopicCallBack(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
+
+        /*  
+            Someone has publish a new set of beliefs to be removed in the respective topic
+        */
+        void delBeliefSetTopicCallBack(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
+
         /*
             Add Belief in the belief set, just after having appropriately sync the pddl_problem to add it there too
         */
@@ -220,9 +230,11 @@ class BeliefManager : public rclcpp::Node
 
         // belief set publishers/subscribers
         rclcpp::Subscription<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_subscriber_;//add belief notify on topic
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr add_belief_set_subscriber_;//add belief set notify on topic
         rclcpp::Subscription<ros2_bdi_interfaces::msg::Belief>::SharedPtr del_belief_subscriber_;//del belief notify on topic
         rclcpp::Publisher<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_publisher_;//belief set publisher
-
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr del_belief_set_subscriber_;//del belief set notify on topic
+        
         // plansys2 problem expert notification for updates
         rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr updated_problem_subscriber_;
 
