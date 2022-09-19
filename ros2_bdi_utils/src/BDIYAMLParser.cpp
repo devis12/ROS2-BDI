@@ -10,6 +10,7 @@ using plansys2_msgs::msg::Param;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::Desire;
 
+using BDIManaged::ManagedType;
 using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
@@ -141,24 +142,31 @@ namespace BDIYAMLParser
         string belief_name = yaml_belief["name"].as<string>();
         int belief_pddl_type = yaml_belief["pddl_type"].as<int>();
         
+        bool wildcard_in_belief_name = belief_name.find("*") != string::npos || belief_name.find("?") != string::npos;
+        
         string type;
         vector<ManagedParam> belief_params;
         if(belief_pddl_type == Belief().PREDICATE_TYPE)
         {
-            std::optional<plansys2::Predicate> pred_def = domain_expert->getPredicate(belief_name); 
-            if(!pred_def.has_value())
+            std::optional<plansys2::Predicate> pred_def = std::nullopt;
+            if(!wildcard_in_belief_name) 
+                pred_def = domain_expert->getPredicate(belief_name); 
+
+            if(!pred_def.has_value() && !wildcard_in_belief_name)
                 return std::nullopt;
             else
-                belief_params = parseBeliefParams(yaml_belief, pred_def.value().parameters);
+                belief_params = parseBeliefParams(yaml_belief, pred_def.value_or(plansys2::Predicate()).parameters);
         }
         else if(belief_pddl_type == Belief().FUNCTION_TYPE)
         {
-            std::optional<plansys2::Function> func_def = domain_expert->getFunction(belief_name);
-            if(!func_def.has_value())
+            std::optional<plansys2::Function> func_def = std::nullopt;
+            if(!wildcard_in_belief_name) 
+                func_def = domain_expert->getFunction(belief_name); 
+                
+            if(!func_def.has_value() && !wildcard_in_belief_name)
                 return std::nullopt;
             else
-                belief_params = parseBeliefParams(yaml_belief, func_def.value().parameters);
-
+                belief_params = parseBeliefParams(yaml_belief, func_def.value_or(plansys2::Predicate()).parameters);
         }
         else if(belief_pddl_type == Belief().INSTANCE_TYPE)
             type = yaml_belief["type"].IsDefined()? 
@@ -195,9 +203,15 @@ namespace BDIYAMLParser
                     string param_name = (*it_p).as<string>(); 
                     if(i<params_def.size())
                     {
-                        // match param name with type
-                        belief_params.push_back(ManagedParam{param_name, params_def[i].type});
+                        // match param name with type and subtypes(if present)
+                        if(params_def[i].sub_types.size() == 0)
+                            belief_params.push_back(ManagedParam{param_name, ManagedType{params_def[i].type, std::nullopt}});
+                        else
+                            belief_params.push_back(ManagedParam{param_name, ManagedType{params_def[i].type, params_def[i].sub_types}});
                     }
+                    else
+                        belief_params.push_back(ManagedParam{param_name, ManagedType{"", std::nullopt}}); // idk anything about the type
+                        
                     i++;
                 }
             }
@@ -253,7 +267,7 @@ namespace BDIYAMLParser
         }
 
         vector<ManagedBelief> rollback_belief_del;       
-        if(yaml_desire["rollback_belief_add"].IsDefined())
+        if(yaml_desire["rollback_belief_del"].IsDefined())
         {
             auto yaml_rb_beliefs_del = yaml_desire["rollback_belief_del"];
             rollback_belief_del = parseMGBeliefs(yaml_rb_beliefs_del, domain_expert);

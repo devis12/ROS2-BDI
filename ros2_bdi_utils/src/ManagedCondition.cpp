@@ -186,14 +186,23 @@ bool ManagedCondition::performCheckAgainstBeliefs(const vector<ManagedBelief>& m
 bool ManagedCondition::performCheckAgainstBeliefs(const set<ManagedBelief>& mbSet)
 {
     Condition c = Condition();
-    uint8_t false_verified_count = 0;//to be used in case we need to check whether a predicate is false
+    uint32_t false_verified_count = 0;//to be used in case we need to check whether a predicate is false
 
     if(!validCheckRequest())
         return false;
     
+    // int counter = 0;
     for(ManagedBelief mb : mbSet)
     {
+        // counter++;
+        if(check_ == c.FALSE_CHECK && mb.pddlType() != Belief().PREDICATE_TYPE)
+        {    
+            false_verified_count++;
+            continue;
+        }
+
         bool check_res = performCheckAgainstBelief(mb);
+
         if(check_res)
         {
             if(check_ != c.FALSE_CHECK)
@@ -209,6 +218,7 @@ bool ManagedCondition::performCheckAgainstBeliefs(const set<ManagedBelief>& mbSe
     if (check_ == c.FALSE_CHECK && false_verified_count == mbSet.size())
             return true; // check false has been successfully verified against all kb
 
+    // std::cout << std::to_string(counter) << "(" << std::to_string(false_verified_count) << "/" << std::to_string(mbSet.size()) << ")A" << std::flush << std::endl;
     return false;
 }
 

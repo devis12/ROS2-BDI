@@ -128,6 +128,11 @@ def build_Scheduler(namespace, agent_id, init_params):
     if planning_mode == 'online' and SEARCH_INTERVAL_MS_PARAM in init_params and isinstance(init_params[SEARCH_INTERVAL_MS_PARAM], int):
         interval_search_ms = init_params[SEARCH_INTERVAL_MS_PARAM]
         interval_search_ms = interval_search_ms if interval_search_ms >= 100 else 100
+    
+    max_empty_search_intervals = 16
+    if planning_mode == 'online' and MAX_EMPTY_SEARCH_INTERVALS_PARAM in init_params and isinstance(init_params[MAX_EMPTY_SEARCH_INTERVALS_PARAM], int):
+        max_empty_search_intervals = init_params[MAX_EMPTY_SEARCH_INTERVALS_PARAM]
+        max_empty_search_intervals = max_empty_search_intervals if max_empty_search_intervals > 0 else 1
 
     return Node(
         package='ros2_bdi_core',
@@ -144,6 +149,7 @@ def build_Scheduler(namespace, agent_id, init_params):
             {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}, 
             {PLANNING_MODE_PARAM: planning_mode},
             {SEARCH_INTERVAL_MS_PARAM: interval_search_ms},
+            {MAX_EMPTY_SEARCH_INTERVALS_PARAM: max_empty_search_intervals},
             {DEBUG_PARAM: debug}
         ])
 

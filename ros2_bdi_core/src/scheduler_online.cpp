@@ -32,6 +32,8 @@ using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIActionExecutionInfoMin;
+using ros2_bdi_interfaces::msg::BDIPlanExecutionInfoMin;
 using ros2_bdi_interfaces::msg::BDIPlan;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
@@ -65,6 +67,9 @@ void SchedulerOnline::init()
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
+    // max null search interval ms
+    this->declare_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM, JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM_DEFAULT);
+
     //Topic where a desire to be augmented to currently active goal or added to the desire set is published
     boost_desire_subscriber_ = this->create_subscription<Desire>(
                 BOOST_DESIRE_TOPIC, rclcpp::QoS(10).reliable(),
@@ -75,6 +80,10 @@ void SchedulerOnline::init()
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
         JAVAFF_SEARCH_TOPIC, rclcpp::QoS(10).reliable(),
             bind(&SchedulerOnline::updatedSearchResult, this, _1));
+
+    executing_plan_committed_status_subscriber_ = this->create_subscription<CommittedStatus>(
+        JAVAFF_COMMITTED_STATUS_TOPIC, rclcpp::QoS(10).reliable(),
+            bind(&SchedulerOnline::updatedCommittedStatus, this, _1));
 
     
     //javaff_exec_status_publisher_ init
@@ -102,12 +111,15 @@ void SchedulerOnline::storeEnqueuePlan(BDIManaged::ManagedPlan&mp)
     }
     enqueuePlan(mp);
 
-    //TODO remove these logs
-    std::cout << "Enqueued plan with index " << mp.getPlanQueueIndex() << std::flush << std::endl;
-    std::cout << "Current waiting queue status: ";
-    for(int i=0; i<waiting_plans_.size(); i++)
-        std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
-    std::cout << std::flush << std::endl;
+    //Log enqueue
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+    {
+        string plan_queue_indexes = "";
+        for(int i=0; i<waiting_plans_.size(); i++)
+            plan_queue_indexes += std::to_string(waiting_plans_[i].getPlanQueueIndex()) + ", ";
+        RCLCPP_INFO(this->get_logger(), "Enqueued plan with index " + std::to_string(mp.getPlanQueueIndex()) + "\n" + 
+                            " Current waiting queue status: " + plan_queue_indexes + "\"");
+    }
 }
 
 /*
@@ -244,6 +256,43 @@ void SchedulerOnline::forcedReschedule()
     reschedule();
 }
 
+void SchedulerOnline::publishCurrentIntention()
+{   
+    BDIPlanExecutionInfoMin intentionMsg = BDIPlanExecutionInfoMin{};
+    for(auto target_value : current_plan_.getFinalTarget().getValue())
+        intentionMsg.target_value.push_back(target_value.toBelief());
+
+    for(auto action : current_plan_.getActionsExecInfo())
+    {
+        BDIActionExecutionInfoMin ai_min = BDIActionExecutionInfoMin{};
+        ai_min.name = action.name;
+        ai_min.planned_start = action.planned_start;
+        ai_min.progress = action.progress;
+        ai_min.args = action.args;
+        ai_min.committed = action.committed;
+        ai_min.status = action.status;
+        intentionMsg.actions_exec_info.push_back(ai_min);
+    }
+
+    for(int i = waiting_plans_.size() - 1; i >=0; i--)
+    {
+        auto plan = waiting_plans_[i];
+        for(auto action : plan.getActionsExecInfo())
+        {
+            BDIActionExecutionInfoMin ai_min = BDIActionExecutionInfoMin{};
+            ai_min.name = action.name;
+            ai_min.planned_start = action.planned_start;
+            ai_min.progress = action.progress;
+            ai_min.args = action.args;
+            ai_min.committed = action.committed;
+            ai_min.status = action.status;
+            intentionMsg.actions_exec_info.push_back(ai_min);
+        }
+    }
+
+    intention_publisher_->publish(intentionMsg);
+}
+
 /*
     Received update on current plan execution
 */
@@ -261,12 +310,12 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
         if(planExecInfo.status != planExecInfo.RUNNING)
         {   
             // plan not running anymore
+            ManagedDesire finalTarget = current_plan_.getFinalTarget();
             
             bool callUnexpectedState = false;
 
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
             {
-                ManagedDesire finalTarget = current_plan_.getFinalTarget();
                 current_plan_ = ManagedPlan{};//no plan executing rn
 
                 //step over to the next pplan
@@ -280,38 +329,26 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                         triggeredNewPlanExec = tryTriggerPlanExecution(nextPPlanToExec.value());
                         if(triggeredNewPlanExec)
                             executing_pplan_index_ = nextPPlanToExec.value().getPlanQueueIndex();
-                        if(triggeredNewPlanExec)
-                        {
-                            //TODO remove these logs
-                            std::cout << "Executing plan with index " << executing_pplan_index_ << std::flush << std::endl;
-                            std::cout << "Current waiting queue status: ";
-                            for(int i=0; i<waiting_plans_.size(); i++)
-                                std::cout << waiting_plans_[i].getPlanQueueIndex() << ", ";
-                            std::cout << std::flush << std::endl;
-                        }
                         callUnexpectedState = !triggeredNewPlanExec;//if failed, call unexpected state srv
+                        
                         if(this->get_parameter(PARAM_DEBUG).as_bool())
                         {
-                            if(triggeredNewPlanExec) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
-                            else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution failed");
+                            string plan_queue_indexes = "";
+                            for(int i=0; i<waiting_plans_.size(); i++)
+                                plan_queue_indexes += std::to_string(waiting_plans_[i].getPlanQueueIndex()) + ", ";
+                            if(triggeredNewPlanExec)
+                                RCLCPP_INFO(this->get_logger(), "Started plan with index " + std::to_string(executing_pplan_index_) + "\n" + 
+                                                    " Current waiting queue status: " + plan_queue_indexes + "\"");
+                            else
+                                RCLCPP_INFO(this->get_logger(), "Failed to start new plan with index " + std::to_string(nextPPlanToExec.value().getPlanQueueIndex()) + "\n" +
+                                                    " Calling unexpectedState service\n" + 
+                                                    " Current waiting queue status: " + plan_queue_indexes + "\"");
                         }
                     }
                 }
                 else if(!searching_)
                 {           
                     //no plan left to execute && searching had already finished
-        
-                    mtx_iter_dset_.lock();
-                    bool desireAchieved = isDesireSatisfied(finalTarget);
-                    if(desireAchieved)
-                    {
-                        publishTargetGoalInfo(DEL_GOAL_BELIEFS);
-                        delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
-                    }
-                    mtx_iter_dset_.unlock();
-                    
-                    // reset all search related info
-                    resetSearchInfo();
                 }
                 else
                 {
@@ -320,14 +357,28 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 }
             }
 
-            if(callUnexpectedState || planExecInfo.status == planExecInfo.ABORT)
+            //check if desire sat
+            bool desireAchieved = isDesireSatisfied(finalTarget);
+            if(desireAchieved)
+            {
+                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
+                mtx_iter_dset_.lock();
+                delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
+                mtx_iter_dset_.unlock();
+                // reset all search related info
+                resetSearchInfo();
+                return;
+            }
+
+            if(!desireAchieved && (callUnexpectedState || planExecInfo.status == planExecInfo.ABORT))
             {
                 callUnexpectedState = true;
                 abortedPlanHandler();//increment counter for aborted plans that aimed at fulfilling desire x
             }
 
             if(callUnexpectedState)//handle the following with unexpected state srv
-            {        
+            {   
+                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
                 //tmp cleaning //TODO need to be revised this after having fixed search full reset 
                 current_plan_ = ManagedPlan{};//no plan executing rn
                 waiting_plans_ = vector<ManagedPlan>();
@@ -349,8 +400,8 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
 */
 int SchedulerOnline::compareBaseline(javaff_interfaces::msg::CommittedStatus sb)
 {
-    std::cout << "compareBaseline: search_baseline_.pi = " << search_baseline_.executing_plan_index 
-        << "\t sb.pi = " << sb.executing_plan_index << std::flush << std::endl;
+    // std::cout << "compareBaseline: search_baseline_.pi = " << search_baseline_.executing_plan_index 
+    //     << "\t sb.pi = " << sb.executing_plan_index << std::flush << std::endl;
 
     if(search_baseline_.executing_plan_index != sb.executing_plan_index)// compare executing plan index
         return (sb.executing_plan_index > search_baseline_.executing_plan_index)? 1 : -1;
@@ -369,8 +420,8 @@ int SchedulerOnline::compareBaseline(javaff_interfaces::msg::CommittedStatus sb)
             diff_committed2 += sb.committed_actions[i].committed? 1 : 0;
         }
     
-    std::cout << "compareBaseline: search_baseline_.commit+ = " << diff_committed1 
-        << "\t sb.commit+ = " << diff_committed2 << std::flush << std::endl;
+    // std::cout << "compareBaseline: search_baseline_.commit+ = " << diff_committed1 
+    //     << "\t sb.commit+ = " << diff_committed2 << std::flush << std::endl;
 
     if(diff_committed1 > 0 || diff_committed2 > 0) // some diff detected
         if(diff_committed1 == diff_committed2) //same num of committed
@@ -410,7 +461,7 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
             if(!noPlanExecuting() && !current_plan_.getFinalTarget().equalsOrSupersetIgnoreAdvancedInfo(fulfilling_desire_))//started a new search for a different desire -> should abort old executing plan
             {    
                 if(abortCurrentPlanExecution())//if aborted is correctly performed, clean away the current waiting list as well, exploiting new msg to build the new one, for new instantiated search
-                    waiting_plans_ = vector<ManagedPlan>();
+                    resetSearchInfo();
             }
 
             if(matching_baseline) // search baseline is matching with previously received search result
@@ -429,6 +480,19 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
             
         }
     }   
+}
+
+/*
+    Received update on current committed status for plan execution
+*/
+void SchedulerOnline::updatedCommittedStatus(const javaff_interfaces::msg::CommittedStatus::SharedPtr msg)
+{
+    if(current_plan_.getPlanQueueIndex() == msg->executing_plan_index)
+    {
+        for(auto acs : msg->committed_actions)
+            current_plan_.setActionCommittedStatus(acs.committed_action, acs.planned_start_time, acs.committed);
+    }
+    publishCurrentIntention();
 }
 
 /*
@@ -464,21 +528,16 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
 bool SchedulerOnline::launchFirstPPlanExecution(const PartialPlan& firstpplan)
 {
     // insert subplan precondition as received by planner, desire precondition checked in scheduling
-    ConditionsDNF planPreconditions = ConditionsDNF{};
-    planPreconditions.clauses.insert(planPreconditions.clauses.end(), firstpplan.target.precondition.clauses.begin(), firstpplan.target.precondition.clauses.end());
     ManagedPlan firstPPlanToExec = ManagedPlan{
         firstpplan.plan.plan_index, 
         fulfilling_desire_, 
         ManagedDesire{firstpplan.target}, firstpplan.plan.items, 
-        ManagedConditionsDNF{planPreconditions}, fulfilling_desire_.getContext()};
+        ManagedConditionsDNF{firstpplan.target.precondition}, fulfilling_desire_.getContext()};
     //launch plan execution
     if(firstPPlanToExec.getActionsExecInfo().size() > 0)
     {   
         storePlan(firstPPlanToExec);
-        
         bool triggered = tryTriggerPlanExecution(firstPPlanToExec);
-        if(triggered)
-            std::cout << "Executing plan with index " << firstpplan.plan.plan_index << std::flush << std::endl;//TODO remove these logs
         if(this->get_parameter(PARAM_DEBUG).as_bool())
         {
             if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
@@ -516,13 +575,13 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
         return false; // plans do not match: cannot be handled
     }
     
-    std::cout << "SchedulerOnline::processSearchResultWithNewBaseline\npindex: " << std::to_string(msg->search_baseline.executing_plan_index) << std::flush << std::endl;
-    for(int i=0; i<msg->search_baseline.committed_actions.size(); i++)
-    {
-        std::cout <<  "- " << msg->search_baseline.committed_actions[i].committed_action << ":" << 
-            std::to_string(static_cast<int>(msg->search_baseline.committed_actions[i].planned_start_time*1000)) <<
-            "\t" << std::to_string(msg->search_baseline.committed_actions[i].committed) << std::flush << std::endl;
-    }
+    // std::cout << "SchedulerOnline::processSearchResultWithNewBaseline\npindex: " << std::to_string(msg->search_baseline.executing_plan_index) << std::flush << std::endl;
+    // for(int i=0; i<msg->search_baseline.committed_actions.size(); i++)
+    // {
+    //     std::cout <<  "- " << msg->search_baseline.committed_actions[i].committed_action << ":" << 
+    //         std::to_string(static_cast<int>(msg->search_baseline.committed_actions[i].planned_start_time*1000)) <<
+    //         "\t" << std::to_string(msg->search_baseline.committed_actions[i].committed) << std::flush << std::endl;
+    // }
     
     int committed_counter = 0;
     for(int i=0; i<psys2_current_plan.items.size(); i++)
@@ -544,7 +603,9 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
         early_abort_bdiplan.psys2_plan = psys2_current_plan;
         early_abort_bdiplan.context = current_plan_.getContext().toConditionsDNF();
         early_abort_request_success = plan_exec_srv_client_->earlyArrestRequest(early_abort_bdiplan);
-        std::cout << "early_arrest_request=" << early_abort_request_success << std::flush << std::endl;
+        if(this->get_parameter(PARAM_DEBUG).as_bool())
+            if(early_abort_request_success) RCLCPP_INFO(this->get_logger(), "Early arrest request: ACCEPTED");
+            else RCLCPP_INFO(this->get_logger(), "Early arrest request: TOO LATE!");
     }
 
     if(committed_counter == psys2_current_plan.items.size() || early_abort_request_success)
@@ -593,8 +654,10 @@ bool SchedulerOnline::launchPlanSearch(const BDIManaged::ManagedDesire& selDesir
 
     string pddl_problem = problem_expert_->getProblem();//get problem string
     int intervalSearchMS = this->get_parameter(JAVAFF_SEARCH_INTERVAL_PARAM).as_int();
+    int maxEmptySearchIntervals = this->get_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM).as_int();
     intervalSearchMS = intervalSearchMS >= 100? intervalSearchMS : 100;
-    return javaff_client_->launchPlanSearch(selDesire.toDesire(), pddl_problem, intervalSearchMS);
+    maxEmptySearchIntervals = maxEmptySearchIntervals > 0? maxEmptySearchIntervals : 16;
+    return javaff_client_->launchPlanSearch(selDesire.toDesire(), pddl_problem, intervalSearchMS, maxEmptySearchIntervals);
 }
 
 /*
@@ -639,10 +702,7 @@ void SchedulerOnline::checkForSatisfiedDesires()
                             "(progress status = %f)", plan_progress_status);
 
                     if(abortCurrentPlanExecution())
-                    {
-                        searching_ = false;
-                        waiting_plans_ = vector<ManagedPlan>();
-                    }
+                        resetSearchInfo();
                 }
             }
             else
@@ -669,31 +729,25 @@ void SchedulerOnline::checkForSatisfiedDesires()
 void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
 {
     ManagedDesire mdBoost = ManagedDesire{(*msg)};
-    std::cout << "boostDesireTopicCallBack, received: " << mdBoost << std::flush << std::endl;
     if(fulfilling_desire_.getValue().size() == 0)
     {
         //no currently active desire
         bool result = addDesire(mdBoost);
-        std::cout << "A" << std::to_string(result) << std::flush << std::endl;
     }
     else if (mdBoost.getName() == fulfilling_desire_.getName())
     {
-        std::cout << "B" << std::flush << std::endl;
         bool boosted = false;
         if(mdBoost.getPrecondition().isSatisfied(belief_set_) && mdBoost.getContext().isSatisfied(belief_set_))
         {
-            std::cout << "C" << std::flush << std::endl;
             // perform online boost
             ManagedDesire original_desire = fulfilling_desire_.clone();
             boosted = fulfilling_desire_.boostDesire(mdBoost);
             if(boosted)
             {
-                std::cout << "D" << std::flush << std::endl;
                 if(problem_expert_->setGoal(Goal{BDIPDDLConverter::desireToGoal(fulfilling_desire_.toDesire())}))
                 {
                     replaceDesire(original_desire, fulfilling_desire_);
                     
-                    std::cout << "E" << std::flush << std::endl;
                     //inform planner, by pub a new execution status
                     ExecutionStatus boosted_goal_msg = ExecutionStatus{};
                     boosted_goal_msg.executing_plan_index = executing_pplan_index_;
@@ -705,7 +759,6 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
                 }
                 else
                 {
-                    std::cout << "F" << std::flush << std::endl;
                     //go back to original desire
                     fulfilling_desire_ = original_desire;
                 } 
@@ -714,24 +767,20 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
         
         if(!boosted)
         {
-            std::cout << "G" << std::flush << std::endl;
             int16_t instance_counter = 2;
             while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) == 0) instance_counter++;
             string new_name = mdBoost.getName()+std::to_string(instance_counter);
             mdBoost.setName(new_name); // set new name, to distinguish it from the original, by putting the first av. number at the end
             bool result = addDesire(mdBoost);//then add it as a separate desire
-            std::cout << "H" << std::to_string(result) << std::flush << std::endl;
         }
     }
     else if(computed_plan_desire_map_.count(mdBoost.getName()) == 0)
     {
         // it does not match the currently active desire nor any other desire in the desire set, simply add it to the desire set
         bool result = addDesire(mdBoost);
-        std::cout << "I" << std::to_string(result) << std::flush << std::endl;
     }
     else
     {
-        std::cout << "L" << std::flush << std::endl;
         bool result1 = false, result2 = false;
         // it does match a desire in the desire set which is currently not active, perform offline boost
         for(ManagedDesire md : desire_set_)
@@ -748,7 +797,6 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
                 break;
             }
         
-        std::cout << "M" << std::to_string(result1) << ", " << std::to_string(result2) << std::flush << std::endl;
     }
 }
 
@@ -777,10 +825,7 @@ void SchedulerOnline::postDelDesireSuccess(const BDIManaged::ManagedDesire& md)
     {
         //ABORT CURRENT AND WAITING PLANS
         if(abortCurrentPlanExecution())
-        {
-            searching_ = false;
-            waiting_plans_ = vector<ManagedPlan>();
-        }
+            resetSearchInfo();
     }
 }
 

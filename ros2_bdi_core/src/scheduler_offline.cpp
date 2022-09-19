@@ -29,7 +29,9 @@ using ros2_bdi_interfaces::msg::Condition;
 using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIActionExecutionInfoMin;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIPlanExecutionInfoMin;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 using BDIManaged::ManagedDesire;
@@ -245,15 +247,17 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
     {
         current_plan_exec_info_ = planExecInfo;
         current_plan_.setUpdatedInfo(planExecInfo);
-
+        current_plan_.setCommittedStatus(true);//in offline version, all actions of current plan are ALWAYS committed to be executed
+        publishCurrentIntention();
+        
         string targetDesireName = targetDesire.getName();
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
+            publishTargetGoalInfo(DEL_GOAL_BELIEFS);
             mtx_iter_dset_.lock();
             bool desireAchieved = isDesireSatisfied(targetDesire);
             if(desireAchieved)
             {
-                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
                 delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
             }
 
@@ -323,6 +327,27 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
             //next reschedule() will select a new plan if computable for a desire in desire set
         }
     }
+}
+
+void SchedulerOffline::publishCurrentIntention(){
+    BDIPlanExecutionInfoMin intentionMsg = BDIPlanExecutionInfoMin{};
+    for(auto target_value : current_plan_.getFinalTarget().getValue())
+        intentionMsg.target_value.push_back(target_value.toBelief());
+
+    for(auto action : current_plan_.getActionsExecInfo())
+    {
+        BDIActionExecutionInfoMin ai_min = BDIActionExecutionInfoMin{};
+        ai_min.name = action.name;
+        ai_min.planned_start = action.planned_start;
+        ai_min.progress = action.progress;
+        ai_min.args = action.args;
+        ai_min.committed = action.committed;
+        ai_min.status = action.status;
+        intentionMsg.actions_exec_info.push_back(ai_min);
+    }
+
+    intention_publisher_->publish(intentionMsg);
+    
 }
 
 /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 

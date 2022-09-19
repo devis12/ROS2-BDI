@@ -34,11 +34,11 @@ namespace BDIManaged
 
         public:
             //constructor methods
-            ManagedReactiveRule( const uint8_t, const BDIManaged::ManagedConditionsDNF&,
+            ManagedReactiveRule( const uint16_t, const BDIManaged::ManagedConditionsDNF&,
                 const std::set<MGBeliefOp>&, const std::set<MGDesireOp>&);
 
             // getter methods
-            uint8_t getId() const{return ai_id_;}
+            uint16_t getId() const{return ai_id_;}
             BDIManaged::ManagedConditionsDNF getMGCondition() const{return dnf_condition_;}
             std::set<MGBeliefOp> getBeliefRules() const{return belief_rules_;}
             std::set<MGDesireOp> getDesireRules() const{return desire_rules_;}
@@ -46,7 +46,7 @@ namespace BDIManaged
             static ManagedReactiveRule applySubstitution(const ManagedReactiveRule& baseline_reactive_rule, const std::map<std::string, std::string> assignments);
         private:
 
-            uint8_t ai_id_;//auto generated in init -> used to put all the rules in a set easily
+            uint16_t ai_id_;//auto generated in init -> used to put all the rules in a set easily
             BDIManaged::ManagedConditionsDNF dnf_condition_;//condition that must be true wrt. the current belief set to apply the rule
             std::set<MGBeliefOp> belief_rules_;//rules to apply to the belief set 
             std::set<MGDesireOp> desire_rules_;//rules to apply to the desire set

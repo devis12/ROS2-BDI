@@ -4,6 +4,7 @@
 #include "ros2_bdi_core/scheduler.hpp"
 #include "ros2_bdi_core/support/javaff_client.hpp"
 
+#include "javaff_interfaces/msg/committed_status.hpp"
 #include "javaff_interfaces/msg/search_result.hpp"
 #include "javaff_interfaces/msg/execution_status.hpp"
 
@@ -102,6 +103,8 @@ private:
         return -1;
     }
 
+    void publishCurrentIntention();
+
     /* Launch first partial plan execution of a queue of plans which are going to be stored in the waiting list, waiting for their turn */
     bool launchFirstPPlanExecution(const javaff_interfaces::msg::PartialPlan& firstpplan);
 
@@ -165,6 +168,11 @@ private:
     void updatedSearchResult(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
 
     /*
+        Received update on current committed status for plan execution
+    */
+    void updatedCommittedStatus(const javaff_interfaces::msg::CommittedStatus::SharedPtr msg);
+
+    /*
         Regular process of updated search result with same search baseline as previous msgs or "original" status, when search was launched from scratch
     */
     void processIncrementalSearchResult(const javaff_interfaces::msg::SearchResult::SharedPtr msg);
@@ -219,6 +227,9 @@ private:
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.
+
+    // computed next committed state in currently executing plan performed by javaff
+    rclcpp::Subscription<javaff_interfaces::msg::CommittedStatus>::SharedPtr executing_plan_committed_status_subscriber_;//javaff committed plan sub.
 
     // publisher to notify javaff of exec status, needed when active goal is augmented, because pddl problem changes
     rclcpp::Publisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr javaff_exec_status_publisher_;//javaff exec status pub.

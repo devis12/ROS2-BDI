@@ -22,7 +22,7 @@ ManagedBelief::ManagedBelief():
     pddl_type_(-1)
     {}
 
-ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type, const std::string& type):
+ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type, const ManagedType& type):
     name_(name),
     pddl_type_(pddl_type),
     type_(type)
@@ -35,19 +35,19 @@ ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type,const 
     value_ (value)
     {
         if(pddl_type == Belief().PREDICATE_TYPE)
-            type_ = PDDLBDIConstants::PREDICATE_TYPE;
+            type_ = ManagedType{PDDLBDIConstants::PREDICATE_TYPE, std::nullopt};
         else if(pddl_type == Belief().FUNCTION_TYPE)
-            type_ = PDDLBDIConstants::FUNCTION_TYPE;
+            type_ = ManagedType{PDDLBDIConstants::FUNCTION_TYPE, std::nullopt};
     }
 
 ManagedBelief::ManagedBelief(const Belief& belief):
     name_(belief.name),
     pddl_type_ (belief.pddl_type),
-    type_(belief.type),
+    type_(ManagedType{belief.type, std::nullopt}),//TODO deal with subtypes here in later versions
     value_ (belief.value)
     {
         for(string p : belief.params)
-            params_.push_back(ManagedParam{p,""});
+            params_.push_back(ManagedParam{p,""});//TODO deal with subtypes here in later versions
     }
 
 // Clone a MG Belief DNF
@@ -56,14 +56,14 @@ ManagedBelief ManagedBelief::clone()
     string name = string{name_};
     if(pddl_type_ == Belief().INSTANCE_TYPE)
     {
-        string instance_type = string{type_};
+        ManagedType instance_type = type_;
         return (ManagedBelief::buildMBInstance(name, instance_type));
     }
     else if(pddl_type_ == Belief().PREDICATE_TYPE || pddl_type_ == Belief().FUNCTION_TYPE)
     {
         vector<ManagedParam> params;
         for(auto p : params_)
-            params.push_back(ManagedParam{string{p.name}, string{p.type}}); 
+            params.push_back(ManagedParam{string{p.name}, p.type}); 
         
         float value = 0.0f;
         if(pddl_type_ == Belief().FUNCTION_TYPE)
@@ -74,9 +74,16 @@ ManagedBelief ManagedBelief::clone()
              :
              (ManagedBelief::buildMBFunction(name, params, value));
     }
+
+    return ManagedBelief{};
 }
 
 ManagedBelief ManagedBelief::buildMBInstance(const string& name, const string& instance_type)
+{
+    return ManagedBelief{name, Belief().INSTANCE_TYPE, ManagedType{instance_type, std::nullopt}};
+}
+
+ManagedBelief ManagedBelief::buildMBInstance(const string& name, const ManagedType& instance_type)
 {
     return ManagedBelief{name, Belief().INSTANCE_TYPE, instance_type};
 }
@@ -102,7 +109,7 @@ Belief ManagedBelief::toBelief() const
     Belief b = Belief();
     b.name = name_;
     b.pddl_type = pddl_type_;
-    b.type = type_;
+    b.type = type_.name;
     for(ManagedParam mp : params_)
         b.params.push_back(mp.name);
     b.value = value_;
@@ -239,7 +246,7 @@ std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedBelief& mb)
 {
     string param_or_type_string = "";
     if(mb.pddlType() == Belief().INSTANCE_TYPE)
-        param_or_type_string = " " + mb.type();
+        param_or_type_string = " " + mb.type().name;
     else
         for(ManagedParam p : mb.getParams())
             param_or_type_string += " " + p.name;
@@ -288,7 +295,7 @@ bool BDIManaged::operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
     if(mb1.pddlType() != mb2.pddlType() /* || (mb1.type_ == FUNCTION_TYPE && mb1.value_ != mb2.value_)*/)
         return false;
 
-    if(mb1.pddlType() == Belief().INSTANCE_TYPE && mb1.type() != mb2.type())
+    if(mb1.pddlType() == Belief().INSTANCE_TYPE && mb1.type().name != mb2.type().name)
         return false;
 
     vector<ManagedParam> mb1_params = mb1.getParams();

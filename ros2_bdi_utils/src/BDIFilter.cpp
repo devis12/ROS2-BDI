@@ -14,6 +14,7 @@ using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::DesireSet;
 using ros2_bdi_interfaces::msg::Condition;
 
+using BDIManaged::ManagedType;
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
 using BDIManaged::ManagedCondition;
@@ -226,12 +227,22 @@ namespace BDIFilter
       
   }
 
-  set<ManagedBelief> filterMGBeliefInstances(const set<ManagedBelief>& belief_set, const string& type)
+  set<ManagedBelief> filterMGBeliefInstances(const set<ManagedBelief>& belief_set, const ManagedType& type)
   {
     set<ManagedBelief> belief_set_filtered;
+    // std::cout << "Looking for type " << type.name;
+    // if(type.sub_types.has_value())
+    //   for(string s : type.sub_types.value())
+    //     std::cout << " or subtype: " << s << ",";
+    // std::cout << std::flush << std::endl;
     for(ManagedBelief mb : belief_set)
-      if(mb.pddlType() == Belief().INSTANCE_TYPE && (type == "" || type == mb.type()))
-        belief_set_filtered.insert(mb);
+      if(mb.pddlType() == Belief().INSTANCE_TYPE)
+        if(type.name == "" || type.name == mb.type().name)
+          belief_set_filtered.insert(mb);
+        else if(type.sub_types.has_value() && 
+          std::find(type.sub_types.value().begin(), type.sub_types.value().end(), mb.type().name) != std::end(type.sub_types.value()))
+          belief_set_filtered.insert(mb);
+        
     return belief_set_filtered;
   }
   

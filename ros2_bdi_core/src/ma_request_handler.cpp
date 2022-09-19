@@ -334,12 +334,16 @@ void MARequestHandler::checkDesireSetWaitingUpd(const int& updIndex, const int& 
 */
 void MARequestHandler::updatedDesireSet(const DesireSet::SharedPtr msg)
 {
-    desire_set_ = BDIFilter::extractMGDesires(msg->value);
+    process_desire_set_upd_lock_.lock();
+    {
+      desire_set_ = BDIFilter::extractMGDesires(msg->value);
 
-            
-    //check for waiting belief set alteration
-    checkDesireSetWaitingUpd(ADD_I, 1);//check belief set for addition
-    checkDesireSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+              
+      //check for waiting belief set alteration
+      checkDesireSetWaitingUpd(ADD_I, 1);//check belief set for addition
+      checkDesireSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    }
+    process_desire_set_upd_lock_.unlock();
 }
 
 /*
@@ -353,7 +357,6 @@ void MARequestHandler::checkBeliefSetWaitingUpd(const int& updIndex, const int& 
   if(updIndex > belief_set_upd_locks_.size() || countCheck < 0)//invalid params
     return;
 
-    
   if(belief_set_upd_locks_[updIndex].try_lock())//try lock 
   {
     // if acquired, release immediately (no waiting for any belief upd operation)
@@ -374,11 +377,15 @@ void MARequestHandler::checkBeliefSetWaitingUpd(const int& updIndex, const int& 
 */
 void MARequestHandler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 {
-    belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-    
-    //check for waiting belief set alteration
-    checkBeliefSetWaitingUpd(ADD_I, 1);//check belief set for addition
-    checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    process_belief_set_upd_lock_.lock();
+    {
+      belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
+
+      //check for waiting belief set alteration
+      checkBeliefSetWaitingUpd(ADD_I, 1);//check belief set for addition
+      checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    }
+    process_belief_set_upd_lock_.unlock();
 }
 
 /*  

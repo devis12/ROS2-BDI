@@ -50,6 +50,25 @@ namespace BDIManaged
                 this->actions_exec_info_ = actions_exec_info;
             }
 
+            void setCommittedStatus(const bool& defaultValue)
+            {
+                for(int i=0; i<actions_exec_info_.size(); i++)
+                    actions_exec_info_[i].committed = defaultValue;
+            }
+
+            void setActionCommittedStatus(const std::string& action_name, const float& planned_time, const bool& committed)
+            {
+                std::string action_name_timex1000 = buildFullActionNameTimex1000(action_name, planned_time);
+                for(int i=0; i<actions_exec_info_.size(); i++)
+                {
+                    if(action_name_timex1000 == buildFullActionNameTimex1000(
+                        buildFullActionName(actions_exec_info_[i].name, actions_exec_info_[i].args),
+                        actions_exec_info_[i].planned_start)
+                    )
+                        actions_exec_info_[i].committed = committed;
+                }
+            }
+
             std::vector<ros2_bdi_interfaces::msg::BDIActionExecutionInfo> getActionsExecInfo() const {return actions_exec_info_;};
             float getPlannedDeadline() const {return planned_deadline_;};
             
@@ -95,10 +114,28 @@ namespace BDIManaged
             static std::vector<ros2_bdi_interfaces::msg::BDIActionExecutionInfo> 
                 computeActionsExecInfo(std::vector<plansys2_msgs::msg::PlanItem> plan_items);
 
+            
+            static std::string buildFullActionName(const std::string& action_name, const std::vector<std::string>& args)
+            {
+                std::string result = std::string{action_name};
+                for(uint16_t i = 0; i < args.size(); i++)
+                    result += " " + args[i];
+                return "(" + result + ")";
+            }
+            
+            static std::string buildFullActionNameTimex1000(const std::string& action_name, const float& planned_time)
+            {
+                std::string result = std::string{action_name};
+                if(result.find("(") != std::string::npos)
+                    result = result.substr(result.find("(")+1);
+                if(result.find(")") != std::string::npos)
+                    result = result.substr(0,result.find(")"));
+               int ptimex1000 = static_cast<int>(planned_time * 1000);
+               return "(" + result + "):" + std::to_string(ptimex1000);
+            }
+
             /* Compute deadline estimate based on current actions estimated duration within the one listed in the plan */
             float computePlannedDeadline();
-
-
 
             float computeUpdatedEndTime(const ros2_bdi_interfaces::msg::BDIActionExecutionInfo& bdi_ai);
 

@@ -43,6 +43,8 @@ private:
     */
     void reschedule();
 
+    void publishCurrentIntention();
+    
     /*
         Received update on current plan execution
     */

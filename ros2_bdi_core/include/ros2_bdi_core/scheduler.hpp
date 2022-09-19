@@ -20,7 +20,9 @@
 #include "ros2_bdi_interfaces/msg/conditions_dnf.hpp"
 #include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_action_execution_info_min.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_plan_execution_info_min.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 
 //#include "javaff_interfaces/msg/partial_plans.hpp"
@@ -75,6 +77,9 @@ public:
     }
 
 protected:
+
+    virtual void publishCurrentIntention() = 0;
+
     /*
         Specific behaviour of scheduler after desire successful addition, based on its selected mode    
     */
@@ -390,6 +395,9 @@ protected:
 
     // plan executioninfo subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
+
+    // current intention publisher
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::BDIPlanExecutionInfoMin>::SharedPtr intention_publisher_;//intention publisher
 
     // current known status of the system nodes
     std::map<std::string, uint8_t> lifecycle_status_;

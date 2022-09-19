@@ -131,6 +131,37 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     return rules;
 }
 
+void EventListener::updBeliefSetCallback(const BeliefSet::SharedPtr msg)
+{
+    std::set<BDIManaged::ManagedBelief> new_belief_set = BDIFilter::extractMGBeliefs(msg->value);
+    bool belief_set_upd = false;
+    if(new_belief_set.size() != belief_set_.size())
+        belief_set_upd = true;
+    else
+    {
+        for(BDIManaged::ManagedBelief mb : new_belief_set)
+        {
+            if(belief_set_.count(mb) == 0)
+            {
+                belief_set_upd = true;
+                break;
+            }
+        }
+    }       
+
+    if(belief_set_upd)
+    {
+        //there has been an update //TODO improve the check above and the assignment below :-(
+        belief_set_ = new_belief_set;
+        if(state_ == CHECKING)
+            check_if_any_rule_apply();
+    }
+    
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+    
+    step_counter_++;
+}
 
 /*Apply satisfying rules starting from extracted possible assignments for the placeholders*/
 void EventListener::apply_satisfying_rules(const ManagedReactiveRule& reactive_rule, const map<string, vector<ManagedBelief>>& assignments, const set<ManagedBelief>& belief_set)
@@ -165,6 +196,12 @@ void EventListener::apply_satisfying_rules(const ManagedReactiveRule& reactive_r
         ManagedReactiveRule reactive_rule_subs = ManagedReactiveRule::applySubstitution(reactive_rule, actual_assignments);
         if(reactive_rule_subs.getMGCondition().isSatisfied(belief_set_))
             apply_rule(reactive_rule_subs);
+        else
+        {
+            // std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " not sat with assignments:" << std::flush << std::endl;
+            // for(auto it=actual_assignments.begin(); it != actual_assignments.end(); it++)
+            //     std::cout << it->first << ": " << it->second << std::flush << std::endl;
+        }
 
         // try to update current choice
         bool upd = false;
@@ -200,15 +237,30 @@ void EventListener::check_if_any_rule_apply()
         map <string, vector<ManagedBelief>> assignments;//contains variable assigments
         if(reactive_rule.getMGCondition().containsPlaceholders())
         {
+            // std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " assignments:" << std::flush << std::endl;
             assignments = reactive_rule.getMGCondition().extractAssignmentsMap(belief_set_);
+            // for(auto key_it = assignments.begin(); key_it != assignments.end(); key_it++)
+            // {
+            //     std::cout << key_it->first << ":" << std::flush << std::endl;
+            //     for(auto mb : key_it->second)
+            //         std::cout << mb.getName() << ", ";
+            //     std::cout << std::flush << std::endl;
+            // }
             apply_satisfying_rules(reactive_rule, assignments, belief_set_);
         }
 
         else if(reactive_rule.getMGCondition().isSatisfied(belief_set_))//rule with no placeholders sat -> apply rune as is
         {
+            //std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " SAT" << std::flush << std::endl;
             //rule is satisfied! apply effects
             apply_rule(reactive_rule);
         }
+        // else
+        // {
+        //     bool res = reactive_rule.getMGCondition().isSatisfied(belief_set_);
+        //     std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " sat = " << res
+        //         << std::flush << std::endl;
+        // }
     }
 }
 
@@ -224,15 +276,17 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
         {
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                 RCLCPP_INFO(this->get_logger(), "Adding belief " + bel_to_string);
-
-            add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset 
+            
+            add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset (already mark it as added in the belief_set_ instance)
+            // belief_set_.insert(bset_upd.second);
         }
         else
         {
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                 RCLCPP_INFO(this->get_logger(), "Deleting belief " + bel_to_string);
 
-            del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset
+            del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset (already mark it as removed in the belief_set_ instance)
+            // belief_set_.erase(bset_upd.second);
         }
     }
 

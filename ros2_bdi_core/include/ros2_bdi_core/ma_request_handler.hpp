@@ -183,6 +183,7 @@ private:
     rclcpp::Service<ros2_bdi_interfaces::srv::UpdBeliefSet>::SharedPtr del_belief_server_;
     
     // lock to put waiting for next belief set addition/deletion
+    std::mutex process_belief_set_upd_lock_;
     std::vector<std::mutex> belief_set_upd_locks_;
     // managed belief you're waiting for (to be added or deleted)
     std::vector<BDIManaged::ManagedBelief> belief_waiting_for_;
@@ -202,6 +203,7 @@ private:
     rclcpp::Service<ros2_bdi_interfaces::srv::UpdDesireSet>::SharedPtr del_desire_server_;
     
     // lock to put waiting for next desire set addition/deletion
+    std::mutex process_desire_set_upd_lock_;
     std::vector<std::mutex> desire_set_upd_locks_;
     // managed desire you're waiting for (to be added or deleted)
     std::vector<BDIManaged::ManagedDesire> desire_waiting_for_;

@@ -96,7 +96,8 @@ namespace BDIFilter
   /*
     Extract managed belief instances, filtering by type if provided
   */
-  std::set<BDIManaged::ManagedBelief> filterMGBeliefInstances(const std::set<BDIManaged::ManagedBelief>& belief_set, const std::string& type = "");
+  std::set<BDIManaged::ManagedBelief> filterMGBeliefInstances(const std::set<BDIManaged::ManagedBelief>& belief_set, 
+    const BDIManaged::ManagedType& type = BDIManaged::ManagedType{"", std::nullopt});
   
 }  // namespace BDIFilter
 

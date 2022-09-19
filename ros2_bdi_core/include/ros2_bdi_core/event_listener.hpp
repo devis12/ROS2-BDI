@@ -67,18 +67,9 @@ class EventListener : public rclcpp::Node
 
         /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
         ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
-
-        void updBeliefSetCallback(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg)
-        {
-            belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-            if(state_ == CHECKING)
-                check_if_any_rule_apply();
-            
-            if(step_counter_ % 4 == 0)
-                lifecycle_status_publisher_->publish(getLifecycleStatus());
-            
-            step_counter_++;
-        }
+        
+        
+        void updBeliefSetCallback(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
 
         /*
             Received notification about ROS2-BDI Lifecycle status

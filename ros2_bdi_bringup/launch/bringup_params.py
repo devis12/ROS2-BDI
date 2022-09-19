@@ -8,6 +8,7 @@ INIT_RRULESSET_PARAM = 'init_reactive_rules_set'
 
 PLANNING_MODE_PARAM = 'planning_mode'
 SEARCH_INTERVAL_MS_PARAM = 'search_interval'
+MAX_EMPTY_SEARCH_INTERVALS_PARAM = 'max_null_search_intervals'
 
 ACCEPT_BELIEFS_R_PARAM = 'belief_ck'
 ACCEPT_BELIEFS_W_PARAM = 'belief_w'

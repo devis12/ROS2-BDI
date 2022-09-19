@@ -52,7 +52,9 @@ using ros2_bdi_interfaces::msg::ConditionsConjunction;
 using ros2_bdi_interfaces::msg::ConditionsDNF;
 using ros2_bdi_interfaces::msg::PlanningSystemState;
 using ros2_bdi_interfaces::msg::BDIActionExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIActionExecutionInfoMin;
 using ros2_bdi_interfaces::msg::BDIPlanExecutionInfo;
+using ros2_bdi_interfaces::msg::BDIPlanExecutionInfoMin;
 using ros2_bdi_interfaces::srv::BDIPlanExecution;
 
 using BDIManaged::ManagedParam;
@@ -130,6 +132,9 @@ void Scheduler::init()
 
     //Lifecycle status publisher
     lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Current intention publisher
+    intention_publisher_ = this->create_publisher<BDIPlanExecutionInfoMin>(CURR_INTENTIONS_TOPIC, 10);
 
     //Lifecycle status subscriber
     lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
@@ -424,7 +429,7 @@ bool Scheduler::abortCurrentPlanExecution()
     if(aborted)
     {
         if(this->get_parameter(PARAM_DEBUG).as_bool())
-            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getPlanTarget().getName());
+            RCLCPP_INFO(this->get_logger(), "Aborted plan execution fulfilling desire \"%s\"", current_plan_.getFinalTarget().getName());
         
         publishTargetGoalInfo(DEL_GOAL_BELIEFS);//goal disactivated -> upd belief set
         current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
@@ -462,15 +467,6 @@ bool Scheduler::tryTriggerPlanExecution(const ManagedPlan& selectedPlan)
     
     //desire still in desire set
     bool desireInDesireSet = desire_set_.count(selectedPlan.getFinalTarget())==1;
-    std::cout << "desireInDesireSet=" << desireInDesireSet << std::flush << std::endl;
-    if(!desireInDesireSet)
-    {
-        std::cout << "Desire set: " << std::flush << std::endl;
-        for(ManagedDesire md : desire_set_)
-            std::cout << md << std::flush << std::endl << std::endl;
-
-        std::cout << "Plan final target: " << selectedPlan.getFinalTarget() << std::flush << std::endl;
-    }
 
     //check that a proper plan has been selected (with actions and fulfilling a desire in the desire_set_)
     if(selectedPlan.getActionsExecInfo().size() == 0 || !desireInDesireSet)

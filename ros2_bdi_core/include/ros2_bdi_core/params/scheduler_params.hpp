@@ -31,12 +31,19 @@
 #define PARAM_AUTOSUBMIT_PREC "autosub_prec"
 #define PARAM_AUTOSUBMIT_CONTEXT "autosub_context"
 
+
+#define CURR_INTENTIONS_TOPIC "current_intentions"
+
 #define JAVAFF_SEARCH_TOPIC "javaff_search/plan"
+#define JAVAFF_COMMITTED_STATUS_TOPIC "javaff_search/committed_status"
 #define JAVAFF_EXEC_STATUS_TOPIC "javaff_search/exec_status"
 #define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
 #define JAVAFF_UNEXPECTED_STATE_SRV "javaff_server/unexpected_state"
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
+#define JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM "max_null_search_intervals"
+
 #define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
+#define JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM_DEFAULT 16
 
 #define PLAN_LIBRARY_NAME "plan_lib.db"
 

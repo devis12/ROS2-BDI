@@ -183,7 +183,7 @@ ManagedConditionsDNF ManagedConditionsDNF::applySubstitution(const map<string, s
 
 map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(const set<ManagedBelief>& belief_set)
 {
-    map<string, vector<ManagedBelief>> assignments;
+    map<string, set<ManagedBelief>> assignments;
     set<ManagedBelief> placeholder_beliefs = getBeliefsWithPlaceholders();
     if (placeholder_beliefs.size() > 0)
     {
@@ -193,12 +193,26 @@ map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(c
             {
                 for(ManagedParam mp : mb.getParams())
                 {
-                    if(mp.isPlaceholder() && assignments.count(mp.name) == 0)
-                    {
-                        assignments[mp.name] = vector<ManagedBelief>();//empty matching instances
-                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mp.type))//filter belief instances by type of the plaholder param
-                        {
-                            assignments[mp.name].push_back(mb);//found some matching instances
+                    if(mp.isPlaceholder())
+                    {   
+                        //filter belief instances by type of the plaholder param
+                        set<ManagedBelief> filteredInstances = BDIFilter::filterMGBeliefInstances(belief_set, mp.type);
+                        
+                        // std::cout << "filteredInstances for ph " << mp.name << " in " << mb.getName();
+                        // for(auto mbbb : filteredInstances)
+                        //     std::cout << mbbb << ", ";
+                        // std::cout << std::flush << std::endl;
+
+                        if(assignments.count(mp.name) == 0)// no matching instances found for now for placeholder mp.name
+                            assignments[mp.name] = filteredInstances;
+                        else// already found matching instances for mp.name -> intersection with filteredInstances found now
+                        {   
+                            for(ManagedBelief mb : filteredInstances)
+                                if(assignments[mp.name].count(mb) == 0) // mb in filteredInstances is not in map for mp.name placeholder
+                                    assignments[mp.name].erase(mb);
+                            for(ManagedBelief mb : assignments[mp.name]) // mb in assignments[mp.name] map is not in filteredInstances mp.name placeholder
+                                if(filteredInstances.count(mb) == 0)
+                                    assignments[mp.name].erase(mb);
                         }
                     }
                             
@@ -209,17 +223,41 @@ map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(c
                 string instance_name = mb.getName();
                 if(instance_name.find("{") == 0 && instance_name.find("}") == instance_name.length()-1)
                 {
-                    if(assignments.count(instance_name) == 0)
-                    {
-                        assignments[instance_name] = vector<ManagedBelief>();//empty matching instances
-                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mb.type()))//filter belief instances by type of the plaholder param
-                            assignments[instance_name].push_back(mb);
+                    //filter belief instances by type of the plaholder param
+                    set<ManagedBelief> filteredInstances = BDIFilter::filterMGBeliefInstances(belief_set, mb.type());
+                    // std::cout << "filteredInstances for ph " << instance_name << " in " << mb.getName();
+                    // for(auto mbbb : filteredInstances)
+                    //     std::cout << mbbb << ", ";
+                    // std::cout << std::flush << std::endl;
+
+                    if(assignments.count(instance_name) == 0)// no matching instances found for now for placeholder instance_name
+                        assignments[instance_name] = filteredInstances;
+                    else// already found matching instances for instance_name -> intersection with filteredInstances found now
+                    {   
+                        for(ManagedBelief mb : filteredInstances)
+                            if(assignments[instance_name].count(mb) == 0) // mb in filteredInstances is not in map for instance_name placeholder
+                                assignments[instance_name].erase(mb);
+                        for(ManagedBelief mb : assignments[instance_name]) // mb in assignments[instance_name] map is not in filteredInstances mp.name placeholder
+                            if(filteredInstances.count(mb) == 0)
+                                assignments[instance_name].erase(mb);
                     }
-                }
+                }   
             }
         }
     }
-    return assignments;
+
+    map<string, vector<ManagedBelief>> assignments_result;//marshalling to result format
+    if(assignments.size() > 0)
+    {
+        for(auto assignments_it = assignments.begin(); assignments_it != assignments.end(); assignments_it++)
+        {
+            assignments_result[assignments_it->first] = vector<ManagedBelief>();
+            for(ManagedBelief mb : assignments_it->second)
+                assignments_result[assignments_it->first].push_back(mb);
+        }
+    }
+
+    return assignments_result;
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)

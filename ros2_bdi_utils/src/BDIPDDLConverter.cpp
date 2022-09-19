@@ -13,7 +13,7 @@ namespace BDIPDDLConverter
     */
     plansys2::Instance buildInstance(const BDIManaged::ManagedBelief& mb)
     {
-        return plansys2::Instance{mb.getName(), mb.type()};
+        return plansys2::Instance{mb.getName(), mb.type().name};
     }
 
     /*

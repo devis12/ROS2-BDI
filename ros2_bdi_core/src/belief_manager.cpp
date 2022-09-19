@@ -15,6 +15,8 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
+#include <iostream>
+#include <fstream>
 
 using std::string;
 using std::vector;
@@ -39,6 +41,7 @@ using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::PlanningSystemState;
 
+using BDIManaged::ManagedType;
 using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
@@ -278,9 +281,26 @@ void BeliefManager::updatedPDDLProblem(const Empty::SharedPtr msg)
 
     last_pddl_problem_ = pddlProblemNow;
     bool notify;//if anything changes, put it to true
-            
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
+    
+    std::istringstream ss(pddlProblemNow);
+    string line, out;
+    std::cout << "";
+    while(getline(ss, line)){
+        if((line.find("near") != string::npos) || (line.find("free") != string::npos))
+            out += "";
+        else 
+            out += line + "\n";
+    }
+    RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n");
+    RCLCPP_INFO(this->get_logger(), out);
+    std::ofstream file;
+    file.open("/home/devis/alexis.txt");
+    file << pddlProblemNow;
+    file.close();
+    if(this->get_parameter(PARAM_DEBUG).as_bool()){
+        // RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
+
+    }
 
     vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
     vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
@@ -334,7 +354,7 @@ bool BeliefManager::addOrModifyBeliefs(const vector<Belief>& beliefs, const bool
         if(count_bs == 0)//not found
         {
             RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + ((mb.pddlType() == Belief().INSTANCE_TYPE)? mb.type() : mb.getParamsJoined()) +
+                mb.getName() + " " + ((mb.pddlType() == Belief().INSTANCE_TYPE)? mb.type().name : mb.getParamsJoined()) +
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                     " (value = " + std::to_string(mb.getValue()) +")" : "")
                 );
@@ -573,10 +593,11 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {   
-                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, pred.parameters[i].type);
+                    auto mp_type = ManagedType{pred.parameters[i].type, pred.parameters[i].sub_types};
+                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, mp_type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type().name);
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -598,10 +619,11 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {
-                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, function.parameters[i].type);
+                    auto mp_type = ManagedType{function.parameters[i].type, function.parameters[i].sub_types};
+                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, mp_type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type().name);
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -678,7 +700,7 @@ void BeliefManager::addBelief(const ManagedBelief& mb)
     belief_set_.insert(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );
@@ -696,7 +718,7 @@ void BeliefManager::modifyBelief(const ManagedBelief& mb)
         belief_set_.insert(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+                mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );
@@ -711,7 +733,7 @@ void BeliefManager::delBelief(const ManagedBelief& mb)
     belief_set_.erase(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
             ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );
