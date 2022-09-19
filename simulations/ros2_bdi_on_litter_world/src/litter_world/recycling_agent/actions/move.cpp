@@ -16,6 +16,8 @@ using litter_world_interfaces::msg::Pose;
 using litter_world_interfaces::action::CmdPose;
 using GoalHandleCmdPose = rclcpp_action::ClientGoalHandle<CmdPose>;
 
+#define MAX_FAILURES 0
+
 class Move : public BDIActionExecutor
 {
     public:
@@ -24,25 +26,28 @@ class Move : public BDIActionExecutor
         {
             string robot_name = this->get_parameter("agent_id").as_string();
             action_name_ = "/cmd_" + robot_name + "_move";
+            
+        }
+
+        rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+            on_activate(const rclcpp_lifecycle::State & previous_state)
+        {
+            failures_ = 0;
+            goal_sent_ = false;
+            goal_accepted_ = false;
             this->client_cmd_pose_ptr_ = rclcpp_action::create_client<CmdPose>(
                 this->get_node_base_interface(),
                 this->get_node_graph_interface(),
                 this->get_node_logging_interface(),
                 this->get_node_waitables_interface(),
                 action_name_);
-            }
-
-        rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-            on_activate(const rclcpp_lifecycle::State & previous_state)
-        {
-            goal_sent_ = false;
-            goal_accepted_ = false;
             return BDIActionExecutor::on_activate(previous_state);
         }
 
         rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
             on_deactivate(const rclcpp_lifecycle::State & previous_state)
         {
+            this->client_cmd_pose_ptr_.reset();
             return BDIActionExecutor::on_deactivate(previous_state);
         }
 
@@ -50,19 +55,19 @@ class Move : public BDIActionExecutor
         {
             float step_progress = 0.0f;
             
-            if(!goal_sent_ && step_progress == 0.0f)
+            if(!goal_sent_)
             {
                 string currentPosition = getArguments()[1];
                 string goalPosition = getArguments()[2];
                 sendGoal(extractPose(currentPosition), extractPose(goalPosition));
             }
-            else if(goal_sent_ && getProgress() < 0.1)
+            else if(goal_sent_ && getProgress() < 0.9)
             {
-                step_progress = 0.1f;
+                step_progress = 0.05f;
             }
-            else if(goal_accepted_ && getProgress() < 0.2)
+            else if(goal_accepted_ && getProgress() < 0.9)
             {
-                step_progress = 0.1f;
+                step_progress = 0.05f;
             }
 
             return step_progress;            
@@ -114,7 +119,11 @@ class Move : public BDIActionExecutor
         {
             auto goal_handle = future.get();
             if (!goal_handle) 
-                execFailed("Goal was rejected!");
+            {
+                goal_sent_ = false;
+                failures_++;
+                if(failures_ > MAX_FAILURES) execFailed("Goal was rejected!");
+            }
             else
                 goal_accepted_ = true;
         }
@@ -128,26 +137,40 @@ class Move : public BDIActionExecutor
 
         void result_callback(const GoalHandleCmdPose::WrappedResult & result)
         {
+            bool failed = false;
             switch (result.code) {
                 case rclcpp_action::ResultCode::SUCCEEDED:
                     break;
                 case rclcpp_action::ResultCode::ABORTED:
-                    execFailed(); //RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
+                    failed = true; //RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
                     return;
                 case rclcpp_action::ResultCode::CANCELED:
-                    execFailed(); //RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+                    failed = true; //RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
                     return;
                 default:
-                    execFailed(); //RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+                    failed = true; //RCLCPP_ERROR(this->get_logger(), "Unknown result code");
                     return;
             }
             
             if(result.result->performed)
                 execSuccess();
             else
-                execFailed();
+                failed = true;
+            
+            if(failed)
+            {
+                failures_++;
+                if(failures_ > MAX_FAILURES)
+                    execFailed("Too many failures encountered");
+                else
+                {
+                    goal_sent_ = false;
+                    goal_accepted_ = false;
+                }
+            }
         }
 
+        int failures_;
         bool goal_sent_;
         bool goal_accepted_;
         string action_name_;

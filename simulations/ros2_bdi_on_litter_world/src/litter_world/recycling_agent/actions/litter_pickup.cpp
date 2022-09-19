@@ -23,7 +23,7 @@ class LitterPickup : public BDIActionExecutor
 {
     public:
         LitterPickup()
-        : BDIActionExecutor("litter_load", 2)
+        : BDIActionExecutor("litter_pickup", 2)
         {
             string robot_name = this->get_parameter("agent_id").as_string();
             litter_remove_action_name_ = "/cmd_remove_litter";

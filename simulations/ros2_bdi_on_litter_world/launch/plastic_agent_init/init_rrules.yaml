@@ -1,0 +1,56 @@
+- condition:
+    clauses:
+      - literals:
+          - check: "EX"
+            condition_to_check:
+              name: "{x}"
+              pddl_type: 1
+              type: "plastic"
+
+          - check: "T"
+            condition_to_check:
+              name: "litter_pose"
+              pddl_type: 2
+              params:
+                - "{x}"
+                - "*"
+
+  reactive_rules:
+    - set: desire
+      operation: ADD
+      value:
+        name: "recycle"
+        priority: 0.8
+        deadline: 32
+        value:
+          - name: "recycled"
+            pddl_type: 2
+            params:
+              - "{x}"
+
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "recycled"
+              pddl_type: 2
+              params:
+                - "{x}"
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "{x}"
+        pddl_type: 1
+        type: "litter"
+
+    - set: belief
+      operation: DEL
+      value:
+        name: "litter_pose"
+        pddl_type: 1
+        params:
+          - "{x}"
+          - "*"

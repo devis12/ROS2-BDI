@@ -18,6 +18,30 @@ def generate_launch_description():
 
     bdi_on_litterworld_share_dir = get_package_share_directory('ros2_bdi_on_litter_world')
 
+    # plastic_agent move action
+    plastic_agent_move = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='move',
+        name=PLASTIC_AGENT_ID+'_move',
+        specific_params=[]
+    )
+    
+    # plastic_agent pickup action
+    plastic_agent_pickup = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='litter_pickup',
+        name=PLASTIC_AGENT_ID+'litter_pickup',
+        specific_params=[]
+    )
+
+    # plastic_agent recycle action
+    plastic_agent_recycle = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='recycle_plastic',
+        name=PLASTIC_AGENT_ID+'recycle_plastic',
+        specific_params=[]
+    )
+
     # get static map info status sensor 
     load_map_sensor = AgentSensor(
         package='ros2_bdi_on_litter_world',
@@ -44,12 +68,17 @@ def generate_launch_description():
         agent_group=RECYCLER_AGENTS_GROUP_ID,
         init_params={
             'pddl_file': os.path.join(bdi_on_litterworld_share_dir, 'pddl', 'recycling-agent-domain.pddl'),
-            #'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_bset_gripper_a.yaml'),
-            #'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_dset_gripper_a.yaml'),
-            #'init_reactive_rules_set': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_rrules_gripper_a.yaml'),
-            'debug_log_active': ['belief_manager']
+            'init_bset': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_bset.yaml'),
+            'init_reactive_rules_set': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_rrules.yaml'),
+            'comp_plan_tries': 2,
+            'exec_plan_tries': 4,
+            'planning_mode':'online',
+            'reschedule_policy': 'NO_PREEMPT',
+            'search_interval': 400,
+            'min_commit_steps': 1,
+            'debug_log_active': ['scheduler', 'javaff']
         },
-        actions=[],
+        actions=[plastic_agent_move, plastic_agent_pickup, plastic_agent_recycle],
         sensors=[load_map_sensor, agent_area_sensor],
         run_only_psys2=False
     ) 

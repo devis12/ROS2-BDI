@@ -31,7 +31,9 @@ class AgentAreaSensor : public Sensor
         : Sensor(sensor_name, proto_beliefs, true, false)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
-
+            
+            last_pose_.x = -1;
+            last_pose_.y = -1;
             this->declare_parameter("detection_depth", 1); // plus minus 1 around the agent, thus 3x3 detection by default
 
             belief_set_subscriber_ = this->create_subscription<BeliefSet>("/"+robot_name_+"/belief_set", 
@@ -206,7 +208,19 @@ class AgentAreaSensor : public Sensor
                         }
                         else if(grid->rows[i].cells[j] == GridRowStatus().PLASTIC_BIN_CELL || grid->rows[i].cells[j] == GridRowStatus().PAPER_BIN_CELL)
                         {    
-                                // additional static (bins) obstacles
+                            // additional static (bins) obstacles
+                            b.params[0] = buildCellName(i,j);
+                            updOp = UpdOperation::DEL;
+                        }
+                        else if(robot_name_.find("plastic") != string::npos && grid->rows[i].cells[j] == GridRowStatus().PAPER_AGENT_CELL)
+                        {    
+                            // additional dynamic (agents) obstacles
+                            b.params[0] = buildCellName(i,j);
+                            updOp = UpdOperation::DEL;
+                        }
+                        else if(robot_name_.find("paper") != string::npos && grid->rows[i].cells[j] == GridRowStatus().PLASTIC_AGENT_CELL)
+                        {    
+                            // additional dynamic (agents) obstacles
                             b.params[0] = buildCellName(i,j);
                             updOp = UpdOperation::DEL;
                         }

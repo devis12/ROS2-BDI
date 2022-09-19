@@ -1,0 +1,5 @@
+- name: "loaded_amount"
+  pddl_type: 3
+  params:
+    - "plastic_agent"
+  value: 0
