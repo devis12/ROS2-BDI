@@ -6,6 +6,10 @@ INIT_BSET_PARAM = 'init_bset'
 INIT_DSET_PARAM = 'init_dset'
 INIT_RRULESSET_PARAM = 'init_reactive_rules_set'
 
+PLANNING_MODE_PARAM = 'planning_mode'
+SEARCH_INTERVAL_MS_PARAM = 'search_interval'
+MAX_EMPTY_SEARCH_INTERVALS_PARAM = 'max_null_search_intervals'
+
 ACCEPT_BELIEFS_R_PARAM = 'belief_ck'
 ACCEPT_BELIEFS_W_PARAM = 'belief_w'
 ACCEPT_DESIRES_R_PARAM = 'desire_ck'
@@ -22,6 +26,8 @@ AUTOSUBMIT_CONTEXT_PARAM = 'autosub_context'
 RESCHEDULE_POLICY_PARAM = 'reschedule_policy'
 RESCHEDULE_POLICY_VAL_NO_IF_EXEC = 'NO_PREEMPT'
 RESCHEDULE_POLICY_VAL_IF_EXEC = 'PREEMPT'
+
+MIN_COMMIT_STEPS_PARAM = 'min_commit_steps'
 
 DEBUG_PARAM = 'debug'
 DEBUG_ACTIVE_NODES_PARAM = 'debug_log_active'

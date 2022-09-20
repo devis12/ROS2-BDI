@@ -28,28 +28,36 @@ def is_list_of(l, type):
 '''
     PlanSys2Monitor Node builder
 '''
-def build_PlanSys2Monitor(namespace, agent_id, init_params):
-    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plansys2_monitor' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+def build_PlanSysMonitor(namespace, agent_id, init_params):
+    debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('plansys_monitor' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+    
     return Node(
         package='ros2_bdi_core',
-        executable='plansys2_monitor',
-        name='plansys2_monitor',
+        executable='plansys_monitor',
+        name='plansys_monitor',
         namespace=namespace,
         output='screen',
-        parameters=[ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
+        parameters=[ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug}, {PLANNING_MODE_PARAM: planning_mode}])
 
 '''
     BeliefManager Node builder
 '''
 def build_BeliefManager(namespace, agent_id, init_params):
     debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('belief_manager' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='belief_manager',
         name='belief_manager',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug}  ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug},{PLANNING_MODE_PARAM: planning_mode},  ])
     
 
 '''
@@ -57,13 +65,17 @@ def build_BeliefManager(namespace, agent_id, init_params):
 '''
 def build_EventListener(namespace, agent_id, init_params):
     debug = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('event_listener' in init_params[DEBUG_ACTIVE_NODES_PARAM])
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='event_listener',
         name='event_listener',
         namespace=namespace,
         output='screen',
-        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug} ])
+        parameters= [ {AGENT_ID_PARAM: agent_id}, {DEBUG_PARAM: debug},{PLANNING_MODE_PARAM: planning_mode}, ])
 
 
 '''
@@ -108,10 +120,24 @@ def build_Scheduler(namespace, agent_id, init_params):
     else:
         log_automatic_set(AUTOSUBMIT_CONTEXT_PARAM, autosubmit_context)
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
+    interval_search_ms = 500
+    if planning_mode == 'online' and SEARCH_INTERVAL_MS_PARAM in init_params and isinstance(init_params[SEARCH_INTERVAL_MS_PARAM], int):
+        interval_search_ms = init_params[SEARCH_INTERVAL_MS_PARAM]
+        interval_search_ms = interval_search_ms if interval_search_ms >= 100 else 100
+    
+    max_empty_search_intervals = 16
+    if planning_mode == 'online' and MAX_EMPTY_SEARCH_INTERVALS_PARAM in init_params and isinstance(init_params[MAX_EMPTY_SEARCH_INTERVALS_PARAM], int):
+        max_empty_search_intervals = init_params[MAX_EMPTY_SEARCH_INTERVALS_PARAM]
+        max_empty_search_intervals = max_empty_search_intervals if max_empty_search_intervals > 0 else 1
+
     return Node(
         package='ros2_bdi_core',
-        executable='scheduler',
-        name='scheduler',
+        executable='scheduler_'+planning_mode,
+        name='scheduler_'+planning_mode,
         namespace=namespace,
         output='screen',
         parameters=[
@@ -121,6 +147,9 @@ def build_Scheduler(namespace, agent_id, init_params):
             {EXEC_PLAN_TRIES_PARAM: exec_plan_tries},
             {AUTOSUBMIT_PREC_PARAM: autosubmit_prec},
             {AUTOSUBMIT_CONTEXT_PARAM: autosubmit_context}, 
+            {PLANNING_MODE_PARAM: planning_mode},
+            {SEARCH_INTERVAL_MS_PARAM: interval_search_ms},
+            {MAX_EMPTY_SEARCH_INTERVALS_PARAM: max_empty_search_intervals},
             {DEBUG_PARAM: debug}
         ])
 
@@ -141,6 +170,10 @@ def build_PlanDirector(namespace, agent_id, init_params):
     else:
         log_automatic_set(ABORT_SURPASS_DEADLINE_DEADLINE_PARAM, abort_surpass_deadline)
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='plan_director',
@@ -150,6 +183,7 @@ def build_PlanDirector(namespace, agent_id, init_params):
         parameters=[
             {AGENT_ID_PARAM: agent_id},
             {ABORT_SURPASS_DEADLINE_DEADLINE_PARAM: abort_surpass_deadline},
+            {PLANNING_MODE_PARAM: planning_mode},
             {DEBUG_PARAM: debug}
         ])
 
@@ -177,11 +211,15 @@ def build_MARequestHandlerNode(namespace, agent_id, agent_group, init_params):
     if ACCEPT_DESIRES_MAX_PR_PARAM in init_params and is_list_of(init_params[ACCEPT_DESIRES_MAX_PR_PARAM], float) and len(init_params[ACCEPT_DESIRES_MAX_PR_PARAM]) > 0:
         communication_node_params += [{ACCEPT_DESIRES_MAX_PR_PARAM: init_params[ACCEPT_DESIRES_MAX_PR_PARAM]}] 
 
+    planning_mode = 'offline'
+    if PLANNING_MODE_PARAM in init_params:
+        planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+
     return Node(
         package='ros2_bdi_core',
         executable='ma_request_handler',
         name='ma_request_handler',
         namespace=namespace,
         output='screen',
-        parameters=communication_node_params 
+        parameters=communication_node_params + [{PLANNING_MODE_PARAM: planning_mode},]
     )

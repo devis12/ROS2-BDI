@@ -11,6 +11,7 @@ find_package(plansys2_msgs REQUIRED)
 find_package(plansys2_planner REQUIRED)
 find_package(plansys2_domain_expert REQUIRED)
 find_package(plansys2_problem_expert REQUIRED)
+find_package(plansys2_domain_expert REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 
 include_directories(include)
@@ -30,6 +31,7 @@ set(UTILS-SOURCES
   src/ManagedReactiveRule.cpp
 
   src/BDIYAMLParser.cpp
+  src/BDIPlanLibrary.cpp
 )
 
 add_library(${PROJECT_NAME} SHARED ${UTILS-SOURCES})
@@ -41,6 +43,7 @@ install(DIRECTORY include/
 
 target_link_libraries(${PROJECT_NAME}
   yaml-cpp  
+  sqlite3
 )
 
 install(TARGETS

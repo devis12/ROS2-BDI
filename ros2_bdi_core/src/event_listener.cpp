@@ -3,8 +3,6 @@
 
 // header file for Event listener node
 #include "ros2_bdi_core/event_listener.hpp"
-// Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
-#include "ros2_bdi_core/params/core_common_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Event Listener node
 #include "ros2_bdi_core/params/event_listener_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
@@ -14,6 +12,13 @@
 
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
+using ros2_bdi_interfaces::msg::Belief;
+using ros2_bdi_interfaces::msg::BeliefSet;
+using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::LifecycleStatus;
+
+using BDIManaged::ManagedBelief;
+using BDIManaged::ManagedReactiveRule;
 using std::string;
 using std::vector;
 using std::set;
@@ -21,27 +26,25 @@ using std::map;
 using std::bind;
 using std::placeholders::_1;
 
-using ros2_bdi_interfaces::msg::Belief;
-using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::Desire;
-
-using BDIManaged::ManagedBelief;
-using BDIManaged::ManagedReactiveRule;
-
 
 EventListener::EventListener()
     : rclcpp::Node(EVENT_LISTENER_NODE_NAME)//, state_(STARTING)
 {
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
+
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 bool EventListener::init()
 { 
     //agent's namespace
     agent_id_ = this->get_parameter(PARAM_AGENT_ID).as_string();
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
 
 
     // initializing domain expert
@@ -55,20 +58,50 @@ bool EventListener::init()
         return false;
     }
 
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
+                bind(&EventListener::callbackLifecycleStatus, this, _1));
+
     //Receive belief set update notification to keep the event listener belief set mirror up to date
     belief_set_subscription_ = this->create_subscription<BeliefSet>(
-                BELIEF_SET_TOPIC, qos_keep_all,
+                BELIEF_SET_TOPIC, qos_reliable,
                 bind(&EventListener::updBeliefSetCallback, this, _1));
 
     // add/del belief publishers init.
-    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, qos_keep_all);
-    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, qos_keep_all);
+    add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, qos_reliable);
+    del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, qos_reliable);
 
     // add/del desire publishers init.
-    add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, qos_keep_all);
-    del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_keep_all);
+    add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, qos_reliable);
+    del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_reliable);
 
     return true;
+}
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus EventListener::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = EVENT_LISTENER_NODE_NAME;
+    lifecycle_status.status = state_ == CHECKING? lifecycle_status.RUNNING : lifecycle_status.BOOTING;
+    return lifecycle_status;
 }
 
 /*
@@ -80,10 +113,7 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     set<ManagedReactiveRule> rules;
 
     try{
-        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath, domain_expert_);
-        for(auto rule : rules)
-            set<ManagedBelief> beliefs_with_placeholders = rule.getMGCondition().getBeliefsWithPlaceholders();
-        
+        rules = BDIYAMLParser::extractMGReactiveRules(init_reactive_rules_filepath, domain_expert_);//TODO test
 
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Reactive rules initialization performed through " + init_reactive_rules_filepath);
@@ -101,6 +131,37 @@ set<ManagedReactiveRule> EventListener::init_reactive_rules()
     return rules;
 }
 
+void EventListener::updBeliefSetCallback(const BeliefSet::SharedPtr msg)
+{
+    std::set<BDIManaged::ManagedBelief> new_belief_set = BDIFilter::extractMGBeliefs(msg->value);
+    bool belief_set_upd = false;
+    if(new_belief_set.size() != belief_set_.size())
+        belief_set_upd = true;
+    else
+    {
+        for(BDIManaged::ManagedBelief mb : new_belief_set)
+        {
+            if(belief_set_.count(mb) == 0)
+            {
+                belief_set_upd = true;
+                break;
+            }
+        }
+    }       
+
+    if(belief_set_upd)
+    {
+        //there has been an update //TODO improve the check above and the assignment below :-(
+        belief_set_ = new_belief_set;
+        if(state_ == CHECKING)
+            check_if_any_rule_apply();
+    }
+    
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+    
+    step_counter_++;
+}
 
 /*Apply satisfying rules starting from extracted possible assignments for the placeholders*/
 void EventListener::apply_satisfying_rules(const ManagedReactiveRule& reactive_rule, const map<string, vector<ManagedBelief>>& assignments, const set<ManagedBelief>& belief_set)
@@ -135,6 +196,12 @@ void EventListener::apply_satisfying_rules(const ManagedReactiveRule& reactive_r
         ManagedReactiveRule reactive_rule_subs = ManagedReactiveRule::applySubstitution(reactive_rule, actual_assignments);
         if(reactive_rule_subs.getMGCondition().isSatisfied(belief_set_))
             apply_rule(reactive_rule_subs);
+        else
+        {
+            // std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " not sat with assignments:" << std::flush << std::endl;
+            // for(auto it=actual_assignments.begin(); it != actual_assignments.end(); it++)
+            //     std::cout << it->first << ": " << it->second << std::flush << std::endl;
+        }
 
         // try to update current choice
         bool upd = false;
@@ -170,15 +237,30 @@ void EventListener::check_if_any_rule_apply()
         map <string, vector<ManagedBelief>> assignments;//contains variable assigments
         if(reactive_rule.getMGCondition().containsPlaceholders())
         {
+            // std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " assignments:" << std::flush << std::endl;
             assignments = reactive_rule.getMGCondition().extractAssignmentsMap(belief_set_);
+            // for(auto key_it = assignments.begin(); key_it != assignments.end(); key_it++)
+            // {
+            //     std::cout << key_it->first << ":" << std::flush << std::endl;
+            //     for(auto mb : key_it->second)
+            //         std::cout << mb.getName() << ", ";
+            //     std::cout << std::flush << std::endl;
+            // }
             apply_satisfying_rules(reactive_rule, assignments, belief_set_);
         }
 
         else if(reactive_rule.getMGCondition().isSatisfied(belief_set_))//rule with no placeholders sat -> apply rune as is
         {
+            //std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " SAT" << std::flush << std::endl;
             //rule is satisfied! apply effects
             apply_rule(reactive_rule);
         }
+        // else
+        // {
+        //     bool res = reactive_rule.getMGCondition().isSatisfied(belief_set_);
+        //     std::cout << "reactive rule " << std::to_string(reactive_rule.getId()) << " sat = " << res
+        //         << std::flush << std::endl;
+        // }
     }
 }
 

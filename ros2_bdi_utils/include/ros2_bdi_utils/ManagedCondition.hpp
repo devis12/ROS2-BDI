@@ -23,6 +23,9 @@ namespace BDIManaged
             ManagedCondition(const ManagedBelief& managedBelief, const std::string& check);
             ManagedCondition(const ros2_bdi_interfaces::msg::Condition& condition);
             
+            // Clone a MG Conditions DNF
+            ManagedCondition clone();
+
             // return true iff check is VALID && condition is verified against the belief
             bool performCheckAgainstBelief(const ManagedBelief& mb);
             // return true iff check is VALID && condition is verified against the beliefs and no belief in vector denies it

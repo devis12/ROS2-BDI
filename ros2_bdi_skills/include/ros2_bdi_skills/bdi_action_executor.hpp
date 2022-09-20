@@ -9,6 +9,11 @@
 #include <tuple>
 #include <map>
 
+#include "plansys2_problem_expert/ProblemExpertClient.hpp"
+#include "plansys2_executor/ExecutorClient.hpp"
+#include "plansys2_executor/ActionExecutorClient.hpp"
+
+
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -27,7 +32,8 @@
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
 #include "ros2_bdi_core/params/core_common_params.hpp"
 
-#include "plansys2_executor/ActionExecutorClient.hpp"
+#include "javaff_interfaces/msg/action_execution_status.hpp"
+#include "javaff_interfaces/msg/execution_status.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -73,6 +79,20 @@ protected:
     /*returns current progress state of the action*/
     float getProgress() {return progress_;} 
 
+    /* Communicate execution status*/
+    void communicateExecStatus(const uint16_t& status);
+
+    /*returns full action name*/
+    std::string getFullActionName()
+    {
+      std::string argsJoin = "";
+          for(auto arg : getArguments())
+              argsJoin+= " " + arg;
+      std::string fullName = get_action_name() + argsJoin;
+      std::string timex1000 = std::to_string(static_cast<int>(get_planned_start_time() * 1000)); 
+      return "(" + fullName + ")" + ":" + timex1000;
+    }
+
     /*
       Method regularly called at the frequency specified in the constructor to handle the advancement of the action,
       wrapper method for the domain specific logics written within advanceWork by the user. Its purpose is to hide
@@ -117,6 +137,8 @@ protected:
     // method to be called when the execution successfully comes to completion (specific success msg added)
     void execSuccess(const std::string& success_log)
     {
+      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().SUCCESS);
+
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Action execution success: " + success_log);
       finish(true, 1.0, action_name_ + " successful execution" + ((success_log == "")? ": action performed" : ": " + success_log));
@@ -131,6 +153,7 @@ protected:
     //method to be called when the execution fail (specific error to be given)
     void execFailed(const std::string& err_log)
     {
+      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().FAILURE);
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + err_log);
       finish(false, progress_, action_name_ + " failed execution" + ((err_log == "")? ": generic error" : ": " + err_log));
@@ -172,6 +195,15 @@ private:
 
     // progress of the current action execution
     float progress_;
+
+    // Publish updated exec action status to online planner
+    rclcpp_lifecycle::LifecyclePublisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
+
+    // problem expert instance to call the problem expert api
+    std::shared_ptr<plansys2::ProblemExpertClient> problem_expert_;
+
+    // executor client instance to call the executor client api
+    std::shared_ptr<plansys2::ExecutorClient> executor_client_;
 };
 
 #endif  // BDI_ACTION_EXECUTOR_H_

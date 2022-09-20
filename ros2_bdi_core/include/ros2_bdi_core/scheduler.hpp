@@ -1,3 +1,6 @@
+#ifndef SCHEDULER_H_
+#define SCHEDULER_H_
+
 #include <optional>
 #include <mutex>
 #include <vector>
@@ -15,24 +18,33 @@
 #include "ros2_bdi_interfaces/msg/condition.hpp"
 #include "ros2_bdi_interfaces/msg/conditions_conjunction.hpp"
 #include "ros2_bdi_interfaces/msg/conditions_dnf.hpp"
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_action_execution_info_min.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
+#include "ros2_bdi_interfaces/msg/bdi_plan_execution_info_min.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
+
+//#include "javaff_interfaces/msg/partial_plans.hpp"
 
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/scheduler_params.hpp"
 
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 #include "ros2_bdi_core/support/trigger_plan_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
-typedef enum {STARTING, SCHEDULING, PAUSE} StateType;                
+typedef enum {STARTING, SCHEDULING, PAUSE} StateType;          
 typedef enum {ACCEPTED, UNKNOWN_PREDICATE, SYNTAX_ERROR, UNKNOWN_INSTANCES} TargetBeliefAcceptance;
+
+typedef enum {ADD_GOAL_BELIEFS, DEL_GOAL_BELIEFS} GoalBeliefOp;
 
 class Scheduler : public rclcpp::Node
 {
@@ -48,7 +60,7 @@ public:
         desire set publisher,
         add/del desire subscribers callback
     */
-    void init();
+    virtual void init();
     
     /*
         Main loop of work called regularly through a wall timer
@@ -60,11 +72,40 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"));
-        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(SCHEDULER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
+        return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 
-private:
+protected:
+
+    virtual void publishCurrentIntention() = 0;
+
+    /*
+        Specific behaviour of scheduler after desire successful addition, based on its selected mode    
+    */
+    virtual void postAddDesireSuccess(const BDIManaged::ManagedDesire& md) = 0;
+
+    /*
+        Specific behaviour of scheduler after desire successful deletion, based on its selected mode    
+    */
+    virtual void postDelDesireSuccess(const BDIManaged::ManagedDesire& md) = 0;
+
+    /*
+        Operations related to the selection of the next active desire and Intentions to be enforced
+    */
+    virtual void reschedule() = 0;
+
+    /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
+        beliefs which shows they're already fulfilled
+    */
+    virtual void checkForSatisfiedDesires() = 0;
+
+    /*
+        Received update on current plan execution
+    */
+    virtual void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg) = 0;
+
+
     /*  
         Change internal state of the node
     */
@@ -75,10 +116,50 @@ private:
     */
     void publishDesireSet();
 
+
+    /*
+        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
+        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
+    */
+    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+
+    /*
+        Launch execution of selectedPlan; if successful waiting_plans_.access() gets value of selectedPlan
+        return true if successful
+    */
+    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
+    
+    /*
+        Abort execution of first waiting_plans_; if successful waiting_plans_ first element is popped
+        return true if successful
+    */
+    bool abortCurrentPlanExecution();
+
+    /*
+        Check if there is a current valid plan selected
+    */
+    bool noPlanExecuting()
+    {
+        return current_plan_.getPlanTarget().getPriority() == 0.0f && current_plan_.getActionsExecInfo().size() == 0;
+    }
+
+
+    /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+    ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
     /*
        Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
+    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
+
+    /*
+        Received notification about ROS2-BDI Lifecycle status
+    */
+    void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+    {
+        if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+            lifecycle_status_[msg->node_name] = msg->status;
+    }
 
     /*
         Expect to find yaml file to init the desire set in "/tmp/{agent_id}/init_dset.yaml"
@@ -101,62 +182,15 @@ private:
     TargetBeliefAcceptance desireAcceptanceCheck(const BDIManaged::ManagedDesire& md);
 
     /*
-        Compute plan from managed desire, setting its belief array representing the desirable state to reach
-        as the goal of the PDDL problem 
+        Publish target goal info to belief set
     */
-    std::optional<plansys2_msgs::msg::Plan> computePlan(const BDIManaged::ManagedDesire& md);
-
-    /*
-        Check if there is a current valid plan selected
-    */
-    bool noPlanSelected();
-
-    /*
-        Select plan execution based on precondition, deadline
-    */
-    void reschedule();
-
-
-    /*
-        If selected plan fit the minimal requirements for a plan (i.e. not empty body and a desire which is in the desire_set)
-        try triggering its execution by srv request to PlanDirector (/{agent}/plan_execution)
-    */
-    bool tryTriggerPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-
-    /*
-        Launch execution of selectedPlan; if successful current_plan_ gets value of selectedPlan
-        return true if successful
-    */
-    bool launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan);
-    
-    /*
-        Abort execution of current_plan_; if successful current_plan_ becomes empty
-        return true if successful
-    */
-    bool abortCurrentPlanExecution();
-
-    /*
-        Received update on current plan execution
-    */
-    void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg);
+    void publishTargetGoalInfo(const GoalBeliefOp& op);
 
     /*
         Given the current knowledge of the belief set, decide if a given desire
         is already fulfilled
     */
     bool isDesireSatisfied(BDIManaged::ManagedDesire& md);
-
-    /*  Use the updated belief set for deciding if some desires are pointless to pursue given the current 
-        beliefs which shows they're already fulfilled
-    */
-    void checkForSatisfiedDesires();
-
-    /*
-        wrt the current plan execution...
-        return true iff currently executing last action
-        return false if otherwise or not executing any plan
-    */
-    bool executingLastAction();
 
     /*
         The belief set has been updated
@@ -179,7 +213,10 @@ private:
         N.B see addDesire(const ManagedDesire mdAdd, const optional<ManagedDesire> necessaryForMd)
         for further explanations
     */
-    bool addDesire(const BDIManaged::ManagedDesire mdAdd);
+    bool addDesire(const BDIManaged::ManagedDesire& mdAdd)
+    {
+        return addDesire(mdAdd, std::nullopt, "");
+    }
 
     /*
         Add desire @mdAdd to desire_set_ (if there is not yet)
@@ -188,8 +225,41 @@ private:
         for the fulfillment of it (e.g. @mdAdd is derived from preconditions or context)
         @necessaryForMd value (if exists) has to be already in the desire_set_
     */
-    bool addDesire(BDIManaged::ManagedDesire mdAdd, std::optional<BDIManaged::ManagedDesire> necessaryForMD, 
-        const std::string& suffixDesireGroup);
+    bool addDesire(const BDIManaged::ManagedDesire& mdAdd, std::optional<BDIManaged::ManagedDesire> necessaryForMD, 
+        const std::string& suffixDesireGroup)
+    {   
+        auto acceptance = desireAcceptanceCheck(mdAdd);
+        if(acceptance != ACCEPTED && acceptance != UNKNOWN_INSTANCES)//unknown predicates values / syntax_errors within target beliefs
+            return false;
+
+        bool added = false;
+        mtx_add_del_.lock();
+            added = addDesireCS(mdAdd, necessaryForMD, suffixDesireGroup);
+        mtx_add_del_.unlock();
+        return added;
+    }
+
+    /*
+        Replace mdOriginal with mdNew in desire_set_ maitaining the info of the original in the corresponding maps (e.g. comp plans map, aborted plans map, ...)
+    */
+    bool replaceDesire(const BDIManaged::ManagedDesire& mdOriginal, const BDIManaged::ManagedDesire& mdNew)
+    {
+        mtx_add_del_.lock();
+        {
+            if(desire_set_.count(mdOriginal) == 0)
+            {
+                mtx_add_del_.unlock();
+                return false;
+            }
+            else
+            {
+                desire_set_.erase(mdOriginal);
+                desire_set_.insert(mdNew);
+            }
+        }
+        mtx_add_del_.unlock();
+        return desire_set_.count(mdNew) == 1;
+    }
 
     /*
         Add desire Critical Section (to be executed AFTER having acquired mtx_add_del_.lock())
@@ -206,12 +276,23 @@ private:
     /*
         Wrapper for delDesire with two args
     */
-    bool delDesire(const BDIManaged::ManagedDesire mdDel);
+    bool delDesire(const BDIManaged::ManagedDesire mdDel)
+    {
+        return delDesire(mdDel, false);//do not delete desires within the same group of mdDel
+    }
 
     /*
         Del desire from desire_set if present (Access through lock!)
     */
-    bool delDesire(const BDIManaged::ManagedDesire mdDel, const bool& wipeSameGroup);
+    bool delDesire(const BDIManaged::ManagedDesire mdDel, const bool& wipeSameGroup)
+    {
+        bool deleted = false;
+        mtx_add_del_.lock();
+            deleted = delDesireCS(mdDel, wipeSameGroup);
+        mtx_add_del_.unlock();
+
+        return deleted;
+    }
     
     /*
         Del desire from desire_set CRITICAL SECTION (to be called after having acquired mtx_add_del_ lock)
@@ -226,8 +307,19 @@ private:
     */
     void delDesireInGroupCS(const std::string& desireGroup);
 
+    //void reschedulingOnline();
+
     // internal state of the node
     StateType state_;
+
+    // step counter
+    uint64_t step_counter_;
+
+    // Selected planning mode
+    PlanningMode sel_planning_mode_;
+
+    // current_plan in execution
+    BDIManaged::ManagedPlan current_plan_;
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
@@ -243,6 +335,9 @@ private:
     // planner expert instance to call the plansys2 planner api
     std::shared_ptr<plansys2::PlannerClient> planner_client_;
     
+    // flag to denote if the javaff online planner is up and active
+    bool javaff_planner_active_;
+
     // flag to denote if the plansys2 planner is up and active
     bool psys2_planner_active_;
     // flag to denote if the plansys2 domain expert is up and active
@@ -250,7 +345,7 @@ private:
     // flag to denote if the plansys2 problem expert planner is up and active
     bool psys2_problem_expert_active_;
     // plansys2 node status monitor subscription
-    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr plansys2_status_subscriber_;
     
     // desire set has been init. (or at least the process to do so has been tried)
     bool init_dset_;
@@ -266,8 +361,9 @@ private:
     // hashmap for aborted plan desire map (plan aborted for that desire)
     std::map<std::string, int> aborted_plan_desire_map_;
 
-    // current_plan_ in execution (could be none if the agent isn't doing anything)
-    BDIManaged::ManagedPlan current_plan_;
+    // waiting_plans_ in execution + waiting plans for execution (could be none if the agent isn't doing anything)
+    //std::queue<BDIManaged::ManagedPlan> waiting_plans_;
+
     // last plan execution info
     ros2_bdi_interfaces::msg::BDIPlanExecutionInfo current_plan_exec_info_;
     // Plan Execution Service manager for client operations
@@ -290,12 +386,28 @@ private:
     rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_subscriber_;//del desire notify on topic
     rclcpp::Publisher<ros2_bdi_interfaces::msg::DesireSet>::SharedPtr desire_set_publisher_;//desire set publisher
 
+    // belief set publisher (to publish info wrt. currently active desire)
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;//add belief publisher
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr del_belief_publisher_;//del belief publisher
+
     // belief set subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscriber_;//belief set sub.
 
     // plan executioninfo subscriber
     rclcpp::Subscription<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_info_subscriber_;//plan execution info publisher
 
+    // current intention publisher
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::BDIPlanExecutionInfoMin>::SharedPtr intention_publisher_;//intention publisher
+
+    // current known status of the system nodes
+    std::map<std::string, uint8_t> lifecycle_status_;
+    // Publish updated lifecycle status
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+    // Sub to updated lifecycle status
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
+
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+    std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 };
+
+#endif // SCHEDULER_H_

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <optional>
 #include <memory>
 #include <chrono>
@@ -13,10 +14,11 @@
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_executor/ExecutorClient.hpp"
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
-#include "ros2_bdi_interfaces/msg/plan_sys2_state.hpp"
+#include "ros2_bdi_interfaces/msg/planning_system_state.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
 
@@ -24,12 +26,14 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/plan_director_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
-typedef enum {STARTING, READY, EXECUTING, PAUSE} StateType;                
+typedef enum {STARTING, READY, EXECUTING, PAUSE} StateType;      
 
 class PlanDirector : public rclcpp::Node
 {
@@ -56,8 +60,8 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(PLAN_DIRECTOR_NODE_NAME + std::string("_psys2caller_"));
-        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(PLAN_DIRECTOR_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
+        return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
 
 private:
@@ -83,7 +87,19 @@ private:
     /*
        Received notification about PlanSys2 nodes state by plansys2 monitor node
     */
-    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanSys2State::SharedPtr msg);
+    void callbackPsys2State(const ros2_bdi_interfaces::msg::PlanningSystemState::SharedPtr msg);
+    
+    /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+    ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
+    /*
+        Received notification about ROS2-BDI Lifecycle status
+    */
+    void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+    {
+        if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+            lifecycle_status_[msg->node_name] = msg->status;
+    }
 
     /*
         Currently executing no plan
@@ -149,7 +165,7 @@ private:
     /*
     Retrieve from PlanSys2 Executor status info about current plan execution: RUNNING, SUCCESSFUL, ABORT
     */
-    uint8_t getPlanExecutionStatus();
+    int16_t getPlanExecutionStatus();
 
 
     /*
@@ -159,9 +175,14 @@ private:
 
     // internal state of the node
     StateType state_;
+
+    // Selected planning mode
+    PlanningMode sel_planning_mode_;
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+    // step counter
+    uint64_t step_counter_;
 
     // timer to trigger callback to perform main loop of work regularly
     rclcpp::TimerBase::SharedPtr do_work_timer_;
@@ -182,7 +203,7 @@ private:
     // flag to denote if plansys2 executor appears to be active
     bool psys2_executor_active_;
     // plansys2 node status monitor subscription
-    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanSys2State>::SharedPtr plansys2_status_subscriber_;
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::PlanningSystemState>::SharedPtr plansys2_status_subscriber_;
 
     // current_plan_ in execution (could be none if the agent isn't doing anything)
     BDIManaged::ManagedPlan current_plan_;
@@ -203,10 +224,10 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr belief_del_publisher_;
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
-    int first_ts_plan_sec;
-    unsigned int first_ts_plan_nanosec;
+    int first_ts_plan_sec_;
+    unsigned int first_ts_plan_nanosec_;
     // last recorded timestamp during plan execution
-    float last_ts_plan_exec;
+    float last_ts_plan_exec_;
 
     // notification about the current plan execution -> plan execution info publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::BDIPlanExecutionInfo>::SharedPtr plan_exec_publisher_;
@@ -214,8 +235,15 @@ private:
     // trigger plan execution/abortion service
     rclcpp::Service<ros2_bdi_interfaces::srv::BDIPlanExecution>::SharedPtr server_plan_exec_;
 
+    // current known status of the system nodes
+    std::map<std::string, uint8_t> lifecycle_status_;
+    // Publish updated lifecycle status
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+    // Sub to updated lifecycle status
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
+
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+    std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 }; // PlanDirector class prototype
 

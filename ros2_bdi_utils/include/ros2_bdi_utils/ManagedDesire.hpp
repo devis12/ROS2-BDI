@@ -34,8 +34,12 @@ namespace BDIManaged
             
             ManagedDesire(const ros2_bdi_interfaces::msg::Desire& desire);
 
+            // Clone a MG Desire
+            ManagedDesire clone();
+
             /* Getter/setter methods for ManagedDesire instance properties*/
             
+            void setName(const std::string& name){name_ = std::string{name};};
             std::string getName() const {return name_;};
             std::vector<ManagedBelief> getValue() const {return value_;};
             float getPriority() const {return priority_;}
@@ -64,7 +68,15 @@ namespace BDIManaged
 
             // return true if empty target or if target appears to be achieved in the passed bset
             bool isFulfilled(const std::set<ManagedBelief>& bset);
+            
+            // return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
+            bool equivalentValue(const ManagedDesire& otherDesire);
 
+            // return true if otherDesire presents the same exact name, priority and desire group, belief set should be a subset of the belief set of otherDesire
+            bool equalsOrSupersetIgnoreAdvancedInfo(const ManagedDesire& otherDesire);
+
+            // return true if otherDesire is augmented to the current one
+            bool boostDesire(const ManagedDesire& otherDesire);
 
             /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
             ManagedDesire applySubstitution(const std::map<std::string, std::string> assignments) const;
@@ -114,6 +126,9 @@ namespace BDIManaged
 
     // overload `==` operator 
     bool operator==(const ManagedDesire& md1, const ManagedDesire& md2);
+
+    // overload `!=` operator 
+    bool operator!=(const ManagedDesire& md1, const ManagedDesire& md2);
 
 }
 

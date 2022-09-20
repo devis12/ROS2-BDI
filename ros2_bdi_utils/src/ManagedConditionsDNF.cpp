@@ -1,5 +1,7 @@
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
+#include <boost/algorithm/string.hpp>
+
 #include "ros2_bdi_utils/BDIFilter.hpp"
 
 using std::string;
@@ -39,6 +41,15 @@ ConditionsDNF ManagedConditionsDNF::toConditionsDNF() const
     return c_dnf;
 }
 
+// Clone a MG Conditions DNF
+ManagedConditionsDNF ManagedConditionsDNF::clone()
+{
+    vector<ManagedConditionsConjunction> clauses;
+    for(ManagedConditionsConjunction mcc : clauses_)
+        clauses.push_back(mcc.clone());
+    return ManagedConditionsDNF{clauses};
+}
+
 ManagedConditionsDNF::ManagedConditionsDNF(const vector<ManagedConditionsConjunction>& clauses):
     clauses_(clauses){}
 
@@ -48,6 +59,100 @@ bool ManagedConditionsDNF::isSatisfied(const set<ManagedBelief>& mbSet){
             return true;
     
     return clauses_.size() == 0;// empty clause or no single clause is satisfied
+}
+
+/*
+    Try to parse a ManagedConditionsDNF from a string, format is the following for ConditionsDNF
+
+    Condition(literal) = ({check}/{{pddl_type},{name},{p1} {p2} {p3} ... {p54},[{value}]})
+    ConditionsConjunction(clause) = (l1&l2&l3)
+    ConditionsDNF(expression) = clause1|clause2
+*/
+std::optional<ManagedConditionsDNF> ManagedConditionsDNF::parseMGConditionsDNF(string mg_conditions_dnf)
+{
+    if(mg_conditions_dnf.length() == 0)
+        return std::nullopt;
+    else
+    {   
+        //clauses (string and actual objs)
+        vector<string> s_clauses;
+        vector<ManagedConditionsConjunction> clauses;
+
+        boost::split(s_clauses, mg_conditions_dnf, [](char c){return c == '|';});//split string
+        for(string s_clause : s_clauses)
+        {
+            //literals (string and actual objs)
+            vector<string> s_literals;
+            vector<ManagedCondition> literals;
+            boost::split(s_literals, s_clause, [](char c){return c == '&';});//split string
+            for(string s_literal : s_literals)
+            {
+                vector<string> condition_items;
+                boost::split(condition_items, s_literal, [](char c){return c == '/';});//split string
+                if(condition_items.size() != 2)
+                    return std::nullopt;
+                else
+                {
+                    string check = condition_items[0];
+                    std::optional<ManagedBelief> mg_belief = ManagedBelief::parseMGBelief(condition_items[1], mgcond_belief_default_delimiters);
+                    if(!mg_belief.has_value())
+                        return std::nullopt;
+                    else
+                        literals.push_back(ManagedCondition{mg_belief.value(), check});
+                }
+            }
+            clauses.push_back(ManagedConditionsConjunction{literals});
+        }
+
+        return ManagedConditionsDNF(clauses);
+    }
+}
+
+
+ManagedConditionsDNF ManagedConditionsDNF::mergeMGConditionsDNF(const BDIManaged::ManagedConditionsDNF& otherMGConditionsDNF)
+{
+    vector<ManagedConditionsConjunction> preconditions_clauses;
+    // merge two DNF conditions
+    for(ManagedConditionsConjunction mcc : getClauses())
+        for(ManagedConditionsConjunction other_mcc : otherMGConditionsDNF.getClauses())
+        {
+            ManagedConditionsConjunction merge_mcc;
+            merge_mcc.addLiterals(mcc.getLiterals());
+            merge_mcc.addLiterals(other_mcc.getLiterals());
+            preconditions_clauses.push_back(merge_mcc);
+        }
+    return ManagedConditionsDNF{preconditions_clauses};
+}
+
+/*
+    Convert ManagedConditionsDNF to string, format is the following
+
+    Condition(literal) = ({check}/{{pddl_type},{name},{p1} {p2} {p3} ... {p54},[{value}]})
+    ConditionsConjunction(clause) = (l1&l2&l3)
+    ConditionsDNF(expression) = clause1|clause2
+*/
+string ManagedConditionsDNF::toString() const
+{
+    int clause_num=0;
+    int literal_num=0;
+    string result = "";
+    for(ManagedConditionsConjunction clause : clauses_)
+    {
+        result += mgcond_clause_default_delimiters[0];
+        for(ManagedCondition literal : clause.getLiterals())
+        {
+            string belief_to_check = literal.getMGBelief().toString(mgcond_belief_default_delimiters);
+            result += belief_to_check;
+            if(literal_num < clause.getLiterals().size()-1)//avoid to put & after last literal in clause
+                result += "&";
+            literal_num++;
+        }
+        result += mgcond_clause_default_delimiters[1];
+        if(clause_num < clauses_.size()-1)//avoid to put & after last clause in DNF expression
+                result += "|";
+        clause_num++;
+    }
+    return result;
 }
 
 bool ManagedConditionsDNF::containsPlaceholders(){
@@ -78,7 +183,7 @@ ManagedConditionsDNF ManagedConditionsDNF::applySubstitution(const map<string, s
 
 map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(const set<ManagedBelief>& belief_set)
 {
-    map<string, vector<ManagedBelief>> assignments;
+    map<string, set<ManagedBelief>> assignments;
     set<ManagedBelief> placeholder_beliefs = getBeliefsWithPlaceholders();
     if (placeholder_beliefs.size() > 0)
     {
@@ -88,12 +193,26 @@ map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(c
             {
                 for(ManagedParam mp : mb.getParams())
                 {
-                    if(mp.isPlaceholder() && assignments.count(mp.name) == 0)
-                    {
-                        assignments[mp.name] = vector<ManagedBelief>();//empty matching instances
-                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mp.type))//filter belief instances by type of the plaholder param
-                        {
-                            assignments[mp.name].push_back(mb);//found some matching instances
+                    if(mp.isPlaceholder())
+                    {   
+                        //filter belief instances by type of the plaholder param
+                        set<ManagedBelief> filteredInstances = BDIFilter::filterMGBeliefInstances(belief_set, mp.type);
+                        
+                        // std::cout << "filteredInstances for ph " << mp.name << " in " << mb.getName();
+                        // for(auto mbbb : filteredInstances)
+                        //     std::cout << mbbb << ", ";
+                        // std::cout << std::flush << std::endl;
+
+                        if(assignments.count(mp.name) == 0)// no matching instances found for now for placeholder mp.name
+                            assignments[mp.name] = filteredInstances;
+                        else// already found matching instances for mp.name -> intersection with filteredInstances found now
+                        {   
+                            for(ManagedBelief mb : filteredInstances)
+                                if(assignments[mp.name].count(mb) == 0) // mb in filteredInstances is not in map for mp.name placeholder
+                                    assignments[mp.name].erase(mb);
+                            for(ManagedBelief mb : assignments[mp.name]) // mb in assignments[mp.name] map is not in filteredInstances mp.name placeholder
+                                if(filteredInstances.count(mb) == 0)
+                                    assignments[mp.name].erase(mb);
                         }
                     }
                             
@@ -104,17 +223,41 @@ map<string, vector<ManagedBelief>> ManagedConditionsDNF::extractAssignmentsMap(c
                 string instance_name = mb.getName();
                 if(instance_name.find("{") == 0 && instance_name.find("}") == instance_name.length()-1)
                 {
-                    if(assignments.count(instance_name) == 0)
-                    {
-                        assignments[instance_name] = vector<ManagedBelief>();//empty matching instances
-                        for(ManagedBelief mb : BDIFilter::filterMGBeliefInstances(belief_set, mb.type()))//filter belief instances by type of the plaholder param
-                            assignments[instance_name].push_back(mb);
+                    //filter belief instances by type of the plaholder param
+                    set<ManagedBelief> filteredInstances = BDIFilter::filterMGBeliefInstances(belief_set, mb.type());
+                    // std::cout << "filteredInstances for ph " << instance_name << " in " << mb.getName();
+                    // for(auto mbbb : filteredInstances)
+                    //     std::cout << mbbb << ", ";
+                    // std::cout << std::flush << std::endl;
+
+                    if(assignments.count(instance_name) == 0)// no matching instances found for now for placeholder instance_name
+                        assignments[instance_name] = filteredInstances;
+                    else// already found matching instances for instance_name -> intersection with filteredInstances found now
+                    {   
+                        for(ManagedBelief mb : filteredInstances)
+                            if(assignments[instance_name].count(mb) == 0) // mb in filteredInstances is not in map for instance_name placeholder
+                                assignments[instance_name].erase(mb);
+                        for(ManagedBelief mb : assignments[instance_name]) // mb in assignments[instance_name] map is not in filteredInstances mp.name placeholder
+                            if(filteredInstances.count(mb) == 0)
+                                assignments[instance_name].erase(mb);
                     }
-                }
+                }   
             }
         }
     }
-    return assignments;
+
+    map<string, vector<ManagedBelief>> assignments_result;//marshalling to result format
+    if(assignments.size() > 0)
+    {
+        for(auto assignments_it = assignments.begin(); assignments_it != assignments.end(); assignments_it++)
+        {
+            assignments_result[assignments_it->first] = vector<ManagedBelief>();
+            for(ManagedBelief mb : assignments_it->second)
+                assignments_result[assignments_it->first].push_back(mb);
+        }
+    }
+
+    return assignments_result;
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedConditionsDNF& mcdnf)

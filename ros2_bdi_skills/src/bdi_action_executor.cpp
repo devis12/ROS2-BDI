@@ -2,6 +2,8 @@
 #include "ros2_bdi_skills/bdi_action_executor.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
+// Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Scheduler node (for belief set topic)
+#include "ros2_bdi_core/params/scheduler_params.hpp"
 
 using std::string;
 using std::vector;
@@ -18,6 +20,9 @@ using std::placeholders::_1;
 using std::mutex;
 using std::optional;
 
+using plansys2::ProblemExpertClient;
+using plansys2::ExecutorClient;
+
 using ros2_bdi_interfaces::msg::Belief;            
 using ros2_bdi_interfaces::msg::BeliefSet;            
 using ros2_bdi_interfaces::msg::Desire;  
@@ -25,6 +30,9 @@ using ros2_bdi_interfaces::srv::CheckBelief;
 using ros2_bdi_interfaces::srv::UpdBeliefSet;  
 using ros2_bdi_interfaces::srv::CheckDesire;  
 using ros2_bdi_interfaces::srv::UpdDesireSet;  
+
+using javaff_interfaces::msg::ActionExecutionStatus;
+using javaff_interfaces::msg::ExecutionStatus;
 
 using BDIManaged::ManagedBelief;
 using BDIManaged::ManagedDesire;
@@ -65,13 +73,17 @@ BDIActionExecutor::BDIActionExecutor(const string action_name, const int working
       if(agent_id_as_specialized_arg)
         specialized_arguments.push_back(agent_id_);
 
+      // lifecycle publisher to communicate exec status to online planner
+      exec_status_to_planner_publisher_ = this->create_publisher<ExecutionStatus>("/"+agent_id_+"/"+JAVAFF_EXEC_STATUS_TOPIC, 
+                rclcpp::QoS(1).reliable());
+
       this->set_parameter(rclcpp::Parameter("action_name", action_name_));
       this->set_parameter(rclcpp::Parameter("specialized_arguments", specialized_arguments));
 
       // action node, once created, must pass to inactive state to be ready to execute. 
-    // ActionExecutorClient is a managed node (https://design.ros2.org/articles/node_lifecycle.html)
-    this->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
-}
+      // ActionExecutorClient is a managed node (https://design.ros2.org/articles/node_lifecycle.html)
+      this->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  }
 
 /*
   Method called when node is triggered by the Executor node of PlanSys2
@@ -80,11 +92,77 @@ BDIActionExecutor::BDIActionExecutor(const string action_name, const int working
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   BDIActionExecutor::on_activate(const rclcpp_lifecycle::State & previous_state)
   {
+    //problem expert client to communicate with problem expert node of plansys2
+    problem_expert_ = std::make_shared<ProblemExpertClient>();
+
+    //executor client to communicate with executor node of plansys2
+    executor_client_ = std::make_shared<ExecutorClient>();
+
     progress_ = 0.0f;
     if(this->get_parameter(PARAM_DEBUG).as_bool())
       RCLCPP_INFO(this->get_logger(), "Action executor controller for \"" + action_name_ + "\" ready for execution");
-
+    
+    exec_status_to_planner_publisher_->on_activate();
+    
+    communicateExecStatus(ActionExecutionStatus().RUNNING);
+    
     return ActionExecutorClient::on_activate(previous_state);
+  }
+
+  void BDIActionExecutor::communicateExecStatus(const uint16_t& status)
+  {
+    //notify javaff about executing status (action is about to start)
+    ExecutionStatus exec_status_msg = ExecutionStatus();
+    exec_status_msg.executing_plan_index = get_executing_plan_index();
+    exec_status_msg.pddl_problem = problem_expert_->getProblem();
+    
+    //Put just info wrt this action execution and not others (NOT needed)
+    plansys2_msgs::action::ExecutePlan::Feedback actionsFeedback = executor_client_->getFeedBack(true);
+    exec_status_msg.sim_to_goal = actionsFeedback.early_abort_accepted? exec_status_msg.NO_SIM_TO_GOAL : exec_status_msg.SIM_TO_GOAL;
+    exec_status_msg.notification_reason = (status == ActionExecutionStatus().RUNNING)? exec_status_msg.NEW_ACTION_STARTED : exec_status_msg.ACTION_FINISHED;
+
+    for(auto actionExecInfo: actionsFeedback.action_execution_status){
+      ActionExecutionStatus  action_exec_status_msg = ActionExecutionStatus();
+      std::size_t par1Pos = actionExecInfo.action_full_name.find("(");
+      std::size_t par2Pos = actionExecInfo.action_full_name.find(")");
+      std::size_t colPos = actionExecInfo.action_full_name.find(":");
+      std::string actionFullNameNoTime = actionExecInfo.action_full_name.substr(par1Pos, (par2Pos+1)-par1Pos);
+      action_exec_status_msg.executing_action = actionFullNameNoTime;
+      action_exec_status_msg.planned_start_time = std::stof(actionExecInfo.action_full_name.substr(colPos+1))/1000.0f;
+      
+      if(actionExecInfo.action_full_name==getFullActionName())
+      {
+        action_exec_status_msg.status = status;
+        if(status == action_exec_status_msg.SUCCESS)// check whether at end effects already applied in this case(they shouldn't, hence mark it as hybrid state RUN_SUC)
+          action_exec_status_msg.status = actionExecInfo.at_end_applied? status : action_exec_status_msg.RUN_SUC;
+      }
+      else
+      {
+        switch(actionExecInfo.status)
+        {
+          case actionExecInfo.NOT_EXECUTED:
+            action_exec_status_msg.status = actionExecInfo.at_start_applied? action_exec_status_msg.RUNNING : action_exec_status_msg.WAITING;
+            break;
+          case actionExecInfo.EXECUTING:
+            action_exec_status_msg.status = action_exec_status_msg.RUNNING;
+            break;
+          case actionExecInfo.FAILED:
+          case actionExecInfo.CANCELLED:
+            action_exec_status_msg.status = action_exec_status_msg.FAILURE;
+            break;
+          case actionExecInfo.SUCCEEDED:
+            action_exec_status_msg.status = actionExecInfo.at_end_applied? action_exec_status_msg.SUCCESS : action_exec_status_msg.RUN_SUC;
+            break;
+          default:
+            action_exec_status_msg.status = action_exec_status_msg.FAILURE;
+            break;
+        }
+      }
+      
+      exec_status_msg.executing_actions.push_back(action_exec_status_msg);
+    }
+    
+    exec_status_to_planner_publisher_->publish(exec_status_msg);
   }
 
 /*
@@ -94,10 +172,18 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn 
     BDIActionExecutor::on_deactivate(const rclcpp_lifecycle::State & previous_state) 
   {
+    if(problem_expert_.use_count() > 0)
+      problem_expert_.reset();
+
+    if(executor_client_.use_count() > 0)
+      executor_client_.reset();
+    
     monitored_bsets_.clear();
     for(auto monitor_desire : monitored_desires_)
       std::get<2>(monitor_desire).reset();//should allow to cancel subscription to topic (https://answers.ros.org/question/354792/rclcpp-how-to-unsubscribe-from-a-topic/)
     monitored_desires_.clear();
+
+    exec_status_to_planner_publisher_->on_deactivate();
 
     return ActionExecutorClient::on_deactivate(previous_state);
   }
@@ -188,11 +274,11 @@ bool BDIActionExecutor::isMonitoredDesireFulfilled(const std::string& agent_ref,
 */
 void BDIActionExecutor::monitor(const string& agent_ref, const Desire& desire)
 {
-  rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-  qos_keep_all.keep_all();
+  rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+  qos_reliable.reliable();
 
   rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr agent_belief_set_subscriber = this->create_subscription<BeliefSet>(
-            "/"+agent_ref+"/"+BELIEF_SET_TOPIC, qos_keep_all,
+            "/"+agent_ref+"/"+BELIEF_SET_TOPIC, qos_reliable,
             bind(&BDIActionExecutor::agentBeliefSetCallback, this, _1));
 
   monitored_desires_.push_back(std::make_tuple(agent_ref, ManagedDesire{desire}, agent_belief_set_subscriber));

@@ -8,13 +8,20 @@
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 
+const char belief_default_delimiters[2] = {'(', ')'};
+
+
 /* Namespace for wrapper classes wrt. BDI msgs defined in ros2_bdi_interfaces::msg */
 namespace BDIManaged
 {
+    typedef struct{
+        std::string name;
+        std::optional<std::vector<std::string>> sub_types;
+    }ManagedType;
 
     typedef struct{
         std::string name;
-        std::string type;
+        ManagedType type;
 
         bool isPlaceholder(){
             return name.find("{") == 0 && name.find("}") == name.length()-1;
@@ -28,21 +35,25 @@ namespace BDIManaged
         public:
             /* Constructor methods */
             ManagedBelief();
-            ManagedBelief(const std::string& name,const int& pddl_type,const std::string& type);
+            ManagedBelief(const std::string& name,const int& pddl_type,const ManagedType& type);
             ManagedBelief(const std::string& name,const int& pddl_type,const std::vector<ManagedParam>& params, const float& value);
             ManagedBelief(const ros2_bdi_interfaces::msg::Belief& belief);
             
+            // Clone a MG Belief DNF
+            ManagedBelief clone();
+
             /*  Static builder methods for a more intuitive managed belief instance constructor methods distinguished
                 by the belief type
             */
             static ManagedBelief buildMBInstance(const std::string& name, const std::string& instance_type);
+            static ManagedBelief buildMBInstance(const std::string& name, const ManagedType& instance_type);
             static ManagedBelief buildMBPredicate(const std::string& name, const std::vector<ManagedParam>& params);
             static ManagedBelief buildMBFunction(const std::string& name, const std::vector<ManagedParam>& params, const float& value);
 
             /* getter methods for ManagedBelief instance prop */
             std::string getName() const {return name_;};
             int pddlType() const {return pddl_type_;};
-            std::string type() const {return type_;};
+            ManagedType type() const {return type_;};
             std::vector<ManagedParam> getParams() const {return params_;};
             float getValue() const {return value_;};
             std::string pddlTypeString() const;
@@ -54,6 +65,28 @@ namespace BDIManaged
 
             /*  convert instance to ros2_bdi_interfaces::msg::Belief format */
             ros2_bdi_interfaces::msg::Belief toBelief() const;
+
+
+            /*  convert instance to ros2_bdi_interfaces::msg::Belief format substituting name with respective fulfilling name, which
+                indicates we're currently pursuing x (e.g. "f_x" for "x")*/
+            ros2_bdi_interfaces::msg::Belief toFulfillmentBelief() const;
+
+            /*
+                Try to parse a managed belief from a string, format is the following
+                assuming delimiters = ['(', ')']
+                ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+            */
+            static std::optional<ManagedBelief> parseMGBelief(std::string mg_belief, const char delimiters[]);
+
+            /*
+                Convert managed belief to string, format is the following
+                assuming delimiters = ['(', ')']
+                ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+
+                if delimiterNum is wrong, set delimiters to default values ['(',')']
+            */
+            std::string toString(const char delimiters[]) const;
+            std::string toString() const {return toString(belief_default_delimiters);}
 
             /* substitute placeholders as per assignments map and return a new ManagedBelief instance*/
             ManagedBelief applySubstitution(const std::map<std::string, std::string> assignments) const;
@@ -67,7 +100,7 @@ namespace BDIManaged
             int pddl_type_; // 1 for INSTANCE ,2 for PREDICATE ,3 for FLUENT/FUNCTION, check ros2_bdi_interfaces::msg::Belief
 
             // actually valuable just for instances
-            std::string type_;
+            ManagedType type_;
 
             /* vector of parameters for PREDICATE(2)/FLUENT(3) belief type, single value representing instance type for INSTANCE(1) belief type*/
             std::vector<ManagedParam> params_;

@@ -1,0 +1,443 @@
+# -
+#   name: "r1"
+#   pddl_type: 1
+#   type: "robot"
+- name: "r2"
+  pddl_type: 1
+  type: "robot"
+# -
+#   name: "r3"
+#   pddl_type: 1
+#   type: "robot"
+- name: "p1"
+  pddl_type: 1
+  type: "printer"
+- name: "p2"
+  pddl_type: 1
+  type: "printer"
+- name: "r_a"
+  pddl_type: 1
+  type: "room"
+- name: "r_b"
+  pddl_type: 1
+  type: "room"
+- name: "r_c"
+  pddl_type: 1
+  type: "room"
+- name: "r_d"
+  pddl_type: 1
+  type: "room"
+- name: "r_e"
+  pddl_type: 1
+  type: "room"
+- name: "r_f"
+  pddl_type: 1
+  type: "room"
+- name: "h11"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h12"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h13"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h21"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h22"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h23"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h31"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h32"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h33"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h11_21"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h13_23"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h21_31"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "h23_33"
+  pddl_type: 1
+  type: "hallway_segment"
+- name: "d0"
+  pddl_type: 1
+  type: "dock"
+- name: "d1"
+  pddl_type: 1
+  type: "dock"
+- name: "d2"
+  pddl_type: 1
+  type: "dock"
+- name: "d3"
+  pddl_type: 1
+  type: "dock"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_a"
+    - "h11"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11"
+    - "h12"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11"
+    - "h11_21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11"
+    - "r_a"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h12"
+    - "h11"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h12"
+    - "h13"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13"
+    - "h12"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13"
+    - "r_d"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13"
+    - "h13_23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_d"
+    - "h13"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_b"
+    - "h11_21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11_21"
+    - "h11"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11_21"
+    - "h21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h11_21"
+    - "r_b"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13_23"
+    - "h13"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13_23"
+    - "h23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h13_23"
+    - "r_e"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_e"
+    - "h13_23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21"
+    - "h11_21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21"
+    - "h22"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21"
+    - "h21_31"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h22"
+    - "h21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h22"
+    - "h23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23"
+    - "h13_23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23"
+    - "h22"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23"
+    - "h23_33"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_c"
+    - "h21_31"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21_31"
+    - "r_c"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21_31"
+    - "h21"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h21_31"
+    - "h31"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23_33"
+    - "h23"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23_33"
+    - "h33"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h23_33"
+    - "r_e"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_e"
+    - "h23_33"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h31"
+    - "h21_31"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h31"
+    - "h32"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h32"
+    - "h31"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h32"
+    - "h33"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h33"
+    - "h23_33"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h33"
+    - "h32"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "h33"
+    - "r_f"
+- name: "near"
+  pddl_type: 2
+  params:
+    - "r_f"
+    - "h33"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_a"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_b"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_c"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_d"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_e"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "r_f"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h11"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h12"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h11_21"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h13_23"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h21"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h23"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h21_31"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h23_33"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h31"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h32"
+- name: "free"
+  pddl_type: 2
+  params:
+    - "h33"
+- name: "p_in"
+  pddl_type: 2
+  params:
+    - "p1"
+    - "h12"
+- name: "p_in"
+  pddl_type: 2
+  params:
+    - "p2"
+    - "h32"
+- name: "available"
+  pddl_type: 2
+  params:
+    - "p1"
+- name: "d_in"
+  pddl_type: 2
+  params:
+    - "d0"
+    - "r_c"
+- name: "d_in"
+  pddl_type: 2
+  params:
+    - "d1"
+    - "r_c"
+- name: "d_in"
+  pddl_type: 2
+  params:
+    - "d2"
+    - "r_c"
+- name: "d_in"
+  pddl_type: 2
+  params:
+    - "d3"
+    - "r_c"
+# -
+#   name: "r_in"
+#   pddl_type: 2
+#   params:
+#     - "r1"
+#     - "r_d"
+# -
+#   name: "active"
+#   pddl_type: 2
+#   params:
+#     - "r1"
+# -
+#   name: "not_r_docked"
+#   pddl_type: 2
+#   params:
+#     - "r1"
+- name: "r_in"
+  pddl_type: 2
+  params:
+    - "r2"
+    - "r_c"
+- name: "active"
+  pddl_type: 2
+  params:
+    - "r2"
+- name: "r_docked"
+  pddl_type: 2
+  params:
+    - "r2"
+# -
+#   name: "r_in"
+#   pddl_type: 2
+#   params:
+#     - "r3"
+#     - "r_c"
+# -
+#   name: "active"
+#   pddl_type: 2
+#   params:
+#     - "r3"
+# -
+#   name: "r_docked"
+#   pddl_type: 2
+#   params:
+#     - "r3"

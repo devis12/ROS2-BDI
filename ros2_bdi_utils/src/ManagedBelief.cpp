@@ -1,6 +1,10 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/PDDLBDIConstants.hpp"
 
+#include "plansys2_domain_expert/DomainReader.hpp"
+
+#include <boost/algorithm/string.hpp>
+
 #define INSTANCE_S PDDLBDIConstants::INSTANCE_TYPE
 #define PREDICATE_S PDDLBDIConstants::PREDICATE_TYPE
 #define FUNCTION_S PDDLBDIConstants::FUNCTION_TYPE
@@ -18,7 +22,7 @@ ManagedBelief::ManagedBelief():
     pddl_type_(-1)
     {}
 
-ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type, const std::string& type):
+ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type, const ManagedType& type):
     name_(name),
     pddl_type_(pddl_type),
     type_(type)
@@ -31,22 +35,55 @@ ManagedBelief::ManagedBelief(const std::string& name,const int& pddl_type,const 
     value_ (value)
     {
         if(pddl_type == Belief().PREDICATE_TYPE)
-            type_ = PDDLBDIConstants::PREDICATE_TYPE;
+            type_ = ManagedType{PDDLBDIConstants::PREDICATE_TYPE, std::nullopt};
         else if(pddl_type == Belief().FUNCTION_TYPE)
-            type_ = PDDLBDIConstants::FUNCTION_TYPE;
+            type_ = ManagedType{PDDLBDIConstants::FUNCTION_TYPE, std::nullopt};
     }
 
 ManagedBelief::ManagedBelief(const Belief& belief):
     name_(belief.name),
     pddl_type_ (belief.pddl_type),
-    type_(belief.type),
+    type_(ManagedType{belief.type, std::nullopt}),//TODO deal with subtypes here in later versions
     value_ (belief.value)
     {
         for(string p : belief.params)
-            params_.push_back(ManagedParam{p,""});
+            params_.push_back(ManagedParam{p,""});//TODO deal with subtypes here in later versions
     }
 
+// Clone a MG Belief DNF
+ManagedBelief ManagedBelief::clone()
+{
+    string name = string{name_};
+    if(pddl_type_ == Belief().INSTANCE_TYPE)
+    {
+        ManagedType instance_type = type_;
+        return (ManagedBelief::buildMBInstance(name, instance_type));
+    }
+    else if(pddl_type_ == Belief().PREDICATE_TYPE || pddl_type_ == Belief().FUNCTION_TYPE)
+    {
+        vector<ManagedParam> params;
+        for(auto p : params_)
+            params.push_back(ManagedParam{string{p.name}, p.type}); 
+        
+        float value = 0.0f;
+        if(pddl_type_ == Belief().FUNCTION_TYPE)
+            value = value_;
+
+        return pddl_type_ == Belief().PREDICATE_TYPE?
+             (ManagedBelief::buildMBPredicate(name, params))
+             :
+             (ManagedBelief::buildMBFunction(name, params, value));
+    }
+
+    return ManagedBelief{};
+}
+
 ManagedBelief ManagedBelief::buildMBInstance(const string& name, const string& instance_type)
+{
+    return ManagedBelief{name, Belief().INSTANCE_TYPE, ManagedType{instance_type, std::nullopt}};
+}
+
+ManagedBelief ManagedBelief::buildMBInstance(const string& name, const ManagedType& instance_type)
 {
     return ManagedBelief{name, Belief().INSTANCE_TYPE, instance_type};
 }
@@ -72,10 +109,20 @@ Belief ManagedBelief::toBelief() const
     Belief b = Belief();
     b.name = name_;
     b.pddl_type = pddl_type_;
-    b.type = type_;
+    b.type = type_.name;
     for(ManagedParam mp : params_)
         b.params.push_back(mp.name);
     b.value = value_;
+    return b;
+}
+
+/*  convert instance to ros2_bdi_interfaces::msg::Belief format substituting name with respective fulfilling name, which
+                indicates we're currently pursuing x (e.g. "f_x" for "x")*/
+Belief ManagedBelief::toFulfillmentBelief() const
+{
+    Belief b = toBelief();
+    b.name = FULFILLMENT_PREFIX + name_;
+
     return b;
 }
 
@@ -124,11 +171,82 @@ string ManagedBelief::pddlTypeString() const
     return pddl_type_string;
 }
 
+
+/*
+    Try to parse a managed belief from a string, format is the following
+    assuming delimiters = ['(', ')']
+
+    ({pddl_type}, {name}, {p1} {p2} {p3} ... {p54}, [{value}])
+*/
+std::optional<ManagedBelief> ManagedBelief::parseMGBelief(std::string mg_belief, const char delimiters[])
+{
+    int delimiterNum = sizeof(delimiters)/sizeof(delimiters[0]);
+    if(delimiterNum != 2)
+        return std::nullopt;
+    else
+    {
+        vector<string> items;
+        if(mg_belief.length() == 0)
+            return std::nullopt;
+        else
+        {
+            //remove parenthesis
+            if(mg_belief.at(0) == delimiters[0])
+                mg_belief = mg_belief.substr(1);
+            if(mg_belief.at(mg_belief.length()-1) == delimiters[1])
+                mg_belief = mg_belief.substr(0,mg_belief.length()-1);
+
+            boost::split(items, mg_belief, [](char c){return c == ',';});//split string
+            if(items.size() != 3 && items.size() != 4)//items should be either 3 or 4
+                return std::nullopt;
+
+            //retrieve elements
+            int pddl_type = atoi(items[0].c_str());
+            string name = items[1];
+            vector<string> params_string;
+            vector<ManagedParam> params;
+            boost::split(params_string, items[2], [](char c){return c == ' ';});//split string
+            for(string par : params_string)
+                params.push_back(ManagedParam{par, ""});//TODO fix this
+
+            float value = 0.0f;
+            if(pddl_type == Belief().FUNCTION_TYPE && items.size() == 4)
+                value = atof(items[3].c_str());
+            
+            return ManagedBelief{name, pddl_type, params, value};
+        }
+    }
+}   
+
+/*
+    Convert managed belief to string, format is the following
+
+    ({pddl_type},{name},{p1} {p2} {p3} ... {p54},[{value}])
+*/
+string ManagedBelief::toString(const char delimiters[]) const{
+    //if delimiterNum is wrong, set delimiters to default values ['(',')']
+    int delimiterNum = sizeof(delimiters)/sizeof(delimiters[0]);
+    char d0 = '(', d1 = ')';
+    if(delimiterNum != 2)
+    {
+        d0 = '(';
+        d1 = ')';
+    }
+
+    string result = d0 + std::to_string(pddl_type_) + "," + name_ + "," + getParamsJoined();
+    if(pddl_type_ == Belief().FUNCTION_TYPE)
+        result += "," + std::to_string(value_);
+    
+    result += d1;
+
+    return result;
+}
+
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedBelief& mb)
 {
     string param_or_type_string = "";
     if(mb.pddlType() == Belief().INSTANCE_TYPE)
-        param_or_type_string = " " + mb.type();
+        param_or_type_string = " " + mb.type().name;
     else
         for(ManagedParam p : mb.getParams())
             param_or_type_string += " " + p.name;
@@ -177,7 +295,7 @@ bool BDIManaged::operator==(ManagedBelief const &mb1, ManagedBelief const &mb2){
     if(mb1.pddlType() != mb2.pddlType() /* || (mb1.type_ == FUNCTION_TYPE && mb1.value_ != mb2.value_)*/)
         return false;
 
-    if(mb1.pddlType() == Belief().INSTANCE_TYPE && mb1.type() != mb2.type())
+    if(mb1.pddlType() == Belief().INSTANCE_TYPE && mb1.type().name != mb2.type().name)
         return false;
 
     vector<ManagedParam> mb1_params = mb1.getParams();

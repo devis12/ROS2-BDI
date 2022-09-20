@@ -1,0 +1,33 @@
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "r_in"
+              pddl_type: 2
+              params:
+                - "r2"
+                - "h1*"
+          # - check: "T"
+          #   condition_to_check:
+          #     name: "not_r_docked"
+          #     pddl_type: 2
+          #     params:
+          #       - "r2"
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "available"
+        pddl_type: 2
+        params:
+          - "p1"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "available"
+        pddl_type: 2
+        params:
+          - "p2"

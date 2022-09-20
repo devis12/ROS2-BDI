@@ -39,19 +39,21 @@ class CarrierInDepositSensor : public Sensor
                     rclcpp::QoS(5).best_effort(),
                     [&, i](const MoveStatus::SharedPtr msg)
                         {
-                            Belief b = Belief();
-                            b.name = getBeliefPrototype().name;
-                            b.pddl_type = getBeliefPrototype().pddl_type;
-                            b.params = {id_carriers[i], id_deposits[i]};
-                            bool in_dep = boost::algorithm::contains(msg->current_name, "deposit");
-                            if(carriers_in_dep_status_.find(id_carriers[i]) == carriers_in_dep_status_.end() || carriers_in_dep_status_[id_carriers[i]] != in_dep)
+                            std::optional<Belief> bproto = getBeliefPrototype("carrier_in_deposit");
+                            if(bproto.has_value())
                             {
-                                //call sense just when the value hasn't been recorded a single time yet or changes    
-                                if (in_dep)
-                                    sense(b, UpdOperation::ADD);
-                                else
-                                    sense(b, UpdOperation::DEL);
-                                carriers_in_dep_status_[id_carriers[i]] = in_dep;
+                                Belief b = bproto.value();
+                                b.params = {id_carriers[i], id_deposits[i]};
+                                bool in_dep = boost::algorithm::contains(msg->current_name, "deposit");
+                                if(carriers_in_dep_status_.find(id_carriers[i]) == carriers_in_dep_status_.end() || carriers_in_dep_status_[id_carriers[i]] != in_dep)
+                                {
+                                    //call sense just when the value hasn't been recorded a single time yet or changes    
+                                    if (in_dep)
+                                        sense(b, UpdOperation::ADD);
+                                    else
+                                        sense(b, UpdOperation::DEL);
+                                    carriers_in_dep_status_[id_carriers[i]] = in_dep;
+                                }
                             }
                         }));
         }
@@ -75,19 +77,21 @@ class CarrierInBaseSensor : public Sensor
                     rclcpp::QoS(5).best_effort(),
                     [&, i](const MoveStatus::SharedPtr msg)
                         {
-                            Belief b = Belief();
-                            b.name = getBeliefPrototype().name;
-                            b.pddl_type = getBeliefPrototype().pddl_type;
-                            b.params = {id_carriers[i], id_bases[i]};
-                            bool in_base = boost::algorithm::contains(msg->current_name, "base");
-                            if(carriers_in_base_status_.find(id_carriers[i]) == carriers_in_base_status_.end() || carriers_in_base_status_[id_carriers[i]] != in_base)
+                            std::optional<Belief> bproto = getBeliefPrototype("carrier_in_base");
+                            if(bproto.has_value())
                             {
-                                //call sense just when the value hasn't been recorded a single time yet or changes    
-                                if (in_base)
-                                    sense(b, UpdOperation::ADD);
-                                else
-                                    sense(b, UpdOperation::DEL);
-                                carriers_in_base_status_[id_carriers[i]] = in_base;
+                                Belief b = bproto.value();
+                                b.params = {id_carriers[i], id_bases[i]};
+                                bool in_base = boost::algorithm::contains(msg->current_name, "base");
+                                if(carriers_in_base_status_.find(id_carriers[i]) == carriers_in_base_status_.end() || carriers_in_base_status_[id_carriers[i]] != in_base)
+                                {
+                                    //call sense just when the value hasn't been recorded a single time yet or changes    
+                                    if (in_base)
+                                        sense(b, UpdOperation::ADD);
+                                    else
+                                        sense(b, UpdOperation::DEL);
+                                    carriers_in_base_status_[id_carriers[i]] = in_base;
+                                }
                             }
                             
                         }));

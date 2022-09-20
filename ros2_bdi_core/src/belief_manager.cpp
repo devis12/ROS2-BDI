@@ -5,7 +5,7 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
-#include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+#include "ros2_bdi_core/params/plansys_monitor_params.hpp"
 
 #include <yaml-cpp/exceptions.h>
 
@@ -15,10 +15,13 @@
 #include "ros2_bdi_utils/BDIFilter.hpp"
 #include "ros2_bdi_utils/BDIYAMLParser.hpp"
 
+#include <iostream>
+#include <fstream>
 
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -35,8 +38,10 @@ using std_msgs::msg::Empty;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
-using ros2_bdi_interfaces::msg::PlanSys2State;
+using ros2_bdi_interfaces::msg::LifecycleStatus;
+using ros2_bdi_interfaces::msg::PlanningSystemState;
 
+using BDIManaged::ManagedType;
 using BDIManaged::ManagedParam;
 using BDIManaged::ManagedBelief;
 
@@ -48,6 +53,10 @@ BeliefManager::BeliefManager()
     psys2_comm_errors_ = 0;
     this->declare_parameter(PARAM_AGENT_ID, "agent0");
     this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
+
+    sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 
@@ -81,25 +90,57 @@ void BeliefManager::init()
     //Belief set publisher
     belief_set_publisher_ = this->create_publisher<BeliefSet>(BELIEF_SET_TOPIC, 10);
     
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
+
+    //lifecycle status init
+    auto lifecycle_status = LifecycleStatus{};
+    lifecycle_status_ = map<string, uint8_t>();
+    lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+    lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+    lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+    // init step_counter
+    step_counter_ = 0;
+
+    //Lifecycle status publisher
+    lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+    //Lifecycle status subscriber
+    lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+                LIFECYCLE_STATUS_TOPIC, qos_reliable,
+                bind(&BeliefManager::callbackLifecycleStatus, this, _1));
 
     //Check for plansys2 active state flags init to false
     psys2_domain_expert_active_ = false;
     psys2_problem_expert_active_ = false;
 
     //plansys2 nodes status subscriber (receive notification from plansys2_monitor node)
-    plansys2_status_subscriber_ = this->create_subscription<PlanSys2State>(
-                PSYS2_STATE_TOPIC, qos_keep_all,
+    plansys2_status_subscriber_ = this->create_subscription<PlanningSystemState>(
+                PSYS_STATE_TOPIC, qos_reliable,
                 bind(&BeliefManager::callbackPsys2State, this, _1));
 
     //Belief to be added notification
     add_belief_subscriber_ = this->create_subscription<Belief>(
-                ADD_BELIEF_TOPIC, qos_keep_all,
+                ADD_BELIEF_TOPIC, qos_reliable,
                 bind(&BeliefManager::addBeliefTopicCallBack, this, _1));
+
+    //Belief to be added notification
+    add_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                ADD_BELIEF_SET_TOPIC, qos_reliable,
+                bind(&BeliefManager::addBeliefSetTopicCallBack, this, _1));
+
+    //Belief to be added notification
+    del_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
+                DEL_BELIEF_SET_TOPIC, qos_reliable,
+                bind(&BeliefManager::delBeliefSetTopicCallBack, this, _1));
+
     //Belief to be removed notification
     del_belief_subscriber_ = this->create_subscription<Belief>(
-                DEL_BELIEF_TOPIC, qos_keep_all,
+                DEL_BELIEF_TOPIC, qos_reliable,
                 bind(&BeliefManager::delBeliefTopicCallBack, this, _1));
 
     //problem_expert update subscriber
@@ -128,6 +169,9 @@ void BeliefManager::step()
     if(psys2_comm_errors_ > MAX_COMM_ERRORS)
         rclcpp::shutdown();
 
+    if(step_counter_ % 4 == 0)
+        lifecycle_status_publisher_->publish(getLifecycleStatus());
+
     switch (state_) {
         
         case STARTING:
@@ -140,7 +184,7 @@ void BeliefManager::step()
                     init_bset_ = true;
                 }
                 setState(SYNC);
-            
+                lifecycle_status_publisher_->publish(getLifecycleStatus());
             }else{
                 if(!psys2_domain_expert_active_)
                     RCLCPP_ERROR(this->get_logger(), "PlanSys2 Domain Expert still not active");
@@ -165,12 +209,24 @@ void BeliefManager::step()
         default:
             break;
     }
+
+    step_counter_++;
 }
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus BeliefManager::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = BELIEF_MANAGER_NODE_NAME;
+    lifecycle_status.status = (state_ == SYNC || state_ == PAUSE)? lifecycle_status.RUNNING : lifecycle_status.BOOTING;
+    return lifecycle_status;
+}
+
 
 /*
     Received notification about PlanSys2 nodes state by plansys2 monitor node
 */
-void BeliefManager::callbackPsys2State(const PlanSys2State::SharedPtr msg)
+void BeliefManager::callbackPsys2State(const PlanningSystemState::SharedPtr msg)
 {
     psys2_problem_expert_active_ = msg->problem_expert_active;
     psys2_domain_expert_active_ = msg->domain_expert_active;
@@ -225,9 +281,26 @@ void BeliefManager::updatedPDDLProblem(const Empty::SharedPtr msg)
 
     last_pddl_problem_ = pddlProblemNow;
     bool notify;//if anything changes, put it to true
-            
-    if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
+    
+    std::istringstream ss(pddlProblemNow);
+    string line, out;
+    std::cout << "";
+    while(getline(ss, line)){
+        if((line.find("near") != string::npos) || (line.find("free") != string::npos))
+            out += "";
+        else 
+            out += line + "\n";
+    }
+    RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n");
+    RCLCPP_INFO(this->get_logger(), out);
+    std::ofstream file;
+    file.open("/home/devis/alexis.txt");
+    file << pddlProblemNow;
+    file.close();
+    if(this->get_parameter(PARAM_DEBUG).as_bool()){
+        // RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
+
+    }
 
     vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
     vector<Belief> predicates = PDDLBDIConverter::convertPDDLPredicates(problem_expert_->getPredicates());
@@ -281,7 +354,7 @@ bool BeliefManager::addOrModifyBeliefs(const vector<Belief>& beliefs, const bool
         if(count_bs == 0)//not found
         {
             RCLCPP_INFO(this->get_logger(), "Adding missing belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + ((mb.pddlType() == Belief().INSTANCE_TYPE)? mb.type() : mb.getParamsJoined()) +
+                mb.getName() + " " + ((mb.pddlType() == Belief().INSTANCE_TYPE)? mb.type().name : mb.getParamsJoined()) +
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                     " (value = " + std::to_string(mb.getValue()) +")" : "")
                 );
@@ -386,6 +459,38 @@ void BeliefManager::addBeliefTopicCallBack(const Belief::SharedPtr msg)
         addBeliefSyncPDDL(mb);
 }
 
+/*  
+    Someone has publish a set of beliefs to be added in the respective topic
+*/
+void BeliefManager::addBeliefSetTopicCallBack(const BeliefSet::SharedPtr msg)
+{
+    if(msg->agent_id == agent_id_)
+    {
+        for(Belief b : msg->value)
+        {
+            ManagedBelief mb = ManagedBelief{b};
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+                addBeliefSyncPDDL(mb);
+        }
+    }
+}
+
+/*  
+    Someone has publish a new set of beliefs to be removed in the respective topic
+*/
+void BeliefManager::delBeliefSetTopicCallBack(const BeliefSet::SharedPtr msg)
+{
+    if(msg->agent_id == agent_id_)
+    {
+        for(Belief b : msg->value)
+        {
+            ManagedBelief mb = ManagedBelief{b};
+            if(psys2_domain_expert_active_ && psys2_problem_expert_active_)
+                delBeliefSyncPDDL(mb);
+        }
+    }
+}
+
 /*
     Add Belief in the belief set, just after having appropriately sync the pddl_problem to add it there too
 */
@@ -488,10 +593,11 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {   
-                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, pred.parameters[i].type);
+                    auto mp_type = ManagedType{pred.parameters[i].type, pred.parameters[i].sub_types};
+                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, mp_type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type().name);
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -513,10 +619,11 @@ bool BeliefManager::tryAddMissingInstances(const ManagedBelief& mb)
             {
                 if(missing_pos[i])//missing instance
                 {
-                        ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, function.parameters[i].type);
+                    auto mp_type = ManagedType{function.parameters[i].type, function.parameters[i].sub_types};
+                    ManagedBelief mb_ins = ManagedBelief::buildMBInstance(mb.getParams()[i].name, mp_type);
                     
                     if(this->get_parameter(PARAM_DEBUG).as_bool())
-                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type());
+                        RCLCPP_INFO(this->get_logger(), "Trying to add instance: " + mb_ins.getName() + " - " + mb_ins.type().name);
                     
                     if(problem_expert_->addInstance(BDIPDDLConverter::buildInstance(mb_ins)))//add instance (type found from domain expert)
                         addBelief(mb_ins);
@@ -593,7 +700,7 @@ void BeliefManager::addBelief(const ManagedBelief& mb)
     belief_set_.insert(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Added belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );
@@ -611,7 +718,7 @@ void BeliefManager::modifyBelief(const ManagedBelief& mb)
         belief_set_.insert(mb);
         if(this->get_parameter(PARAM_DEBUG).as_bool())
             RCLCPP_INFO(this->get_logger(), "Modified belief ("+mb.pddlTypeString()+"): " + 
-                mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+                mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
                 ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );
@@ -626,7 +733,7 @@ void BeliefManager::delBelief(const ManagedBelief& mb)
     belief_set_.erase(mb);
     if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Removed belief ("+mb.pddlTypeString()+"): " + 
-            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type() : mb.getParamsJoined()) + 
+            mb.getName() + " " + (mb.pddlType() == Belief().INSTANCE_TYPE? mb.type().name : mb.getParamsJoined()) + 
             ((mb.pddlType() == Belief().FUNCTION_TYPE)?
                 " (value = " + std::to_string(mb.getValue()) +")" : "")
             );

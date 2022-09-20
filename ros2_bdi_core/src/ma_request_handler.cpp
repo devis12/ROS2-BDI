@@ -14,6 +14,7 @@
 using std::string;
 using std::vector;
 using std::set;
+using std::map;
 using std::mutex;
 using std::shared_ptr;
 using std::chrono::milliseconds;
@@ -21,6 +22,7 @@ using std::bind;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
+using ros2_bdi_interfaces::msg::LifecycleStatus;
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
@@ -46,6 +48,11 @@ MARequestHandler::MARequestHandler()
   this->declare_parameter(PARAM_DESIRE_CHECK, vector<string>());
   this->declare_parameter(PARAM_DESIRE_WRITE, vector<string>());
   this->declare_parameter(PARAM_DESIRE_MAX_PRIORITIES, vector<double>());
+  
+  this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
+
+  sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+  this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
 /*
@@ -60,8 +67,29 @@ void MARequestHandler::init()
   accepted_server_ = this->create_service<IsAcceptedOperation>(IS_ACCEPTED_OP_SRV, 
       bind(&MARequestHandler::handleIsAcceptedGroup, this, _1, _2));
 
-  rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-  qos_keep_all.keep_all();
+  rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+  qos_reliable.reliable();
+
+  //lifecycle status init
+  auto lifecycle_status = LifecycleStatus{};
+  lifecycle_status_ = map<string, uint8_t>();
+  lifecycle_status_[BELIEF_MANAGER_NODE_NAME] = lifecycle_status.BOOTING;
+  lifecycle_status_[SCHEDULER_NODE_NAME] = lifecycle_status.UNKNOWN;
+  lifecycle_status_[PLAN_DIRECTOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+  lifecycle_status_[PSYS_MONITOR_NODE_NAME] = lifecycle_status.UNKNOWN;
+  lifecycle_status_[EVENT_LISTENER_NODE_NAME] = lifecycle_status.UNKNOWN;
+  lifecycle_status_[MA_REQUEST_HANDLER_NODE_NAME] = lifecycle_status.UNKNOWN;
+
+  // init step_counter
+  step_counter_ = 0;
+
+  //Lifecycle status publisher
+  lifecycle_status_publisher_ = this->create_publisher<LifecycleStatus>(LIFECYCLE_STATUS_TOPIC, 10);
+
+  //Lifecycle status subscriber
+  lifecycle_status_subscriber_ = this->create_subscription<LifecycleStatus>(
+              LIFECYCLE_STATUS_TOPIC, qos_reliable,
+              bind(&MARequestHandler::callbackLifecycleStatus, this, _1));
 
   // to make the belief/desire set subscription callbacks to run on different threads of execution wrt srv callbacks
   callback_group_upd_subscribers_ = this->create_callback_group(rclcpp::callback_group::CallbackGroupType::Reentrant);
@@ -70,12 +98,12 @@ void MARequestHandler::init()
 
   //register to belief set updates to have the mirroring of the last published version of it
   belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-              BELIEF_SET_TOPIC, qos_keep_all,
+              BELIEF_SET_TOPIC, qos_reliable,
               bind(&MARequestHandler::updatedBeliefSet, this, _1), sub_opt);
   
   //register to desire set updates to have the mirroring of the last published version of it
   desire_set_subscriber_ = this->create_subscription<DesireSet>(
-              DESIRE_SET_TOPIC, qos_keep_all,
+              DESIRE_SET_TOPIC, qos_reliable,
               bind(&MARequestHandler::updatedDesireSet, this, _1), sub_opt);
 
   // init server for handling check belief requests from other agents
@@ -153,8 +181,28 @@ void MARequestHandler::init()
 
   RCLCPP_INFO(this->get_logger(), "Multi-Agent Request Handler node initialized:\n" + 
       acceptingBeliefsMsg + ";\n" + acceptingDesiresMsg);
-}
   
+  
+  do_work_timer_ = this->create_wall_timer(
+                    milliseconds(2000),
+                      [&](){
+                        if(step_counter_ % 4 == 0)
+                          lifecycle_status_publisher_->publish(getLifecycleStatus());
+                        
+                        step_counter_++;
+                      }
+                    ); 
+}
+
+/*Build updated LifecycleStatus msg*/
+LifecycleStatus MARequestHandler::getLifecycleStatus()
+{
+    LifecycleStatus lifecycle_status = LifecycleStatus{};
+    lifecycle_status.node_name = MA_REQUEST_HANDLER_NODE_NAME;
+    lifecycle_status.status = lifecycle_status.RUNNING;
+    return lifecycle_status;
+}
+
 
 /*
   Return true if the request agent's group name is among the accepted ones wrt.
@@ -286,12 +334,16 @@ void MARequestHandler::checkDesireSetWaitingUpd(const int& updIndex, const int& 
 */
 void MARequestHandler::updatedDesireSet(const DesireSet::SharedPtr msg)
 {
-    desire_set_ = BDIFilter::extractMGDesires(msg->value);
+    process_desire_set_upd_lock_.lock();
+    {
+      desire_set_ = BDIFilter::extractMGDesires(msg->value);
 
-            
-    //check for waiting belief set alteration
-    checkDesireSetWaitingUpd(ADD_I, 1);//check belief set for addition
-    checkDesireSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+              
+      //check for waiting belief set alteration
+      checkDesireSetWaitingUpd(ADD_I, 1);//check belief set for addition
+      checkDesireSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    }
+    process_desire_set_upd_lock_.unlock();
 }
 
 /*
@@ -305,7 +357,6 @@ void MARequestHandler::checkBeliefSetWaitingUpd(const int& updIndex, const int& 
   if(updIndex > belief_set_upd_locks_.size() || countCheck < 0)//invalid params
     return;
 
-    
   if(belief_set_upd_locks_[updIndex].try_lock())//try lock 
   {
     // if acquired, release immediately (no waiting for any belief upd operation)
@@ -326,11 +377,15 @@ void MARequestHandler::checkBeliefSetWaitingUpd(const int& updIndex, const int& 
 */
 void MARequestHandler::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 {
-    belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
-    
-    //check for waiting belief set alteration
-    checkBeliefSetWaitingUpd(ADD_I, 1);//check belief set for addition
-    checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    process_belief_set_upd_lock_.lock();
+    {
+      belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
+
+      //check for waiting belief set alteration
+      checkBeliefSetWaitingUpd(ADD_I, 1);//check belief set for addition
+      checkBeliefSetWaitingUpd(DEL_I, 0);//check belief set for deletion
+    }
+    process_belief_set_upd_lock_.unlock();
 }
 
 /*  

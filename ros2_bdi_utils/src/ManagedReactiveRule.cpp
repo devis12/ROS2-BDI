@@ -3,7 +3,7 @@
 using BDIManaged::ManagedReactiveRule;
 
 ManagedReactiveRule::ManagedReactiveRule( 
-    const uint8_t id, const BDIManaged::ManagedConditionsDNF& condition,
+    const uint16_t id, const BDIManaged::ManagedConditionsDNF& condition,
     const std::set<MGBeliefOp>& bset_rules, const std::set<MGDesireOp>& dset_rules) : 
     ai_id_(id), dnf_condition_(condition),
     belief_rules_(bset_rules), desire_rules_(dset_rules)

@@ -18,6 +18,8 @@ find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_skills REQUIRED)
 find_package(ros2_bdi_core REQUIRED)
 
+find_package(javaff_interfaces REQUIRED)
+
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
@@ -38,6 +40,7 @@ set(bdi_act_client_dep
   ros2_bdi_utils
   ros2_bdi_skills
   ros2_bdi_core
+  javaff_interfaces
 )
 
 set(sensors_dep
@@ -83,8 +86,48 @@ ament_target_dependencies(asksweeping_bdi ${bdi_act_client_dep})
 add_executable(dosweep_bdi src/actions/sweeper_cli/sweeper_cli_bdi/dosweep.cpp)
 ament_target_dependencies(dosweep_bdi ${bdi_act_client_dep})
 
-add_executable(wp_sensor src/sensors/wp_sensor.cpp)
+add_executable(wp_sensor src/sensors/cleaner_cli/wp_sensor.cpp)
 ament_target_dependencies(wp_sensor ${sensors_dep})
+
+
+add_executable(pf_move src/actions/printing-floor/move.cpp)
+ament_target_dependencies(pf_move ${bdi_act_client_dep})
+
+add_executable(pf_docking src/actions/printing-floor/docking.cpp)
+ament_target_dependencies(pf_docking ${bdi_act_client_dep})
+
+add_executable(pf_printing src/actions/printing-floor/printing.cpp)
+ament_target_dependencies(pf_printing ${bdi_act_client_dep})
+
+add_executable(pf_recharge src/actions/printing-floor/recharge.cpp)
+ament_target_dependencies(pf_recharge ${bdi_act_client_dep})
+
+add_executable(pf_undocking src/actions/printing-floor/undocking.cpp)
+ament_target_dependencies(pf_undocking ${bdi_act_client_dep})
+
+add_executable(pf_unload_printed_docs src/actions/printing-floor/unload_printed_docs.cpp)
+ament_target_dependencies(pf_unload_printed_docs ${bdi_act_client_dep})
+
+add_executable(gripper_move_bdi src/actions/gripper_bdi/gripper_move.cpp)
+ament_target_dependencies(gripper_move_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_pickup_bdi src/actions/gripper_bdi/gripper_pickup.cpp)
+ament_target_dependencies(gripper_pickup_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_putdown_bdi src/actions/gripper_bdi/gripper_move.cpp)
+ament_target_dependencies(gripper_putdown_bdi ${bdi_act_client_dep})
+
+add_executable(gripper_put_on_carrier_bdi src/actions/gripper_bdi/gripper_put_on_carrier.cpp)
+ament_target_dependencies(gripper_put_on_carrier_bdi ${bdi_act_client_dep})
+
+add_executable(req_carrier_to_come_bdi src/actions/gripper_bdi/req_carrier_to_come.cpp)
+ament_target_dependencies(req_carrier_to_come_bdi ${bdi_act_client_dep})
+
+add_executable(req_carrier_to_go_bdi src/actions/gripper_bdi/req_carrier_to_go.cpp)
+ament_target_dependencies(req_carrier_to_go_bdi ${bdi_act_client_dep})
+
+add_executable(carrier_unload_bdi src/actions/gripper_bdi/carrier_unload.cpp)
+ament_target_dependencies(carrier_unload_bdi ${bdi_act_client_dep})
 
 
 install(TARGETS
@@ -101,6 +144,21 @@ install(TARGETS
   asksweeping_bdi
   dosweep_bdi
   wp_sensor
+
+  pf_move
+  pf_docking
+  pf_printing
+  pf_recharge
+  pf_undocking
+  pf_unload_printed_docs
+
+  gripper_move_bdi
+  gripper_pickup_bdi
+  gripper_putdown_bdi
+  gripper_put_on_carrier_bdi
+  req_carrier_to_come_bdi
+  req_carrier_to_go_bdi
+  carrier_unload_bdi
 
   DESTINATION lib/${PROJECT_NAME}
 )

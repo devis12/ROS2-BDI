@@ -70,10 +70,10 @@ private:
   //subscribe to sweeper belief set
   void initSweeperBSetSubscriber(const  string& sweeper_id)
   {
-    rclcpp::QoS qos_keep_all = rclcpp::QoS(10);
-    qos_keep_all.keep_all();
+    rclcpp::QoS qos_reliable = rclcpp::QoS(10);
+    qos_reliable.reliable();
     sweeper_belief_set_subscriber_ = this->create_subscription<BeliefSet>(
-                "/"+sweeper_id+"/belief_set", qos_keep_all,
+                "/"+sweeper_id+"/belief_set", qos_reliable,
                 bind(&AskSweeping::sweeperBeliefSetCallback, this, _1));
   }
 

@@ -1,0 +1,78 @@
+- condition:
+    clauses:
+      - literals:
+          - check: "F"
+            condition_to_check:
+              name: "arm_free"
+              pddl_type: 2
+              params:
+                - "gripper_a"
+          - check: "T"
+            condition_to_check:
+              name: "holding"
+              pddl_type: 2
+              params:
+                - "gripper_a"
+                - "box_a2"
+          - check: "T"
+            condition_to_check:
+              name: "in"
+              pddl_type: 2
+              params:
+                - "box_c2"
+                - "base_1"
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "in"
+        pddl_type: 2
+        params:
+          - "box_c2"
+          - "base_1"
+
+    - set: belief
+      operation: DEL
+      value:
+        name: "on"
+        pddl_type: 2
+        params:
+          - "box_c2"
+          - "box_a1"
+          - "base_1"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "clear"
+        pddl_type: 2
+        params:
+          - "box_a1"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "clear"
+        pddl_type: 2
+        params:
+          - "box_c2"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "on"
+        pddl_type: 2
+        params:
+          - "box_c2"
+          - "base_3"
+          - "base_3"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "in"
+        pddl_type: 2
+        params:
+          - "box_c2"
+          - "base_3"

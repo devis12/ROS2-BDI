@@ -14,6 +14,7 @@ find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_skills REQUIRED)
 find_package(example_interfaces REQUIRED)
+find_package(javaff_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(webots_ros2_simulations_interfaces REQUIRED)
 
@@ -24,6 +25,7 @@ set(bdi_act_client_dep
   ros2_bdi_interfaces
   ros2_bdi_utils
   ros2_bdi_skills
+  javaff_interfaces
 )
 
 set(bdi_sensor_dep

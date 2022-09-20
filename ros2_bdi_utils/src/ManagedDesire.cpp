@@ -67,6 +67,33 @@ ManagedDesire::ManagedDesire(const string& name,const vector<ManagedBelief>& val
             deadline_ = 0.0f;
     }
 
+// Clone a MG Desire
+ManagedDesire ManagedDesire::clone()
+{
+    string name = string{name_};
+    
+    vector<ManagedBelief> value;
+    for(ManagedBelief v : value_)
+        if(v.pddlType() == Belief().PREDICATE_TYPE)
+            value.push_back(v.clone());
+    
+    float priority = priority_;
+    float deadline = deadline_;
+
+    ManagedConditionsDNF precondition = precondition_.clone();
+    ManagedConditionsDNF context = context_.clone();
+
+    vector<ManagedBelief> rollback_belief_add;
+    for(ManagedBelief rba : rollback_belief_add_)
+        rollback_belief_add.push_back(rba.clone());
+        
+    vector<ManagedBelief> rollback_belief_del;
+    for(ManagedBelief rbd : rollback_belief_del_)
+        rollback_belief_del.push_back(rbd.clone());
+
+    return ManagedDesire{name, value, priority, deadline, precondition, context, rollback_belief_add, rollback_belief_del};
+}
+
 
 ManagedDesire::ManagedDesire(const Desire& desire):
     name_(desire.name),
@@ -133,6 +160,26 @@ Desire ManagedDesire::toDesire() const
     return d;
 }
 
+// return true if otherDesire presents the same exact target value, regardless of other attributes (preconditions, context, deadline,...)
+bool ManagedDesire::equivalentValue(const ManagedDesire& otherDesire)
+{
+    // create a set with target value of the "original" MD instance
+    set<ManagedBelief> targetSet = set<ManagedBelief>();
+    for(auto mb : value_)
+        targetSet.insert(mb);
+
+    //loop over all MB in otherDesire's value and check if they are all in "original" target value
+    set<ManagedBelief> otherTargetSet = set<ManagedBelief>();
+    for(auto mb : otherDesire.getValue())
+        if(targetSet.count(mb) == 1)
+            otherTargetSet.insert(mb);
+        else
+            return false;//otherDesire contains a diff predicate which is not in original
+    
+    return otherTargetSet.size() == targetSet.size();
+    
+}
+
 /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
 ManagedDesire ManagedDesire::applySubstitution(const map<string, string> assignments) const
 {
@@ -165,6 +212,71 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
             return false;//desire still not achieved
             
     return true;//all target conditions already met    
+}
+
+// return true if otherDesire is augmented to the current one
+bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
+{
+    if(otherDesire.getName() != otherDesire.getName())
+        return false;
+
+    if(otherDesire.getPriority() != otherDesire.getPriority())
+        return false;
+    
+    if(otherDesire.getDesireGroup() != otherDesire.getDesireGroup())
+        return false;
+    
+    //base checks passed, try to merge the two desires
+
+    deadline_ += otherDesire.getDeadline(); // sum two target deadlines
+
+    // merge preconditions // TODO improve and check for UNSAT
+    precondition_ = precondition_.mergeMGConditionsDNF(otherDesire.getPrecondition());
+
+    // merge context conditions // TODO improve and check for UNSAT
+    context_ = context_.mergeMGConditionsDNF(otherDesire.getContext());
+
+    // boost target
+    for(ManagedBelief mb : otherDesire.getValue())
+        value_.push_back(mb);
+
+    // merge rollback beliefs
+    for(ManagedBelief mb : otherDesire.getRollbackBeliefAdd())
+        rollback_belief_add_.push_back(mb);
+    for(ManagedBelief mb : otherDesire.getRollbackBeliefDel())
+        rollback_belief_del_.push_back(mb);
+
+    return true;
+}
+
+// return true if otherDesire presents the same exact name, priority and desire group, belief set should be a subset of the belief set of otherDesire
+bool ManagedDesire::equalsOrSupersetIgnoreAdvancedInfo(const ManagedDesire& otherDesire)
+{
+    if(otherDesire.getName() != otherDesire.getName())
+        return false;
+
+    if(otherDesire.getPriority() != otherDesire.getPriority())
+        return false;
+    
+    if(otherDesire.getDesireGroup() != otherDesire.getDesireGroup())
+        return false;
+
+    // the whole target of current desire should appear in otherDesire which can be a super set of the current
+    for(ManagedBelief mb : value_)
+    {
+        bool found = false;
+        for(ManagedBelief mb_o : otherDesire.getValue())
+            if(mb == mb_o)
+            {
+                found = true;
+                break;
+            }
+        
+        if(!found)
+            return false;
+    }
+
+    return true;
 }
 
 std::ostream& BDIManaged::operator<<(std::ostream& os, const ManagedDesire& md)
@@ -256,4 +368,9 @@ bool BDIManaged::operator==(ManagedDesire const &md1, ManagedDesire const &md2){
 
     //otherwise compare precondition & context
     return md1.getPrecondition() == md2.getPrecondition() && md1.getContext() == md1.getContext();
+}
+
+// overload `!=` operator 
+bool BDIManaged::operator!=(const ManagedDesire& md1, const ManagedDesire& md2){
+    return !(md1 == md2);
 }

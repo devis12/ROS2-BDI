@@ -3,9 +3,8 @@
 
 /* Parameters affecting internal logic for Plan Director node (recompiling required) */
 #define NO_PLAN_INTERVAL 1000
-#define PLAN_INTERVAL 250
+#define PLAN_INTERVAL 200
 
-#define PLAN_DIRECTOR_NODE_NAME "plan_director"
 #define PLAN_EXECUTION_SRV "plan_execution"
 #define PLAN_EXECUTION_TOPIC "plan_execution_info"
 

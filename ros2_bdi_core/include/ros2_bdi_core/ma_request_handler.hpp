@@ -3,8 +3,10 @@
 
 #include <mutex>
 #include <vector>
+#include <map>
 #include <thread>
 
+#include "ros2_bdi_interfaces/msg/lifecycle_status.hpp"
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "ros2_bdi_interfaces/msg/desire.hpp"
@@ -18,8 +20,10 @@
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 
+#include "ros2_bdi_core/params/core_common_params.hpp"
 #include "ros2_bdi_core/params/ma_request_handler_params.hpp"
-#include "ros2_bdi_core/support/plansys2_monitor_client.hpp"
+#include "ros2_bdi_core/support/planning_mode.hpp"
+#include "ros2_bdi_core/support/plansys_monitor_client.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -41,12 +45,24 @@ public:
     */
     bool wait_psys2_boot(const std::chrono::seconds max_wait = std::chrono::seconds(16))
     {
-        psys2_monitor_client_ = std::make_shared<PlanSys2MonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"));
-        return psys2_monitor_client_->areAllPsysNodeActive(max_wait);
+        psys_monitor_client_ = std::make_shared<PlanSysMonitorClient>(MA_REQUEST_HANDLER_NODE_NAME + std::string("_psys2caller_"), sel_planning_mode_);
+        return psys_monitor_client_->areAllPsysNodeActive(max_wait);
     }
   
 
 private:
+
+    /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
+    ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
+
+    /*
+        Received notification about ROS2-BDI Lifecycle status
+    */
+    void callbackLifecycleStatus(const ros2_bdi_interfaces::msg::LifecycleStatus::SharedPtr msg)
+    {
+        if(lifecycle_status_.find(msg->node_name) != lifecycle_status_.end())//key in map, record upd value
+            lifecycle_status_[msg->node_name] = msg->status;
+    }
 
     /*
       Return true if the request agent's group name is among the accepted ones wrt.
@@ -135,6 +151,14 @@ private:
     
     // agent id that defines the namespace in which the node operates
     std::string agent_id_;
+    // step counter
+    uint64_t step_counter_;
+
+    // timer to trigger callback to perform main loop of work regularly
+    rclcpp::TimerBase::SharedPtr do_work_timer_;
+
+    // Selected planning mode
+    PlanningMode sel_planning_mode_;
 
     // handle accepted group queries by other agents
     rclcpp::Service<ros2_bdi_interfaces::srv::IsAcceptedOperation>::SharedPtr accepted_server_;
@@ -159,6 +183,7 @@ private:
     rclcpp::Service<ros2_bdi_interfaces::srv::UpdBeliefSet>::SharedPtr del_belief_server_;
     
     // lock to put waiting for next belief set addition/deletion
+    std::mutex process_belief_set_upd_lock_;
     std::vector<std::mutex> belief_set_upd_locks_;
     // managed belief you're waiting for (to be added or deleted)
     std::vector<BDIManaged::ManagedBelief> belief_waiting_for_;
@@ -178,6 +203,7 @@ private:
     rclcpp::Service<ros2_bdi_interfaces::srv::UpdDesireSet>::SharedPtr del_desire_server_;
     
     // lock to put waiting for next desire set addition/deletion
+    std::mutex process_desire_set_upd_lock_;
     std::vector<std::mutex> desire_set_upd_locks_;
     // managed desire you're waiting for (to be added or deleted)
     std::vector<BDIManaged::ManagedDesire> desire_waiting_for_;
@@ -189,8 +215,15 @@ private:
     //del_desire publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;
 
+    // current known status of the system nodes
+    std::map<std::string, uint8_t> lifecycle_status_;
+    // Publish updated lifecycle status
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_publisher_;
+    // Sub to updated lifecycle status
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::LifecycleStatus>::SharedPtr lifecycle_status_subscriber_;
+
     // PlanSys2 Monitor Client supporting nodes & clients for calling the {psys2_node}/get_state services
-    std::shared_ptr<PlanSys2MonitorClient> psys2_monitor_client_;
+    std::shared_ptr<PlanSysMonitorClient> psys_monitor_client_;
 
 };
 

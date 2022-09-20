@@ -1,0 +1,24 @@
+- name: "sort_boxes"
+  priority: 0.2
+  deadline: 120.0
+  value:
+    - name: "upon"
+      pddl_type: 2
+      params:
+        - "gripper_a"
+        - "start"
+    - name: "box_stored"
+      pddl_type: 2
+      params:
+        - "box_a2"
+        - "deposit_a"
+    - name: "box_stored"
+      pddl_type: 2
+      params:
+        - "box_c2"
+        - "deposit_c"
+    - name: "box_stored"
+      pddl_type: 2
+      params:
+        - "box_c1"
+        - "deposit_c"

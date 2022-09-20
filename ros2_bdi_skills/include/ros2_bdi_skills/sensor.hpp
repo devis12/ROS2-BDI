@@ -4,8 +4,11 @@
 #include <cstdlib>
 #include <ctime>
 #include <memory>
+#include <vector>
+#include <map>
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
+#include "ros2_bdi_interfaces/msg/belief_set.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 typedef enum {ADD, UPD, DEL, NOP} UpdOperation;
@@ -34,9 +37,18 @@ public:
   */
   Sensor(const std::string& sensor_name, const ros2_bdi_interfaces::msg::Belief& proto_belief, 
             const bool match_param_by_param=true, const bool enable_perform_sensing=true);
+  
+  Sensor(const std::string& sensor_name, const std::vector<ros2_bdi_interfaces::msg::Belief>& proto_belief, 
+            const bool match_param_by_param=true, const bool enable_perform_sensing=true);
 
   /*  Get belief prototype for the sensor node*/
-  ros2_bdi_interfaces::msg::Belief getBeliefPrototype() {return proto_belief_;}
+  std::optional<ros2_bdi_interfaces::msg::Belief> getBeliefPrototype(const std::string& name_or_type) 
+  {
+    if(proto_belief_map_.find(name_or_type) != proto_belief_map_.end())
+        return proto_belief_map_[name_or_type];
+    else
+        return {};
+  }
 protected:
 
     /* Sensor logic to be implemented in the actual sensor classes written by the framework user */
@@ -48,6 +60,12 @@ protected:
     */
     void sense(const ros2_bdi_interfaces::msg::Belief& belief, const UpdOperation& op);
 
+    /*
+        API offered to user so that he can just invoke it within the performSensing() implementation whenever the logic
+        requires to update the belief set in some way, i.e. by adding/updating/removing a new belief
+    */
+    void senseAll(const ros2_bdi_interfaces::msg::BeliefSet& belief_set, const UpdOperation& op);
+
 private:
 
     /*
@@ -55,7 +73,12 @@ private:
         Main thing to be added: frequency at which to perform sensing method which publish the
         result in a belief structure after every sensing
     */
-    void init();
+    void initSensing(const std::string& sensor_name);
+
+    /*
+        Init prototype belief set map
+    */
+    void initPrototypeBsetMap(const std::vector<ros2_bdi_interfaces::msg::Belief>& proto_beliefs);
 
 
     /*
@@ -110,7 +133,7 @@ private:
     //  - just instance type (so the name is the property "added" by the sensor)
     //  - predicate type + name of the predicate (so the args are the properties "added" by the sensor)
     //  - function type + args already defined (so the value is the property "added" by the sensor)
-    ros2_bdi_interfaces::msg::Belief proto_belief_;
+    std::map<std::string, ros2_bdi_interfaces::msg::Belief> proto_belief_map_;
 
     // last sensed belief (to be added/deleted/updated)
     ros2_bdi_interfaces::msg::Belief last_sensed_;
@@ -124,8 +147,12 @@ private:
 
     // ros2 publisher to perform publish to topic agent_id_/add_belief, when sense requires it
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;
+    // ros2 publisher to perform publish to topic agent_id_/add_belief_set, when sense requires it
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr add_belief_set_publisher_;
     // ros2 publisher to perform publish to topic agent_id_/del_belief, when sense requires it
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr del_belief_publisher_;
+    // ros2 publisher to perform publish to topic agent_id_/del_belief_set, when sense requires it
+    rclcpp::Publisher<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr del_belief_set_publisher_;
 };
 
 #endif  // SENSOR_H_

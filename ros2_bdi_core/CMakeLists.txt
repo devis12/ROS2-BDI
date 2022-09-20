@@ -17,18 +17,43 @@ find_package(plansys2_planner REQUIRED)
 find_package(plansys2_pddl_parser REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
+find_package(javaff_interfaces REQUIRED)
 
 find_library(yaml-cpp REQUIRED)
 
 include_directories(include)
 
-set(CORE-SUPPORT-SOURCES
-  src/support/plansys2_monitor_client.cpp
+set(CORE-LIB-SOURCES
+  src/support/plansys_monitor_client.cpp
   src/support/trigger_plan_client.cpp
+
+  src/scheduler.cpp
+  
+  src/support/javaff_client.cpp
 )
 
-add_library(${PROJECT_NAME} SHARED ${CORE-SUPPORT-SOURCES})
-ament_target_dependencies(${PROJECT_NAME} rclcpp lifecycle_msgs ros2_bdi_interfaces)
+set(common_dependencies
+  rclcpp
+  ros2_bdi_utils ros2_bdi_interfaces
+)
+
+set(pddl_experts
+  plansys2_domain_expert
+  plansys2_problem_expert 
+)
+
+
+add_library(${PROJECT_NAME} SHARED ${CORE-LIB-SOURCES})
+ament_target_dependencies(${PROJECT_NAME} 
+  lifecycle_msgs   
+  ${common_dependencies} 
+  ${pddl_experts}
+  plansys2_planner
+  javaff_interfaces
+)
+target_link_libraries(${PROJECT_NAME}
+  yaml-cpp
+)
 
 install(DIRECTORY include/
   DESTINATION include/
@@ -45,14 +70,13 @@ ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
 
-set(common_dependencies
-  rclcpp
-  ros2_bdi_utils ros2_bdi_interfaces
+add_executable(plansys_monitor src/plansys_monitor.cpp)
+ament_target_dependencies(plansys_monitor 
+  ${common_dependencies}
 )
-
-set(pddl_experts
-  plansys2_domain_expert
-  plansys2_problem_expert 
+#link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
+target_link_libraries(plansys_monitor
+    ${PROJECT_NAME}
 )
 
 add_executable(belief_manager src/belief_manager.cpp)
@@ -65,22 +89,32 @@ ament_target_dependencies(belief_manager
   ${pddl_experts}
   std_msgs 
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(belief_manager
   ${PROJECT_NAME}
 )
 
-add_executable(scheduler src/scheduler.cpp)
-target_link_libraries(scheduler
-  yaml-cpp  
-)
-ament_target_dependencies(scheduler 
+add_executable(scheduler_offline src/scheduler_offline.cpp)
+ament_target_dependencies(scheduler_offline 
   ${common_dependencies} 
   ${pddl_experts}
   plansys2_planner
 )
-# link scheduler to ros2_bdi_core library since it makes usage of trigger_plan_client 
-target_link_libraries(scheduler
+# link scheduler_offline to ros2_bdi_core library since it makes usage of trigger_plan_client 
+target_link_libraries(scheduler_offline
+    ${PROJECT_NAME}
+)
+
+add_executable(scheduler_online src/scheduler_online.cpp)
+ament_target_dependencies(scheduler_online 
+  ${common_dependencies} 
+  ${pddl_experts}
+  plansys2_planner
+  plansys2_executor
+  javaff_interfaces
+)
+# link scheduler_offline to ros2_bdi_core library since it makes usage of trigger_plan_client 
+target_link_libraries(scheduler_online
     ${PROJECT_NAME}
 )
 
@@ -91,17 +125,8 @@ ament_target_dependencies(plan_director
   ${pddl_experts}
   plansys2_executor
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(plan_director
-    ${PROJECT_NAME}
-)
-
-add_executable(plansys2_monitor src/plansys2_monitor.cpp)
-ament_target_dependencies(plansys2_monitor 
-  ${common_dependencies}
-)
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
-target_link_libraries(plansys2_monitor
     ${PROJECT_NAME}
 )
 
@@ -109,7 +134,7 @@ add_executable(ma_request_handler src/ma_request_handler.cpp)
 ament_target_dependencies(ma_request_handler 
   ${common_dependencies}
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(ma_request_handler
     ${PROJECT_NAME}
 )
@@ -122,17 +147,19 @@ ament_target_dependencies(event_listener
   ${common_dependencies}
   plansys2_domain_expert
 )
-# link plansys2_monitor to ros2_bdi_core library since it makes usage of plansys2_monitor_client 
+# link plansys_monitor to ros2_bdi_core library since it makes usage of plansys_monitor_client 
 target_link_libraries(event_listener
     ${PROJECT_NAME}
 )
 
 
 install(TARGETS
+  plansys_monitor
   belief_manager
-  scheduler
+  #scheduler
+  scheduler_offline
+  scheduler_online
   plan_director
-  plansys2_monitor
   ma_request_handler
   event_listener
   DESTINATION lib/${PROJECT_NAME}

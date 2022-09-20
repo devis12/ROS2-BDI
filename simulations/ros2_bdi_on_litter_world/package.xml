@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ros2_bdi_on_litter_world</name>
+  <version>0.0.0</version>
+  <description>Package description of pkg ros2_bdi_on_litter_world</description>
+  <maintainer email="devis.dalmoro@unitn.it">devis</maintainer>
+  <license>License declaration of pkg ros2_bdi_on_litter_world</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>litter_world_interfaces</depend>
+  <depend>javaff_interfaces</depend>
+  <depend>ros2_bdi_interfaces</depend>
+  <depend>ros2_bdi_utils</depend>
+  <depend>ros2_bdi_core</depend>
+  <depend>plansys2_executor</depend>
+  <depend>ros2_bdi_skills</depend>
+  <depend>ros2_bdi_bringup</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
