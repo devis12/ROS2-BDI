@@ -274,19 +274,21 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
             + " value = " + std::to_string (bset_upd.second.getValue()) ;
         if(bset_upd.first == ReactiveOp::ADD)
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Adding belief " + bel_to_string);
-            
-            add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset (already mark it as added in the belief_set_ instance)
-            // belief_set_.insert(bset_upd.second);
+            if(belief_set_.count(bset_upd.second) == 0)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Adding belief " + bel_to_string);
+                add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset if it is NOT there
+            }
         }
         else
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Deleting belief " + bel_to_string);
-
-            del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset (already mark it as removed in the belief_set_ instance)
-            // belief_set_.erase(bset_upd.second);
+            if(belief_set_.count(bset_upd.second) > 0)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Deleting belief " + bel_to_string);
+                del_belief_publisher_->publish(bset_upd.second.toBelief());//del belief to bset
+            }
         }
     }
 
