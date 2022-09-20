@@ -32,8 +32,8 @@
 // Inner logic + ROS PARAMS & FIXED GLOBAL VALUES for ROS2 core nodes
 #include "ros2_bdi_core/params/core_common_params.hpp"
 
-#include "javaff_interfaces/msg/action_execution_status.hpp"
-#include "javaff_interfaces/msg/execution_status.hpp"
+// #include "javaff_interfaces/msg/action_execution_status.hpp"
+// #include "javaff_interfaces/msg/execution_status.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -80,7 +80,7 @@ protected:
     float getProgress() {return progress_;} 
 
     /* Communicate execution status*/
-    void communicateExecStatus(const uint16_t& status);
+    // void communicateExecStatus(const uint16_t& status);
 
     /*returns full action name*/
     std::string getFullActionName()
@@ -137,7 +137,7 @@ protected:
     // method to be called when the execution successfully comes to completion (specific success msg added)
     void execSuccess(const std::string& success_log)
     {
-      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().SUCCESS);
+      // communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().SUCCESS);
 
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "Action execution success: " + success_log);
@@ -153,7 +153,7 @@ protected:
     //method to be called when the execution fail (specific error to be given)
     void execFailed(const std::string& err_log)
     {
-      communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().FAILURE);
+      // communicateExecStatus(javaff_interfaces::msg::ActionExecutionStatus().FAILURE);
       if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_ERROR(this->get_logger(), "Action execution failed: " + err_log);
       finish(false, progress_, action_name_ + " failed execution" + ((err_log == "")? ": generic error" : ": " + err_log));
@@ -197,7 +197,7 @@ private:
     float progress_;
 
     // Publish updated exec action status to online planner
-    rclcpp_lifecycle::LifecyclePublisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
+    // rclcpp_lifecycle::LifecyclePublisher<javaff_interfaces::msg::ExecutionStatus>::SharedPtr exec_status_to_planner_publisher_;
 
     // problem expert instance to call the problem expert api
     std::shared_ptr<plansys2::ProblemExpertClient> problem_expert_;

@@ -17,7 +17,7 @@ find_package(plansys2_planner REQUIRED)
 find_package(plansys2_pddl_parser REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
-find_package(javaff_interfaces REQUIRED)
+# find_package(javaff_interfaces REQUIRED)
 
 find_library(yaml-cpp REQUIRED)
 
@@ -29,7 +29,7 @@ set(CORE-LIB-SOURCES
 
   src/scheduler.cpp
   
-  src/support/javaff_client.cpp
+  # src/support/javaff_client.cpp
 )
 
 set(common_dependencies
@@ -49,7 +49,7 @@ ament_target_dependencies(${PROJECT_NAME}
   ${common_dependencies} 
   ${pddl_experts}
   plansys2_planner
-  javaff_interfaces
+  # javaff_interfaces
 )
 target_link_libraries(${PROJECT_NAME}
   yaml-cpp
@@ -105,18 +105,18 @@ target_link_libraries(scheduler_offline
     ${PROJECT_NAME}
 )
 
-add_executable(scheduler_online src/scheduler_online.cpp)
-ament_target_dependencies(scheduler_online 
-  ${common_dependencies} 
-  ${pddl_experts}
-  plansys2_planner
-  plansys2_executor
-  javaff_interfaces
-)
-# link scheduler_offline to ros2_bdi_core library since it makes usage of trigger_plan_client 
-target_link_libraries(scheduler_online
-    ${PROJECT_NAME}
-)
+# add_executable(scheduler_online src/scheduler_online.cpp)
+# ament_target_dependencies(scheduler_online 
+#   ${common_dependencies} 
+#   ${pddl_experts}
+#   plansys2_planner
+#   plansys2_executor
+#   javaff_interfaces
+# )
+# # link scheduler_offline to ros2_bdi_core library since it makes usage of trigger_plan_client 
+# target_link_libraries(scheduler_online
+#     ${PROJECT_NAME}
+# )
 
 add_executable(plan_director src/plan_director.cpp)
 ament_target_dependencies(plan_director 
@@ -158,7 +158,7 @@ install(TARGETS
   belief_manager
   #scheduler
   scheduler_offline
-  scheduler_online
+  # scheduler_online
   plan_director
   ma_request_handler
   event_listener

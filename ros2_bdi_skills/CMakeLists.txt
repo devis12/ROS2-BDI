@@ -11,7 +11,7 @@ find_package(plansys2_executor REQUIRED)
 find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_utils REQUIRED)
 find_package(ros2_bdi_core REQUIRED)
-find_package(javaff_interfaces REQUIRED)
+# find_package(javaff_interfaces REQUIRED)
 
 include_directories(include)
 
@@ -28,7 +28,8 @@ ament_target_dependencies(${PROJECT_NAME}
   ros2_bdi_utils 
   ros2_bdi_core 
   plansys2_executor
-  javaff_interfaces)
+  # javaff_interfaces
+)
 
 install(DIRECTORY include/
   DESTINATION include/

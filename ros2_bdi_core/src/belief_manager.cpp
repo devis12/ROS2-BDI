@@ -286,9 +286,9 @@ void BeliefManager::updatedPDDLProblem(const Empty::SharedPtr msg)
     string line, out;
     std::cout << "";
     while(getline(ss, line)){
-        if((line.find("near") != string::npos) || (line.find("free") != string::npos))
-            out += "";
-        else 
+        // if((line.find("near") != string::npos) || (line.find("free") != string::npos))
+        //     out += "";
+        // else 
             out += line + "\n";
     }
     RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n");

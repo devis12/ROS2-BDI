@@ -25,8 +25,6 @@
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info_min.hpp"
 #include "ros2_bdi_interfaces/srv/bdi_plan_execution.hpp"
 
-//#include "javaff_interfaces/msg/partial_plans.hpp"
-
 #include "ros2_bdi_utils/ManagedBelief.hpp"
 #include "ros2_bdi_utils/ManagedDesire.hpp"
 #include "ros2_bdi_utils/ManagedPlan.hpp"
