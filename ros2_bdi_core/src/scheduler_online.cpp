@@ -243,6 +243,7 @@ void SchedulerOnline::resetSearchInfo()
     current_plan_ = ManagedPlan{};//no plan executing rn
     waiting_plans_ = vector<ManagedPlan>();
     searching_ = false;//saluti da T.V.
+    search_baseline_ = emptySearchBaseline();
     executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
 
 }
@@ -383,6 +384,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                 current_plan_ = ManagedPlan{};//no plan executing rn
                 waiting_plans_ = vector<ManagedPlan>();
                 executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
+                search_baseline_ = emptySearchBaseline();
                 searching_ = javaff_client_->callUnexpectedStateSrv(problem_expert_->getProblem());
                 if(!searching_)
                     forcedReschedule();//if service call failed, just reschedule from scratch solution!!!
@@ -507,7 +509,7 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
     while(i<msg->plans.size() && msg->plans[i].plan.plan_index <= highestPPlanId){i++;}//go over all the search result till you reach the new ones
     //TODO check for plan exec and waiting queue inconsistencies, if detected, take action
 
-    if(noPlanExecuting() && msg->plans[i].plan.items.size() > 0)
+    if(noPlanExecuting() && i<msg->plans.size() && msg->plans[i].plan.items.size() > 0)
     {  
         launchFirstPPlanExecution(msg->plans[i]); 
     }else if(msg->plans[i].plan.items.size() > 0){

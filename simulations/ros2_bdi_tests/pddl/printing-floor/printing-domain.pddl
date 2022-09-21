@@ -4,6 +4,8 @@
 
     ;; Types ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (:types
+        bbb ccc - aaa
+        ddd eee - bbb
         room hallway_segment - area
         dock
         robot

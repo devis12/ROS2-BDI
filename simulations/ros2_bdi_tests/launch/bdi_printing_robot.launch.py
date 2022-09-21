@@ -79,7 +79,7 @@ def generate_launch_description():
             'comp_plan_tries': 2,
             'exec_plan_tries': 4,
             'planning_mode':'online',
-            'search_interval': 150,
+            'search_interval': 100,
             'min_commit_steps': 2,
             'debug_log_active': ['javaff']
         },

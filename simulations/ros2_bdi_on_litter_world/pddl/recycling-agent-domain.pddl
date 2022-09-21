@@ -24,6 +24,7 @@
 
     (:functions
         (loaded_amount ?a - recycling_agent)
+        (detection_depth ?a - recycling_agent)
     )
 
     (:durative-action litter_pickup

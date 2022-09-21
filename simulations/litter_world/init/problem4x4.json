@@ -1,0 +1,10 @@
+{
+  "columns": 4,
+  "rows": 4,
+  "paper_agent": { "x": 0, "y": 0 },
+  "plastic_agent": { "x": 1, "y": 3 },
+  "paper_bin": { "x": 0, "y": 1 },
+  "plastic_bin": { "x": 0, "y": 3 },
+  "obstacles": [{ "x": 2, "y": 1 }],
+  "persons": [{ "x": 3, "y": 3 }]
+}

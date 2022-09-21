@@ -28,7 +28,7 @@ class AgentAreaSensor : public Sensor
 {
     public:
         AgentAreaSensor(const string& sensor_name, const vector<Belief>& proto_beliefs)
-        : Sensor(sensor_name, proto_beliefs, true, false)
+        : Sensor(sensor_name, proto_beliefs, false, false)
         {
             robot_name_ = this->get_parameter("agent_id").as_string();
             
@@ -68,7 +68,17 @@ class AgentAreaSensor : public Sensor
                     senseNewAgentPose(curr_agent_pose, proto_belief_agent_pose.value());
 
                 int detection_depth = this->get_parameter("detection_depth").as_int();
+                detection_depth = detection_depth > 0? detection_depth : 1;
                 
+                auto proto_belief_detection_depth = getBeliefPrototype("detection_depth");
+                if(proto_belief_detection_depth.has_value())
+                {
+                    auto detection_depth_belief = proto_belief_detection_depth.value();
+                    detection_depth_belief.params[0] = robot_name_;
+                    detection_depth_belief.value = detection_depth;
+                    sense(detection_depth_belief, UpdOperation::ADD);
+                }
+
                 // STEP2 free cells
                 auto proto_belief_free = getBeliefPrototype("free");
                 if(proto_belief_free.has_value())
@@ -116,8 +126,8 @@ class AgentAreaSensor : public Sensor
         {
             BeliefSet freeLitterCells;
             BeliefSet litterCells;
-            for(int i = curr_agent_pose.x - detection_depth; i < curr_agent_pose.x + detection_depth; i++)
-                for(int j = curr_agent_pose.y - detection_depth; j < curr_agent_pose.y + detection_depth; j++)
+            for(int i = curr_agent_pose.x - detection_depth; i <= curr_agent_pose.x + detection_depth; i++)
+                for(int j = curr_agent_pose.y - detection_depth; j <= curr_agent_pose.y + detection_depth; j++)
                 {
                     if(i >= 0 && i < grid->rows.size() && j >= 0 && j < grid->rows[i].cells.size())
                     {
@@ -191,8 +201,8 @@ class AgentAreaSensor : public Sensor
         {
             BeliefSet freeCells;
             BeliefSet busyCells;
-            for(int i = curr_agent_pose.x - detection_depth; i < curr_agent_pose.x + detection_depth; i++)
-                for(int j = curr_agent_pose.y - detection_depth; j < curr_agent_pose.y + detection_depth; j++)
+            for(int i = curr_agent_pose.x - detection_depth; i <= curr_agent_pose.x + detection_depth; i++)
+                for(int j = curr_agent_pose.y - detection_depth; j <= curr_agent_pose.y + detection_depth; j++)
                 {
                     if(i >= 0 && i < grid->rows.size() && j >= 0 && j < grid->rows[i].cells.size())
                     {
@@ -297,6 +307,8 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   
+
+  Belief b_proto_detection_depth = (ManagedBelief::buildMBFunction("detection_depth", {ManagedParam{"?a", "recycling_agent"}}, 0.0f)).toBelief();
   Belief b_proto_curr_pose = (ManagedBelief::buildMBPredicate("in", {ManagedParam{"?a", "recycling_agent"}, ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_free = (ManagedBelief::buildMBPredicate("free", {ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_plastic = (ManagedBelief::buildMBInstance("?p", "plastic")).toBelief();
@@ -304,6 +316,7 @@ int main(int argc, char ** argv)
   Belief b_proto_litter_pose = (ManagedBelief::buildMBPredicate("litter_pose", {ManagedParam{"?l", "litter"}, ManagedParam{"?c", "cell"}})).toBelief();
   
   vector<Belief> proto_beliefs;
+  proto_beliefs.push_back(b_proto_detection_depth);
   proto_beliefs.push_back(b_proto_curr_pose);
   proto_beliefs.push_back(b_proto_free);
   proto_beliefs.push_back(b_proto_plastic);
