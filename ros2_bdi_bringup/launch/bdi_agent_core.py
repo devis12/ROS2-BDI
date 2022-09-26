@@ -95,10 +95,10 @@ def build_Scheduler(namespace, agent_id, init_params):
     # check below for passed values in init
 
     if RESCHEDULE_POLICY_PARAM in init_params:
-        if (init_params[RESCHEDULE_POLICY_PARAM] == RESCHEDULE_POLICY_VAL_IF_EXEC or init_params[RESCHEDULE_POLICY_PARAM] == RESCHEDULE_POLICY_VAL_NO_IF_EXEC ):
+        if (init_params[RESCHEDULE_POLICY_PARAM] in [RESCHEDULE_POLICY_VAL_IF_EXEC, RESCHEDULE_POLICY_VAL_IF_EXEC_CLEAN, RESCHEDULE_POLICY_VAL_NO_IF_EXEC] ):
             reschedule_policy = init_params[RESCHEDULE_POLICY_PARAM]
         else:
-            log_automatic_set(RESCHEDULE_POLICY_PARAM, reschedule_policy) # reschedule policy set to default because of invalid value (accepted: {"PREEMPT", "NO_PREEMPT"})
+            log_automatic_set(RESCHEDULE_POLICY_PARAM, reschedule_policy) 
 
     if COMP_PLAN_TRIES_PARAM in init_params and isinstance(init_params[COMP_PLAN_TRIES_PARAM], int) and init_params[COMP_PLAN_TRIES_PARAM] >= 1:
         comp_plan_tries = init_params[COMP_PLAN_TRIES_PARAM]

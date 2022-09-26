@@ -6,6 +6,8 @@
 #include <iostream>
 
 #include "plansys2_planner/PlannerClient.hpp"
+#include "plansys2_msgs/msg/plan_item.hpp"
+#include "plansys2_msgs/msg/plan.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_action_execution_info.hpp"
 #include "ros2_bdi_interfaces/msg/bdi_plan_execution_info.hpp"
@@ -47,6 +49,10 @@ namespace BDIManaged
                 this->last_current_time_ = planExecInfo.current_time;
                 std::vector<ros2_bdi_interfaces::msg::BDIActionExecutionInfo> actions_exec_info = 
                     std::vector<ros2_bdi_interfaces::msg::BDIActionExecutionInfo> (planExecInfo.actions_exec_info.begin(), planExecInfo.actions_exec_info.end());
+                // do not lose current committed status
+                if(actions_exec_info.size() == actions_exec_info_.size())
+                    for(int i=0; i<actions_exec_info_.size(); i++)
+                        actions_exec_info[i].committed = actions_exec_info_[i].committed;
                 this->actions_exec_info_ = actions_exec_info;
             }
 
@@ -67,6 +73,25 @@ namespace BDIManaged
                     )
                         actions_exec_info_[i].committed = committed;
                 }
+            }
+
+            plansys2_msgs::msg::Plan getActionCommittedStatus()
+            {
+                plansys2_msgs::msg::Plan committedPlan;
+                committedPlan.plan_index = getPlanQueueIndex();
+                for(int i=0; i<actions_exec_info_.size(); i++)
+                {
+                    plansys2_msgs::msg::PlanItem action;
+                    std::string joinedArgs = "";
+                    for(std::string arg : actions_exec_info_[i].args)
+                        joinedArgs += " " + arg;
+                    action.action = "(" + actions_exec_info_[i].name + joinedArgs + ")";
+                    action.time = actions_exec_info_[i].planned_start;
+                    action.duration = actions_exec_info_[i].duration;
+                    action.committed = actions_exec_info_[i].committed;
+                    committedPlan.items.push_back(action);
+                }
+                return committedPlan;
             }
 
             std::vector<ros2_bdi_interfaces::msg::BDIActionExecutionInfo> getActionsExecInfo() const {return actions_exec_info_;};

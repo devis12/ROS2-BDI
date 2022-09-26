@@ -433,7 +433,9 @@ bool Scheduler::abortCurrentPlanExecution()
         
         publishTargetGoalInfo(DEL_GOAL_BELIEFS);//goal disactivated -> upd belief set
         current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
-    }  
+    }
+    else if(this->get_parameter(PARAM_DEBUG).as_bool())
+        RCLCPP_INFO(this->get_logger(), "The request to abort plan execution fulfilling desire \"%s\" has not been fulfilled", current_plan_.getFinalTarget().getName());
     return aborted;
 }
 

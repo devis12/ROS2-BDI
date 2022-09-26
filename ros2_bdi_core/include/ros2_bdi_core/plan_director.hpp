@@ -109,7 +109,7 @@ private:
     /*
         Cancel current plan execution (if any) and information preserved in it
     */
-    void cancelCurrentPlanExecution();
+    bool cancelCurrentPlanExecution();
 
 
     /*
@@ -153,7 +153,7 @@ private:
     /*
         Plan currently in execution, monitor and publish the feedback of its development
     */
-    void checkPlanExecution();
+    void checkPlanExecution(const bool& force_update = false);
 
     /* 
         Use PlanSys2 feedback received from the executor to build the BDIPlanExecutionInfo to be published to the respecive topic

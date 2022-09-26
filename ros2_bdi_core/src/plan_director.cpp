@@ -270,14 +270,29 @@ bool PlanDirector::executingNoPlan()
 /*
     Cancel current plan execution (if any) and information preserved in it
 */
-void PlanDirector::cancelCurrentPlanExecution()
+bool PlanDirector::cancelCurrentPlanExecution()
 {
     //cancel plan execution
-    executor_client_->cancel_plan_execution();
+    bool aborted = executor_client_->cancel_plan_execution();
     if(this->get_parameter(PARAM_DEBUG).as_bool())
-        RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
+        if (aborted) RCLCPP_INFO(this->get_logger(), "Aborted plan execution");
+        else RCLCPP_INFO(this->get_logger(), "Failed to abort plan execution");
 
-    checkPlanExecution();//to publish aborting and notifying subscribers
+    if(aborted)
+    {
+        checkPlanExecution(true);//to publish aborting and notifying subscribers
+        if(executingNoPlan())
+        {
+            //OK, plan aborted
+        }
+        else
+        {
+            //sleep a for a plan interval at best and check again
+            std::this_thread::sleep_for(std::chrono::milliseconds{PLAN_INTERVAL});
+            checkPlanExecution(true);
+        }
+    }
+    return aborted;
 }
 
 
@@ -439,8 +454,8 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
 
         if(current_plan_ == mp_abort)//request to abort plan which is currently in execution
         {
-            cancelCurrentPlanExecution();
-            done = executingNoPlan();
+            done = cancelCurrentPlanExecution();
+            //done = executingNoPlan();
         }
     }
     else if(request->request == request->EARLY_ABORT && state_ == EXECUTING)// plan requested to be aborted it's in execution
@@ -466,7 +481,10 @@ void PlanDirector::handlePlanRequest(const BDIPlanExecution::Request::SharedPtr 
             }
         }
     }
-        
+
+    if(done) RCLCPP_INFO(this->get_logger(), "Request to " + req_action + " plan " + std::to_string(request->plan.psys2_plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\" has been fulfilled");
+    else RCLCPP_INFO(this->get_logger(), "Request to " + req_action + " plan " + std::to_string(request->plan.psys2_plan.plan_index) + " fulfilling desire \"" + request->plan.target.name + "\" has been denied");
+    
     response->success = done;
 }
 
@@ -504,10 +522,10 @@ void PlanDirector::publishRollbackBeliefs(const vector<Belief> rollback_belief_a
 /*
     Plan currently in execution, monitor and publish the feedback of its development
 */
-void PlanDirector::checkPlanExecution()
+void PlanDirector::checkPlanExecution(const bool& force_update)
 {   
     //get feedback from plansys2 api
-    auto feedback = executor_client_->getFeedBack();
+    auto feedback = executor_client_->getFeedBack(force_update);
     BDIPlanExecutionInfo planExecutionInfo = getPlanExecutionInfo(feedback);
     current_plan_.setUpdatedInfo(planExecutionInfo); 
 

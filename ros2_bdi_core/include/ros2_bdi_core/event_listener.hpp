@@ -123,6 +123,7 @@ class EventListener : public rclcpp::Node
 
         // desire publishers
         rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr add_desire_publisher_;//add desire topic pub
+        rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr boost_desire_publisher_;//boost desire topic pub
         rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;//del desire topic pub
 
         rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscription_;//belief set subscription

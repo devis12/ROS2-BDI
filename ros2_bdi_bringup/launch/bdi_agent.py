@@ -54,7 +54,7 @@ from bdi_agent_core import *
                                     if they are not verified and the plan for the given desire cannot be carried on due to them
                                     (default value = false)
 
-            ** "reschedule_policy": string in {"NO_PREEMPT", "PREEMPT"}, otherwise "NO_PREEMPT"
+            ** "reschedule_policy": string in {"NO_PREEMPT", "PREEMPT", "CLEAN_PREEMPT"}, otherwise "NO_PREEMPT"
                                     to specify the reschedule policy
 
 

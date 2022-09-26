@@ -61,6 +61,7 @@ void SchedulerOnline::init()
     current_plan_ = ManagedPlan{};
 
     searching_ = false;
+    waiting_clean_preempt_ = false;
 
     executing_pplan_index_ = -1;//will be put to 0 as soon as next first computed and received pplan is launched for execution and then upd over time 
         
@@ -118,7 +119,7 @@ void SchedulerOnline::storeEnqueuePlan(BDIManaged::ManagedPlan&mp)
         for(int i=0; i<waiting_plans_.size(); i++)
             plan_queue_indexes += std::to_string(waiting_plans_[i].getPlanQueueIndex()) + ", ";
         RCLCPP_INFO(this->get_logger(), "Enqueued plan with index " + std::to_string(mp.getPlanQueueIndex()) + "\n" + 
-                            " Current waiting queue status: " + plan_queue_indexes + "\"");
+                            " Current waiting queue status: " + plan_queue_indexes + "");
     }
 }
 
@@ -183,11 +184,21 @@ void SchedulerOnline::reschedule()
         delDesire(md);
 
     // I'm already searching for this
-    if(searching_ && selDesire == fulfilling_desire_)
+    if(selDesire == fulfilling_desire_)
         return;
-    
+    else if(reschedulePolicy == VAL_RESCHEDULE_POLICY_IF_EXEC_CLEAN && !noPlanExecuting())//clean preemption needed
+    {
+        waiting_plans_.clear(); // clear waiting queue immediately
+        bool ear = makeEarlyArrestRequest(current_plan_.getActionCommittedStatus());
+        if(ear)
+            waiting_clean_preempt_ = true;
+        RCLCPP_INFO(this->get_logger(), "Clean preemption to stop execution of plan for the fullfillment of Alex's desire to " + current_plan_.getFinalTarget().getName() + 
+            " before starting to launch a search for the fullfillment of Alex's desire to " + selDesire.getName() + 
+            " (early arrest request = " + std::to_string(ear) + ")");
+        return;
+    }
+
     RCLCPP_INFO(this->get_logger(), "Starting search for the fullfillment of Alex's desire to " + selDesire.getName());
-    
 
     if(selDesire.getValue().size() > 0 && launchPlanSearch(selDesire))//a desire has effectively been selected && a search for it has been launched
     {    
@@ -312,6 +323,23 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
         {   
             // plan not running anymore
             ManagedDesire finalTarget = current_plan_.getFinalTarget();
+
+            //check if desire sat
+            bool desireAchieved = isDesireSatisfied(finalTarget);
+            if(desireAchieved)
+            {
+                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
+                mtx_iter_dset_.lock();
+                delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
+                mtx_iter_dset_.unlock();
+            }
+            if(desireAchieved || waiting_clean_preempt_)
+            {
+                waiting_clean_preempt_ = false;
+                // nothing to do here anymore... reset all search related info and reschedule
+                forcedReschedule();
+                return;
+            }
             
             bool callUnexpectedState = false;
 
@@ -356,19 +384,6 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
                     //TODO start a timer to wait for a result from the search, otherwise force reschedule
                     //This needs to be understood better
                 }
-            }
-
-            //check if desire sat
-            bool desireAchieved = isDesireSatisfied(finalTarget);
-            if(desireAchieved)
-            {
-                publishTargetGoalInfo(DEL_GOAL_BELIEFS);
-                mtx_iter_dset_.lock();
-                delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
-                mtx_iter_dset_.unlock();
-                // reset all search related info
-                resetSearchInfo();
-                return;
             }
 
             if(!desireAchieved && (callUnexpectedState || planExecInfo.status == planExecInfo.ABORT))
@@ -494,6 +509,14 @@ void SchedulerOnline::updatedCommittedStatus(const javaff_interfaces::msg::Commi
         for(auto acs : msg->committed_actions)
             current_plan_.setActionCommittedStatus(acs.committed_action, acs.planned_start_time, acs.committed);
     }
+    // if(this->get_parameter(PARAM_DEBUG).as_bool())
+    // {
+    //     string early_arrest_request_content = "Action committed status upd for plan " + std::to_string(current_plan_.getPlanQueueIndex()) + 
+    //             " aiming to fulfill desire " + current_plan_.getFinalTarget().getName() + ":\n";
+    //     for(auto a : current_plan_.getActionCommittedStatus().items)
+    //         early_arrest_request_content += std::to_string(a.committed) + "\t" + a.action + ":" + std::to_string(static_cast<int>(1000*a.time)) + "\n";
+    //     RCLCPP_INFO(this->get_logger(), early_arrest_request_content);
+    // }
     publishCurrentIntention();
 }
 
@@ -561,6 +584,35 @@ bool SchedulerOnline::launchFirstPPlanExecution(const PartialPlan& firstpplan)
     return true;
 }
 
+/* 
+    Request to make an early stop at a certain committed point
+    NOTE: committedPlan has to be extracted from current_plan_ otherwise request is going to fail for sure
+*/
+bool SchedulerOnline::makeEarlyArrestRequest(const plansys2_msgs::msg::Plan& committedPlan)
+{
+    bool early_abort_request_success = false;
+    BDIPlan early_abort_bdiplan = BDIPlan{};
+    early_abort_bdiplan.target = current_plan_.getPlanTarget().toDesire();
+    early_abort_bdiplan.precondition = current_plan_.getPrecondition().toConditionsDNF();
+    early_abort_bdiplan.psys2_plan = committedPlan;
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+    {
+        string early_arrest_request_content = "Making early arrest request for plan " + std::to_string(current_plan_.getPlanQueueIndex()) + 
+                " aiming to fulfill desire " + current_plan_.getFinalTarget().getName() + ":\n";
+        for(auto a : committedPlan.items)
+            early_arrest_request_content += std::to_string(a.committed) + "\t" + a.action + ":" + std::to_string(static_cast<int>(1000*a.time)) + "\n";
+        RCLCPP_INFO(this->get_logger(), early_arrest_request_content);
+    }
+
+    early_abort_bdiplan.context = current_plan_.getContext().toConditionsDNF();
+    early_abort_request_success = plan_exec_srv_client_->earlyArrestRequest(early_abort_bdiplan);
+    if(this->get_parameter(PARAM_DEBUG).as_bool())
+        if(early_abort_request_success) RCLCPP_INFO(this->get_logger(), "Early arrest request: ACCEPTED");
+        else RCLCPP_INFO(this->get_logger(), "Early arrest request: TOO LATE!");
+    
+    return early_abort_request_success;
+}
+
 /*
     Process updated search result presenting a new search baseline compared to previous msgs of the same type
 */
@@ -595,19 +647,11 @@ bool SchedulerOnline::processSearchResultWithNewBaseline(const javaff_interfaces
 
     bool successful_update = false;// it was possible to process successfully the search result with new baseline (i.e. not too late)
 
-    bool early_abort_request_success = false;
+    bool early_abort_request_success = false; // early abort success result
     if(committed_counter < psys2_current_plan.items.size())
     {
         //in this case it make sense to do an early abort request
-        BDIPlan early_abort_bdiplan = BDIPlan{};
-        early_abort_bdiplan.target = current_plan_.getPlanTarget().toDesire();
-        early_abort_bdiplan.precondition = current_plan_.getPrecondition().toConditionsDNF();
-        early_abort_bdiplan.psys2_plan = psys2_current_plan;
-        early_abort_bdiplan.context = current_plan_.getContext().toConditionsDNF();
-        early_abort_request_success = plan_exec_srv_client_->earlyArrestRequest(early_abort_bdiplan);
-        if(this->get_parameter(PARAM_DEBUG).as_bool())
-            if(early_abort_request_success) RCLCPP_INFO(this->get_logger(), "Early arrest request: ACCEPTED");
-            else RCLCPP_INFO(this->get_logger(), "Early arrest request: TOO LATE!");
+        early_abort_request_success = makeEarlyArrestRequest(psys2_current_plan);
     }
 
     if(committed_counter == psys2_current_plan.items.size() || early_abort_request_success)

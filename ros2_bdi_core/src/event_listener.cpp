@@ -36,6 +36,7 @@ EventListener::EventListener()
     this->declare_parameter(PARAM_PLANNING_MODE, PLANNING_MODE_OFFLINE);
 
     sel_planning_mode_ = this->get_parameter(PARAM_PLANNING_MODE).as_string() == PLANNING_MODE_OFFLINE? OFFLINE : ONLINE;
+    std::cout << "SELECTED PLANNING_MODE " << this->get_parameter(PARAM_PLANNING_MODE).as_string() << " " << std::to_string(sel_planning_mode_) << std::flush << std::endl;
     this->undeclare_parameter(PARAM_PLANNING_MODE);
 }
 
@@ -90,6 +91,7 @@ bool EventListener::init()
 
     // add/del desire publishers init.
     add_desire_publisher_ = this->create_publisher<Desire>(ADD_DESIRE_TOPIC, qos_reliable);
+    boost_desire_publisher_ = this->create_publisher<Desire>(BOOST_DESIRE_TOPIC, qos_reliable);
     del_desire_publisher_ = this->create_publisher<Desire>(DEL_DESIRE_TOPIC, qos_reliable);
 
     return true;
@@ -281,7 +283,7 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
                 add_belief_publisher_->publish(bset_upd.second.toBelief());//add belief to bset if it is NOT there
             }
         }
-        else
+        else if (bset_upd.first == ReactiveOp::DEL)
         {
             if(belief_set_.count(bset_upd.second) > 0)
             {
@@ -295,14 +297,21 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
     //Desire set updates
     for(auto dset_upd : reactive_rule.getDesireRules())
     {
-        if(dset_upd.first == ReactiveOp::ADD)
+        if(dset_upd.first == ReactiveOp::ADD || dset_upd.first == ReactiveOp::BOOST && sel_planning_mode_ == OFFLINE)//boost in offline planning mode treated as add
         {
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                 RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
 
             add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
         }
-        else
+        else if (dset_upd.first == ReactiveOp::BOOST)
+        {
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+                RCLCPP_INFO(this->get_logger(), "Boosting desire " + dset_upd.second.getName());
+
+            boost_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
+        }
+        else if (dset_upd.first == ReactiveOp::DEL)
         {
             if(this->get_parameter(PARAM_DEBUG).as_bool())
                 RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());

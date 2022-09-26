@@ -4,6 +4,7 @@
 /* Parameters affecting internal logic (recompiling required) */
 #define VAL_RESCHEDULE_POLICY_NO_IF_EXEC "NO_PREEMPT"
 #define VAL_RESCHEDULE_POLICY_IF_EXEC "PREEMPT"
+#define VAL_RESCHEDULE_POLICY_IF_EXEC_CLEAN "CLEAN_PREEMPT"
 
 #define DESIRE_SET_TOPIC "desire_set"
 #define ADD_DESIRE_TOPIC "add_desire"

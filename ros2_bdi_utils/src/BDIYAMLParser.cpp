@@ -87,9 +87,9 @@ namespace BDIYAMLParser
                         auto yaml_desire = rrule_effect["value"];
                         std::optional<ManagedDesire> mg_desire = parseMGDesire(yaml_desire, domain_expert);
                         string op_s = rrule_effect["operation"].as<string>();
-                        if((op_s == "ADD" || op_s == "DEL") && mg_desire.has_value())
+                        if((op_s == "BOOST" || op_s == "ADD" || op_s == "DEL") && mg_desire.has_value())
                         {   
-                            ReactiveOp op = (op_s == "ADD")? ReactiveOp::ADD : ReactiveOp::DEL;
+                            ReactiveOp op = (op_s == "ADD")? ReactiveOp::ADD : (op_s == "BOOST")? ReactiveOp::BOOST : ReactiveOp::DEL;
                             dset_effects.insert(std::make_pair(op, mg_desire.value()));
                         }
                     }

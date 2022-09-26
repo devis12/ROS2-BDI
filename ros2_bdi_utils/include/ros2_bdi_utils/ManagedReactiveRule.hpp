@@ -17,7 +17,7 @@
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 
 //allowed operation in rules
-typedef enum {ADD, DEL} ReactiveOp;
+typedef enum {ADD, DEL, BOOST} ReactiveOp;
 
 //Rule type for belief op.
 typedef std::pair<ReactiveOp, BDIManaged::ManagedBelief> MGBeliefOp;

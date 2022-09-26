@@ -130,6 +130,12 @@ private:
     */
     void postDelDesireSuccess(const BDIManaged::ManagedDesire& md);
 
+    /* 
+        Request to make an early stop at a certain committed point
+        NOTE: committedPlan has to be extracted from current_plan_ otherwise request is going to fail for sure
+    */
+    bool makeEarlyArrestRequest(const plansys2_msgs::msg::Plan& committedPlan);
+
     /*
         Operations related to the selection of the next active desire and Intentions to be enforced
     */
@@ -209,7 +215,7 @@ private:
                 1:  if sb is more recent (more actions committed or greater executing plan index)
     */
     int compareBaseline(javaff_interfaces::msg::CommittedStatus sb);
-
+    
     // queue of waiting_plans for execution (LAST element of the vector is the first one that has been pushed)
     std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
@@ -218,6 +224,9 @@ private:
 
     // search is progressing
     bool searching_;
+
+    // waiting for a clean preemption
+    bool waiting_clean_preempt_;
 
     // committed status of ongoing search result
     javaff_interfaces::msg::CommittedStatus search_baseline_;
