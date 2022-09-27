@@ -68,8 +68,14 @@ class EventListener : public rclcpp::Node
         /*Build updated ros2_bdi_interfaces::msg::LifecycleStatus msg*/
         ros2_bdi_interfaces::msg::LifecycleStatus getLifecycleStatus();
         
-        
+        /* Callback of belief set update -> if something changes and you've correctly booted, check if any rule applies*/
         void updBeliefSetCallback(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
+
+        /* Callback of desire set update */
+        void updDesireSetCallback(const ros2_bdi_interfaces::msg::DesireSet::SharedPtr msg)
+        {
+            desire_set_ = BDIFilter::extractMGDesires(msg->value);
+        }
 
         /*
             Received notification about ROS2-BDI Lifecycle status
@@ -116,6 +122,7 @@ class EventListener : public rclcpp::Node
         std::shared_ptr<plansys2::DomainExpertClient> domain_expert_;
 
         std::set<BDIManaged::ManagedBelief> belief_set_;
+        std::set<BDIManaged::ManagedDesire> desire_set_;
 
         // belief set publishers
         rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;//add belief topic pub
@@ -127,6 +134,8 @@ class EventListener : public rclcpp::Node
         rclcpp::Publisher<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_publisher_;//del desire topic pub
 
         rclcpp::Subscription<ros2_bdi_interfaces::msg::BeliefSet>::SharedPtr belief_set_subscription_;//belief set subscription
+        rclcpp::Subscription<ros2_bdi_interfaces::msg::DesireSet>::SharedPtr desire_set_subscription_;//desire set subscription
+
 
         // current known status of the system nodes
         std::map<std::string, uint8_t> lifecycle_status_;

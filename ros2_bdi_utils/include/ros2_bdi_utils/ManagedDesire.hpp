@@ -74,6 +74,15 @@ namespace BDIManaged
 
             // return true if otherDesire presents the same exact name, priority and desire group, belief set should be a subset of the belief set of otherDesire
             bool equalsOrSupersetIgnoreAdvancedInfo(const ManagedDesire& otherDesire);
+            
+            /* Base boosting conditions (name,priority, desire group) checked wrt otherDesire*/
+            bool baseBoostingConditionsMatch(const BDIManaged::ManagedDesire& otherDesire);
+
+            /* Given another desire check whether is matching for boosting:
+                -NO:  return empty array
+                -YES: return array with additional boosting value
+            */
+            std::vector<BDIManaged::ManagedBelief> computeBoostingValue(const BDIManaged::ManagedDesire& otherDesire);
 
             // return true if otherDesire is augmented to the current one
             bool boostDesire(const ManagedDesire& otherDesire);

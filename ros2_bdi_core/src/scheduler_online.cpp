@@ -814,7 +814,7 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
         if(!boosted)
         {
             int16_t instance_counter = 2;
-            while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) == 0) instance_counter++;
+            while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) > 0) instance_counter++;
             string new_name = mdBoost.getName()+std::to_string(instance_counter);
             mdBoost.setName(new_name); // set new name, to distinguish it from the original, by putting the first av. number at the end
             bool result = addDesire(mdBoost);//then add it as a separate desire

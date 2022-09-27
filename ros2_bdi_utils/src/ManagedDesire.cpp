@@ -214,8 +214,7 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
     return true;//all target conditions already met    
 }
 
-// return true if otherDesire is augmented to the current one
-bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
+bool ManagedDesire::baseBoostingConditionsMatch(const ManagedDesire& otherDesire)
 {
     if(otherDesire.getName() != otherDesire.getName())
         return false;
@@ -226,7 +225,39 @@ bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
     if(otherDesire.getDesireGroup() != otherDesire.getDesireGroup())
         return false;
     
-    //base checks passed, try to merge the two desires
+    return true;
+}
+
+vector<ManagedBelief> ManagedDesire::computeBoostingValue(const ManagedDesire& otherDesire)
+{
+    vector<ManagedBelief> boostingValue;
+    if(!baseBoostingConditionsMatch(otherDesire))
+        return boostingValue; // no match, return empty array
+
+    //base checks passed, try to compute additional boosting value
+    for(ManagedBelief mb : otherDesire.getValue())
+    {
+        bool foundInOriginal = false;
+        for(ManagedBelief mbOr : getValue())
+            if(mb == mbOr)
+            {
+                foundInOriginal = true;
+                break;
+            }
+        
+        if(!foundInOriginal)
+            boostingValue.push_back(mb);
+    }
+
+    return boostingValue;
+}
+
+// return true if otherDesire is augmented to the current one
+bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
+{
+    vector<ManagedBelief> valueToBeAdded = computeBoostingValue(otherDesire);
+    if(valueToBeAdded.size() == 0)
+        return false; // either base checks did not pass or they did but no additional value after filtering out original desire
 
     deadline_ += otherDesire.getDeadline(); // sum two target deadlines
 
@@ -236,8 +267,9 @@ bool ManagedDesire::boostDesire(const ManagedDesire& otherDesire)
     // merge context conditions // TODO improve and check for UNSAT
     context_ = context_.mergeMGConditionsDNF(otherDesire.getContext());
 
+
     // boost target
-    for(ManagedBelief mb : otherDesire.getValue())
+    for(ManagedBelief mb : valueToBeAdded)
         value_.push_back(mb);
 
     // merge rollback beliefs

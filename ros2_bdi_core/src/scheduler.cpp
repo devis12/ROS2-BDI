@@ -412,8 +412,11 @@ bool Scheduler::launchPlanExecution(const BDIManaged::ManagedPlan& selectedPlan)
 
     if(this->get_parameter(PARAM_DEBUG).as_bool())
     {
-        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getPlanTarget().getName() + "\" success");
-        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getPlanTarget().getName() + "\" failed");
+        string desireValue = "";
+        for(auto mbVal : selectedPlan.getFinalTarget().getValue())
+            desireValue += "(" + mbVal.getName() + " "+mbVal.getParamsJoined()+")";
+        if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + current_plan_.getPlanTarget().getName() + "\": " + desireValue + " success");
+        else RCLCPP_INFO(this->get_logger(), "Triggered new plan execution fulfilling desire \"" + selectedPlan.getPlanTarget().getName() + "\": " + desireValue + " failed");
     }
 
     return triggered;

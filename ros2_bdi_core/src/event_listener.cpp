@@ -15,6 +15,7 @@
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
 using ros2_bdi_interfaces::msg::Desire;
+using ros2_bdi_interfaces::msg::DesireSet;
 using ros2_bdi_interfaces::msg::LifecycleStatus;
 
 using BDIManaged::ManagedBelief;
@@ -84,6 +85,11 @@ bool EventListener::init()
     belief_set_subscription_ = this->create_subscription<BeliefSet>(
                 BELIEF_SET_TOPIC, qos_reliable,
                 bind(&EventListener::updBeliefSetCallback, this, _1));
+    
+    //Receive desire set update notification to keep the event listener desire set mirror up to date
+    desire_set_subscription_ = this->create_subscription<DesireSet>(
+                DESIRE_SET_TOPIC, qos_reliable,
+                bind(&EventListener::updDesireSetCallback, this, _1));
 
     // add/del belief publishers init.
     add_belief_publisher_ = this->create_publisher<Belief>(ADD_BELIEF_TOPIC, qos_reliable);
@@ -151,7 +157,7 @@ void EventListener::updBeliefSetCallback(const BeliefSet::SharedPtr msg)
         }
     }       
 
-    if(belief_set_upd)
+    if(belief_set_upd || desire_set_.size() == 0)// second case is to avoid that some desire generation function rules are not pushed when belief set does not change
     {
         //there has been an update //TODO improve the check above and the assignment below :-(
         belief_set_ = new_belief_set;
@@ -299,24 +305,41 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
     {
         if(dset_upd.first == ReactiveOp::ADD || dset_upd.first == ReactiveOp::BOOST && sel_planning_mode_ == OFFLINE)//boost in offline planning mode treated as add
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
+            if(desire_set_.count(dset_upd.second) == 0)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
 
-            add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
+                add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
+            }
         }
         else if (dset_upd.first == ReactiveOp::BOOST)
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Boosting desire " + dset_upd.second.getName());
+            bool doIPub = desire_set_.count(dset_upd.second) == 0; // do i publish??? either no desire like this in the desire set or it make sense for boosting (some boosted value in a desire)
+            if(!doIPub)// check if the desire within desire_set_ can be potentially boosted
+                for(auto md : desire_set_)
+                    if(md.getName() == dset_upd.second.getName())
+                    {
+                        doIPub = md.computeBoostingValue(dset_upd.second).size() > 0; // there is a boosting value -> base condition for boosting + additional value in the target
+                    }
 
-            boost_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
+            if(doIPub)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Boosting desire " + dset_upd.second.getName());
+
+                boost_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
+            }
         }
         else if (dset_upd.first == ReactiveOp::DEL)
         {
-            if(this->get_parameter(PARAM_DEBUG).as_bool())
-                RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());
+            if(desire_set_.count(dset_upd.second) > 0)
+            {
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                    RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());
 
-            del_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
+                del_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
+            }
         }
     }
 }

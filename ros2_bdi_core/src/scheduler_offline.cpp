@@ -256,9 +256,10 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
             publishTargetGoalInfo(DEL_GOAL_BELIEFS);
             mtx_iter_dset_.lock();
             bool desireAchieved = isDesireSatisfied(targetDesire);
+            bool desireDeleted = false;
             if(desireAchieved)
             {
-                delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
+                desireDeleted = delDesire(targetDesire, true);//desire achieved -> delete all desires within the same group
             }
 
             if(planExecInfo.status == planExecInfo.SUCCESSFUL)//plan exec completed successful
@@ -322,8 +323,11 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
             }
 
             mtx_iter_dset_.unlock();
-            current_plan_ = BDIManaged::ManagedPlan{}; // execution has been terminated, current plan empty
-            reschedule();
+            if(planExecInfo.status == planExecInfo.ABORT || desireAchieved && desireDeleted)
+            {
+                current_plan_ = BDIManaged::ManagedPlan{}; // execution has been terminated, current plan empty
+                reschedule();
+            }
             //next reschedule() will select a new plan if computable for a desire in desire set
         }
     }
