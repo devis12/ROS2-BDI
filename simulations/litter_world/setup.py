@@ -11,6 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/init', ['init/problem4x4.json']),
+        ('share/' + package_name + '/init', ['init/problem7x7.json']),
         ('share/' + package_name + '/init', ['init/problem8x8.json']),
         ('share/' + package_name + '/asset', ['asset/paper_agent.png']),
         ('share/' + package_name + '/asset', ['asset/plastic_agent.png']),

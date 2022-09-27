@@ -13,6 +13,7 @@
     );; end Types ;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (:predicates
+        (should_patrol ?c - cell)
         (in ?a - recycling_agent ?c - cell)
         (bin_pose ?b - bin ?c - cell)
         (near ?c1 - cell ?c2 - cell)

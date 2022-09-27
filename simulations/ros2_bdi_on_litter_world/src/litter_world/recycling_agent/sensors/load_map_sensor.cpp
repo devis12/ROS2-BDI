@@ -55,16 +55,21 @@ class LoadMapSensor : public Sensor
                                     bsetAddAll.value.push_back(b);
                                 // std::cout << "sensing " << freeCellsBeliefs.size() << std::flush << std::endl;
 
-                                Belief bPlaBin = getBeliefPrototype("plastic_bin").value();
-                                bPlaBin.name = PLASTIC_BIN_NAME;
-                                bsetAddAll.value.push_back(bPlaBin);
-                                // std::cout << "sensing " << bPlaBin.name << std::flush << std::endl;
+                                if(robot_name_ == "plastic_agent")
+                                {
+                                    Belief bPlaBin = getBeliefPrototype("plastic_bin").value();
+                                    bPlaBin.name = PLASTIC_BIN_NAME;
+                                    bsetAddAll.value.push_back(bPlaBin);
+                                    // std::cout << "sensing " << bPlaBin.name << std::flush << std::endl;
+                                }
 
-                                Belief bPapBin = getBeliefPrototype("paper_bin").value();
-                                bPapBin.name = PAPER_BIN_NAME;
-                                bsetAddAll.value.push_back(bPapBin);
-
-                                // std::cout << "sensing " << bPapBin.name << std::flush << std::endl;
+                                if(robot_name_ == "paper_agent")
+                                {
+                                    Belief bPapBin = getBeliefPrototype("paper_bin").value();
+                                    bPapBin.name = PAPER_BIN_NAME;
+                                    bsetAddAll.value.push_back(bPapBin);
+                                    // std::cout << "sensing " << bPapBin.name << std::flush << std::endl;
+                                }
 
                                 vector<Belief> binPoses = (extractBinPoses(msg));
                                 for(Belief b : binPoses)
@@ -138,18 +143,20 @@ class LoadMapSensor : public Sensor
                 for(uint16_t i = 0; i<grid->rows.size(); i++)
                     for(uint16_t j = 0; j<grid->rows[i].cells.size(); j++)
                     {   
-                        if(grid->rows[i].cells[j] == GridRowStatus().PLASTIC_BIN_CELL)
+                        if(robot_name_ == "plastic_agent" && grid->rows[i].cells[j] == GridRowStatus().PLASTIC_BIN_CELL)
                         {
                             Belief b = bproto.value();
                             b.params = {PLASTIC_BIN_NAME,buildCellName(i, j)};
                             bin_poses_beliefs.push_back(b);
+                            break;
                         }
 
-                        if(grid->rows[i].cells[j] == GridRowStatus().PAPER_BIN_CELL)
+                        if(robot_name_ == "paper_agent" && grid->rows[i].cells[j] == GridRowStatus().PAPER_BIN_CELL)
                         {
                             Belief b = bproto.value();
                             b.params = {PAPER_BIN_NAME,buildCellName(i, j)};
                             bin_poses_beliefs.push_back(b);
+                            break;
                         }
                     }
             }

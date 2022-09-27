@@ -63,21 +63,26 @@ def generate_launch_description():
             {"detection_depth": 2}
         ])
 
+    pmode = 'offline'
+    reschedule_policy = 'NO_PREEMPT'
+    if pmode == 'online':
+        reschedule_policy = 'CLEAN_PREEMPT'
+
     plastic_agent_ld = AgentLaunchDescription(
         agent_id=PLASTIC_AGENT_ID,
         agent_group=RECYCLER_AGENTS_GROUP_ID,
         init_params={
             'pddl_file': os.path.join(bdi_on_litterworld_share_dir, 'pddl', 'recycling-agent-domain.pddl'),
             'init_bset': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_bset.yaml'),
-            'init_reactive_rules_set': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_rrules.yaml'),
+            'init_reactive_rules_set': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_rrules_{}.yaml'.format(pmode)),
             'comp_plan_tries': 2,
             'exec_plan_tries': 4,
-            'planning_mode':'offline',
-            'reschedule_policy': 'NO_PREEMPT',
+            'planning_mode':pmode,
+            'reschedule_policy': reschedule_policy,
             'search_interval': 400,
             'min_commit_steps': 1,
-            'max_null_search_intervals': 4,
-            'debug_log_active': ['scheduler', 'javaff']
+            'max_null_search_intervals': 12,
+            'debug_log_active': ['javaff', 'scheduler']
         },
         actions=[plastic_agent_move, plastic_agent_pickup, plastic_agent_recycle],
         sensors=[load_map_sensor, agent_area_sensor],

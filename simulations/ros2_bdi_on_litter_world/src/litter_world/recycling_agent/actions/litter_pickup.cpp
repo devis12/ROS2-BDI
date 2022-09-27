@@ -73,7 +73,7 @@ class LitterPickup : public BDIActionExecutor
                 string litterPosition = getArguments()[2];
                 sendLitterRemoveGoal(extractPose(litterPosition));
             }
-            else if(litter_removed_goal_sent_ && getProgress() < 0.1)
+            else if(litter_removed_goal_sent_ && !litter_removed_goal_accepted_ && getProgress() < 0.1)
             {
                 step_progress = 0.1f;
             }
@@ -91,7 +91,7 @@ class LitterPickup : public BDIActionExecutor
                     string litterPosition = getArguments()[2];
                     sendLitterLoadGoal(litter, extractPose(litterPosition));
                 }
-                else if(litter_load_goal_sent_ && getProgress() < 0.1)
+                else if(litter_load_goal_sent_ && !litter_load_goal_accepted_ && getProgress() < 0.1)
                 {
                     step_progress = 0.1f;
                 }

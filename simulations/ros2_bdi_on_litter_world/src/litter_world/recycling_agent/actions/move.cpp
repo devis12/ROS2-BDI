@@ -22,7 +22,7 @@ class Move : public BDIActionExecutor
 {
     public:
         Move()
-        : BDIActionExecutor("move", 2)
+        : BDIActionExecutor("move", 4)
         {
             string robot_name = this->get_parameter("agent_id").as_string();
             action_name_ = "/cmd_" + robot_name + "_move";
@@ -33,6 +33,7 @@ class Move : public BDIActionExecutor
             on_activate(const rclcpp_lifecycle::State & previous_state)
         {
             failures_ = 0;
+            made_progress_feedback_ = 0;
             goal_sent_ = false;
             goal_accepted_ = false;
             this->client_cmd_pose_ptr_ = rclcpp_action::create_client<CmdPose>(
@@ -61,13 +62,14 @@ class Move : public BDIActionExecutor
                 string goalPosition = getArguments()[2];
                 sendGoal(extractPose(currentPosition), extractPose(goalPosition));
             }
-            else if(goal_sent_ && getProgress() < 0.9)
+            else if(goal_sent_ && !goal_accepted_ && getProgress() < 0.9)
             {
-                step_progress = 0.05f;
+                step_progress = 0.01f;
             }
             else if(goal_accepted_ && getProgress() < 0.9)
             {
-                step_progress = 0.05f;
+                step_progress = 0.01f + made_progress_feedback_;
+                made_progress_feedback_ = 0;
             }
 
             return step_progress;            
@@ -132,7 +134,7 @@ class Move : public BDIActionExecutor
             GoalHandleCmdPose::SharedPtr,
             const std::shared_ptr<const CmdPose::Feedback> feedback_msg)
         {
-            //TODO progress
+            made_progress_feedback_ = feedback_msg->progress - getProgress();
         }
 
         void result_callback(const GoalHandleCmdPose::WrappedResult & result)
@@ -171,6 +173,7 @@ class Move : public BDIActionExecutor
         }
 
         int failures_;
+        float made_progress_feedback_;
         bool goal_sent_;
         bool goal_accepted_;
         string action_name_;

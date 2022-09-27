@@ -1,0 +1,11 @@
+- name: "detection_depth"
+  pddl_type: 3
+  params:
+    - "paper_agent"
+  value: 1
+
+- name: "loaded_amount"
+  pddl_type: 3
+  params:
+    - "paper_agent"
+  value: 0

@@ -18,6 +18,30 @@ def generate_launch_description():
 
     bdi_on_litterworld_share_dir = get_package_share_directory('ros2_bdi_on_litter_world')
 
+    # paper_agent move action
+    paper_agent_move = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='move',
+        name=PAPER_AGENT_ID+'_move',
+        specific_params=[]
+    )
+    
+    # paper_agent pickup action
+    paper_agent_pickup = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='litter_pickup',
+        name=PAPER_AGENT_ID+'litter_pickup',
+        specific_params=[]
+    )
+
+    # paper_agent recycle action
+    paper_agent_recycle = AgentAction(
+        package='ros2_bdi_on_litter_world',
+        executable='recycle_paper',
+        name=PAPER_AGENT_ID+'recycle_paper',
+        specific_params=[]
+    )
+
     # get static map info status sensor 
     load_map_sensor = AgentSensor(
         package='ros2_bdi_on_litter_world',
@@ -39,17 +63,28 @@ def generate_launch_description():
             {"detection_depth": 2}
         ])
 
+    pmode = 'offline'
+    reschedule_policy = 'NO_PREEMPT'
+    if pmode == 'online':
+        reschedule_policy = 'CLEAN_PREEMPT'
+
     paper_agent_ld = AgentLaunchDescription(
         agent_id=PAPER_AGENT_ID,
         agent_group=RECYCLER_AGENTS_GROUP_ID,
         init_params={
             'pddl_file': os.path.join(bdi_on_litterworld_share_dir, 'pddl', 'recycling-agent-domain.pddl'),
-            #'init_bset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_bset_gripper_a.yaml'),
-            #'init_dset': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_dset_gripper_a.yaml'),
-            #'init_reactive_rules_set': os.path.join(bdi_onwebots_share_dir, 'launch', 'gripper_a_init', 'init_rrules_gripper_a.yaml'),
-            'debug_log_active': ['belief_manager']
+            'init_bset': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'paper_agent_init', 'init_bset.yaml'),
+            'init_reactive_rules_set': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'paper_agent_init', 'init_rrules_{}.yaml'.format(pmode)),
+            'comp_plan_tries': 2,
+            'exec_plan_tries': 4,
+            'planning_mode':pmode,
+            'reschedule_policy': reschedule_policy,
+            'search_interval': 400,
+            'min_commit_steps': 1,
+            'max_null_search_intervals': 12,
+            'debug_log_active': ['javaff', 'scheduler']
         },
-        actions=[],
+        actions=[paper_agent_move, paper_agent_pickup, paper_agent_recycle],
         sensors=[load_map_sensor, agent_area_sensor],
         run_only_psys2=False
     ) 

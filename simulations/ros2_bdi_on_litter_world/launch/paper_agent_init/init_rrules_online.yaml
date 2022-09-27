@@ -5,7 +5,7 @@
             condition_to_check:
               name: "{x}"
               pddl_type: 1
-              type: "plastic"
+              type: "paper"
 
           - check: "T"
             condition_to_check:
@@ -17,23 +17,22 @@
 
   reactive_rules:
     - set: desire
-      operation: ADD
+      operation: BOOST
       value:
         name: "recycle"
         priority: 0.8
-        deadline: 32
+        deadline: 64
         value:
           - name: "recycled"
             pddl_type: 2
             params:
               - "{x}"
-
 - condition:
     clauses:
       - literals:
           - check: "T"
             condition_to_check:
-              name: "recycled"
+              name: "should_patrol"
               pddl_type: 2
               params:
                 - "{x}"
@@ -42,15 +41,20 @@
     - set: belief
       operation: DEL
       value:
-        name: "{x}"
-        pddl_type: 1
-        type: "litter"
-
-    - set: belief
-      operation: DEL
-      value:
-        name: "litter_pose"
-        pddl_type: 1
+        name: "should_patrol"
+        pddl_type: 2
         params:
           - "{x}"
-          - "*"
+
+    - set: desire
+      operation: ADD
+      value:
+        name: "patrol_{x}"
+        priority: 0.4
+        deadline: 64
+        value:
+          - name: "in"
+            pddl_type: 2
+            params:
+              - "paper_agent"
+              - "{x}"

@@ -22,6 +22,8 @@ MAX_DIM = 32
 class RecyclingAgent():
     def __init__(self, pose: MGPose):
         self.pose = pose
+        self.old_pose = MGPose(-1, -1)
+        self.moving = False
         self.holding = 0
         self.move_trajectory = None
 
@@ -67,6 +69,9 @@ class LitterWorld():
 
     def __init__(self, canvas: tk.Canvas, parent_app, show_agent_view = ''):
         self.canvas = canvas
+        self.canvas_static_objs = []
+        self.canvas_dynamic_objs = []
+        self.canvas_trajectory_points = []
 
         self.package_dir = get_package_share_directory('litter_world')
 
@@ -190,7 +195,6 @@ class LitterWorld():
         # Set up an empty game grid.
         self.grid = [[EMPTY_CELL for x in range(self.columns)] for x in range(self.rows)]
         self.litter_grid = [[EMPTY_CELL for x in range(self.columns)] for x in range(self.rows)]
-        #print("init_empty", self.grid)
         
         if(self.valid_data):
             # Set up obstacles points
@@ -206,6 +210,20 @@ class LitterWorld():
                     self.grid[person.x][person.y] = PERSON_CELL
                 else:
                     print("Person x:{}, y:{} is not valid, therefore it won't be inserted".format(person.x, person.y))
+            
+            # Set up init litter poses
+            if 'plastic_poses' in init_poses:
+                for plastic_pose in init_poses['plastic_poses']:
+                    if(self.is_valid_pose(plastic_pose)):
+                        self.litter_grid[plastic_pose.x][plastic_pose.y] = PLASTIC_LITTER_CELL
+                    else:
+                        print("Plastic litter x:{}, y:{} is not valid, therefore it won't be inserted".format(plastic_pose.x, plastic_pose.y))
+            if 'paper_poses' in init_poses:
+                for paper_pose in init_poses['paper_poses']:
+                    if(self.is_valid_pose(paper_pose)):
+                        self.litter_grid[paper_pose.x][paper_pose.y] = PAPER_LITTER_CELL
+                    else:
+                        print("Paper litter x:{}, y:{} is not valid, therefore it won't be inserted".format(paper_pose.x, paper_pose.y))
             
             self.grid[self.plastic_agent.pose.x][self.plastic_agent.pose.y] = PLASTIC_AGENT_CELL
             self.grid[self.paper_agent.pose.x][self.paper_agent.pose.y] = PAPER_AGENT_CELL
@@ -270,28 +288,34 @@ class LitterWorld():
     def draw_world(self):
         # Create the canvas widget and add it to the Tkinter application window.
         if(self.canvas != None):
-            self.canvas.delete("all")
+            if self.show_agent_view != '':
+                for canvas_static_obj in self.canvas_static_objs:#delete also static obj in show agent view canvas, so that you can redraw detection area grid
+                    self.canvas.delete(canvas_static_obj)
 
-            # Draw a square on the game board for every cell in the grid.
-            for x in range(0, self.rows):
-                for y in range(0, self.columns):
-                    realx = x * self.size_factor
-                    realy = y * self.size_factor
-                    drawn = False
-                   
-                    if self.show_agent_view == 'plastic_agent':
-                        if x >= self.plastic_agent.pose.x - self.detection_depth and x <= self.plastic_agent.pose.x + self.detection_depth:
-                            if y >= self.plastic_agent.pose.y - self.detection_depth and y <= self.plastic_agent.pose.y + self.detection_depth:
-                                self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='blue', width=3)
-                                drawn = True
-                    elif self.show_agent_view == 'paper_agent':
-                        if x >= self.paper_agent.pose.x - self.detection_depth and x <= self.paper_agent.pose.x + self.detection_depth:
-                            if y >= self.paper_agent.pose.y - self.detection_depth and y <= self.paper_agent.pose.y + self.detection_depth:
-                                self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='orange', width=3)
-                                drawn = True
+            for canvas_dynamic_obj in self.canvas_dynamic_objs:#delete all dynamic objs
+                self.canvas.delete(canvas_dynamic_obj)
+
+            if len(self.canvas_static_objs) == 0 or self.show_agent_view != '':
+                # Draw a square on the game board for every cell in the grid.
+                for x in range(0, self.rows):
+                    for y in range(0, self.columns):
+                        realx = x * self.size_factor
+                        realy = y * self.size_factor
+                        drawn = False
                     
-                    if not drawn:
-                        self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='black')
+                        if self.show_agent_view == 'plastic_agent':
+                            if x >= self.plastic_agent.pose.x - self.detection_depth and x <= self.plastic_agent.pose.x + self.detection_depth:
+                                if y >= self.plastic_agent.pose.y - self.detection_depth and y <= self.plastic_agent.pose.y + self.detection_depth:
+                                    self.canvas_static_objs.append(self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='blue', width=3))
+                                    drawn = True
+                        elif self.show_agent_view == 'paper_agent':
+                            if x >= self.paper_agent.pose.x - self.detection_depth and x <= self.paper_agent.pose.x + self.detection_depth:
+                                if y >= self.paper_agent.pose.y - self.detection_depth and y <= self.paper_agent.pose.y + self.detection_depth:
+                                    self.canvas_static_objs.append(self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='orange', width=3))
+                                    drawn = True
+                        
+                        if not drawn:
+                            self.canvas_static_objs.append(self.canvas.create_rectangle(realy, realx, realy+self.size_factor, realx+self.size_factor, fill='white', outline='black'))
             
             # Draw a square on the game board for every cell in the grid.
             for x in range(0, self.rows):
@@ -300,11 +324,16 @@ class LitterWorld():
                         realx = x * self.size_factor
                         realy = y * self.size_factor
                         if self.litter_grid[x][y] == PLASTIC_LITTER_CELL or self.litter_grid[x][y] == PAPER_LITTER_CELL:
-                            self.draw_square(realx, realy, self.size_factor, self.litter_grid[x][y])
+                            self.draw_dynamic_obstacle(realx, realy, self.size_factor, self.litter_grid[x][y])
 
-                        self.draw_square(realx, realy, self.size_factor, self.grid[x][y])
+                        if self.grid[x][y] != OBSTACLE_CELL and self.grid[x][y] != PAPER_BIN_CELL and self.grid[x][y] != PLASTIC_BIN_CELL:
+                            self.draw_dynamic_obstacle(realx, realy, self.size_factor, self.grid[x][y])
+                        else:
+                            self.draw_static_obstacle(realx, realy, self.size_factor, self.grid[x][y])
 
     def update_pa_trajectory(self, agent:str, move_trajectory:MGMoveTrajectory):
+        for canvas_trajectory_point in self.canvas_trajectory_points:#delete all trajectory points
+            self.canvas.delete(canvas_trajectory_point) 
         if agent == 'plastic_agent':
             self.plastic_agent.move_trajectory = move_trajectory
         elif agent == 'paper_agent':
@@ -328,49 +357,59 @@ class LitterWorld():
                 elif agent == 'paper_agent' and self.grid[commit_pose.x][commit_pose.y] == PAPER_AGENT_CELL: # do not draw committed step on top of current agent position (outdated piece of trajectory)
                     pass
                 else:
-                    self.draw_circle(self.canvas, commit_pose.x*self.size_factor + self.size_factor/2,commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/8, fill=color, outline="red", width=3)
+                    self.canvas_trajectory_points.append(self.draw_circle(self.canvas, commit_pose.x*self.size_factor + self.size_factor/2,commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/8, fill=color, outline="red", width=3))
                     
         for not_commit_pose in move_trajectory.not_committed:
             if self.is_valid_pose(not_commit_pose):
-                self.draw_circle(self.canvas, not_commit_pose.x*self.size_factor + self.size_factor/2,not_commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/16, fill=color, outline='')
+                self.canvas_trajectory_points.append(self.draw_circle(self.canvas, not_commit_pose.x*self.size_factor + self.size_factor/2,not_commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/16, fill=color, outline=''))
             
         if self.is_valid_pose(move_trajectory.target):
-            self.draw_circle(self.canvas, move_trajectory.target.x*self.size_factor + self.size_factor/2,move_trajectory.target.y*self.size_factor + self.size_factor/2,self.size_factor/4, fill=color, outline='')
- 
-    def draw_square(self, x, y, size, square_type):
+            self.canvas_trajectory_points.append(self.draw_circle(self.canvas, move_trajectory.target.x*self.size_factor + self.size_factor/2,move_trajectory.target.y*self.size_factor + self.size_factor/2,self.size_factor/4, fill=color, outline=''))
+    
+    def draw_static_obstacle(self, x, y, size, square_type):
         if(self.canvas != None):
-            font_size = 12 if size > 50 else 10
-            if square_type == PLASTIC_AGENT_CELL:
-                self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.plastic_agent_pic)
-                if self.plastic_agent.holding > 0: #check if loaded
-                    self.canvas.create_image(y+18, x+18, anchor=tk.NW, image=self.plastic_litter_pic_mini)
-                if True or self.show_agent_view == '':
-                    self.canvas.create_text(y+size-12, x+12, text=("{}").format(self.plastic_agent.holding), fill="black", font=('Helvetica {} bold'.format(font_size)))
             
-            elif square_type == PAPER_AGENT_CELL:
-                self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.paper_agent_pic)
-                if self.paper_agent.holding > 0: #check if loaded
-                    self.canvas.create_image(y+24, x+24, anchor=tk.NW, image=self.paper_litter_pic_mini)
-                if True or self.show_agent_view == '':
-                    self.canvas.create_text(y+size-12, x+12, text=("{}").format(self.paper_agent.holding), fill="black", font=('Helvetica {} bold'.format(font_size)))
-            
-            elif square_type == PLASTIC_BIN_CELL:
-                self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.plastic_bin_pic)
+            if square_type == PLASTIC_BIN_CELL:
+                self.canvas_static_objs.append(self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.plastic_bin_pic))
             
             elif square_type == PAPER_BIN_CELL:
-                self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.paper_bin_pic)
-
-            elif square_type == PERSON_CELL: #Draw our bro Paolo on the canvas.
-                self.canvas.create_image(y+16, x+4, anchor=tk.NW, image=self.person_agent_pic)
+                self.canvas_static_objs.append(self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.paper_bin_pic))
 
             elif square_type == OBSTACLE_CELL: #Draw a black square on the canvas.
-                self.canvas.create_rectangle(y+4, x+4, y+size-2, x+size-2, fill='gray' if self.show_agent_view != '' else 'black', outline='')
+                self.canvas_static_objs.append(self.canvas.create_rectangle(y+4, x+4, y+size-2, x+size-2, fill='gray' if self.show_agent_view != '' else 'black', outline=''))
+
+    def draw_dynamic_obstacle(self, x, y, size, square_type):
+        if(self.canvas != None):
+            font_size = 12 if size > 50 else 10
+
+            #revise x and y in case drawing agent and they're moving such that they appear to be in between
+            if square_type == PLASTIC_AGENT_CELL and self.plastic_agent.moving:
+                x = ((self.plastic_agent.old_pose.x + self.plastic_agent.pose.x) / 2) * self.size_factor
+                y = ((self.plastic_agent.old_pose.y + self.plastic_agent.pose.y) / 2) * self.size_factor
+            if square_type == PAPER_AGENT_CELL and self.paper_agent.moving:
+                x = ((self.paper_agent.old_pose.x + self.paper_agent.pose.x) / 2) * self.size_factor
+                y = ((self.paper_agent.old_pose.y + self.paper_agent.pose.y) / 2) * self.size_factor
+
+            if square_type == PLASTIC_AGENT_CELL and self.show_agent_view == '':
+                self.canvas_dynamic_objs.append(self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.plastic_agent_pic))
+                if self.plastic_agent.holding > 0: #check if loaded
+                    self.canvas_dynamic_objs.append(self.canvas.create_image(y+18, x+18, anchor=tk.NW, image=self.plastic_litter_pic_mini))
+                self.canvas_dynamic_objs.append(self.canvas.create_text(y+size-12, x+12, text=("{}").format(self.plastic_agent.holding), fill="black", font=('Helvetica {} bold'.format(font_size))))
+            
+            elif square_type == PAPER_AGENT_CELL and self.show_agent_view == '':
+                self.canvas_dynamic_objs.append(self.canvas.create_image(y+4, x+4, anchor=tk.NW, image=self.paper_agent_pic))
+                if self.paper_agent.holding > 0: #check if loaded
+                    self.canvas_dynamic_objs.append(self.canvas.create_image(y+24, x+24, anchor=tk.NW, image=self.paper_litter_pic_mini))
+                self.canvas_dynamic_objs.append(self.canvas.create_text(y+size-12, x+12, text=("{}").format(self.paper_agent.holding), fill="black", font=('Helvetica {} bold'.format(font_size))))
+
+            elif square_type == PERSON_CELL: #Draw our bro Paolo on the canvas.
+                self.canvas_dynamic_objs.append(self.canvas.create_image(y+16, x+4, anchor=tk.NW, image=self.person_agent_pic))
             
             elif square_type == PAPER_LITTER_CELL:
-                self.canvas.create_image(y+12, x+12, anchor=tk.NW, image=self.paper_litter_pic)
+                self.canvas_dynamic_objs.append(self.canvas.create_image(y+12, x+12, anchor=tk.NW, image=self.paper_litter_pic))
             
             elif square_type == PLASTIC_LITTER_CELL:
-                self.canvas.create_image(y+12, x+12, anchor=tk.NW, image=self.plastic_litter_pic)
+                self.canvas_dynamic_objs.append(self.canvas.create_image(y+12, x+12, anchor=tk.NW, image=self.plastic_litter_pic))
     
     def count_litter(self):
         count = 0
@@ -404,7 +443,7 @@ class LitterWorld():
             return True
         
         return False
-    
+
     def move_persons(self):
         upd_persons = []
         # Set up persons init points
@@ -425,14 +464,30 @@ class LitterWorld():
             upd_persons.append(person)
         
         self.persons = upd_persons
+    
+    def move_agents(self):
+        if self.plastic_agent.moving:
+            self.plastic_agent.moving = False
+            self.plastic_agent.old_pose = self.plastic_agent.pose
+        
+        if self.paper_agent.moving:
+            self.paper_agent.moving = False
+            self.paper_agent.old_pose = self.paper_agent.pose
 
+    def draw_next_epoch(self, move_persons:bool):
+        if move_persons:
+            self.move_persons()
+        
         self.draw_world()
+        self.move_agents()
     
     def move_agent(self, agent, cmd_move):
 
         if agent == PLASTIC_AGENT_CELL:
             new_pose = self.try_upd_agent_pose(self.plastic_agent.pose, cmd_move)
             if new_pose != None:
+                self.plastic_agent.old_pose = self.plastic_agent.pose
+                self.plastic_agent.moving = True
                 self.grid[self.plastic_agent.pose.x][self.plastic_agent.pose.y] = EMPTY_CELL
                 self.plastic_agent.pose = new_pose
                 self.grid[self.plastic_agent.pose.x][self.plastic_agent.pose.y] = PLASTIC_AGENT_CELL
@@ -442,6 +497,8 @@ class LitterWorld():
         elif agent == PAPER_AGENT_CELL:
             new_pose = self.try_upd_agent_pose(self.paper_agent.pose, cmd_move)
             if new_pose != None:
+                self.paper_agent.old_pose = self.paper_agent.pose
+                self.paper_agent.moving = True
                 self.grid[self.paper_agent.pose.x][self.paper_agent.pose.y] = EMPTY_CELL
                 self.paper_agent.pose = new_pose
                 self.grid[self.paper_agent.pose.x][self.paper_agent.pose.y] = PAPER_AGENT_CELL

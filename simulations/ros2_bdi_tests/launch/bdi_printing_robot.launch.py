@@ -79,7 +79,7 @@ def generate_launch_description():
             'comp_plan_tries': 6,
             'exec_plan_tries': 4,
             'planning_mode':'online',
-            'reschedule_policy': 'CLEAN_PREEMPT',
+            'reschedule_policy': 'NO_PREEMPT',
             'search_interval': 100,
             'min_commit_steps': 2,
             'debug_log_active': ['javaff', 'scheduler']

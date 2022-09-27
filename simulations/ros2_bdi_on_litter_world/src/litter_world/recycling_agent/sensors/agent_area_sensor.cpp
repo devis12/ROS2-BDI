@@ -1,4 +1,5 @@
 #include <memory>
+#include <random>
 #include <vector>
 #include <map>
 #include <boost/algorithm/string.hpp>
@@ -24,12 +25,16 @@ using litter_world_interfaces::msg::Pose;
 using litter_world_interfaces::msg::GridRowStatus;    
 using litter_world_interfaces::msg::GridStatus;       
 
+#define MAX_SAME_POSE 8
+
 class AgentAreaSensor : public Sensor
 {
     public:
         AgentAreaSensor(const string& sensor_name, const vector<Belief>& proto_beliefs)
         : Sensor(sensor_name, proto_beliefs, false, false)
         {
+            srand (time (NULL));
+            
             robot_name_ = this->get_parameter("agent_id").as_string();
             
             last_pose_.x = -1;
@@ -39,9 +44,18 @@ class AgentAreaSensor : public Sensor
             belief_set_subscriber_ = this->create_subscription<BeliefSet>("/"+robot_name_+"/belief_set", 
                     rclcpp::QoS(1).reliable(), 
                     [&](const BeliefSet::SharedPtr msg){
+                        vector<Pose> free_poses;
+
                         for(Belief b : msg->value)
+                        {
                             if(b.name == "in" && b.params[0] == robot_name_)
                                 last_pose_ = extractPose(b.params[1]);//upd last believed pose
+                            else if(b.name == "free")
+                                free_poses.push_back(extractPose(b.params[0]));
+                        }
+
+                        if(free_poses.size() > 0)
+                            rnd_free_pose_ = free_poses[rand() % free_poses.size()];
                     });
         
 
@@ -104,7 +118,7 @@ class AgentAreaSensor : public Sensor
             if(curr_agent_pose.x != last_pose_.x || curr_agent_pose.y != last_pose_.y)
             {
                 // agent position has changed
-
+                same_pose_counter_ = 0; // reset same pose counter
                 // delete old agent position
                 auto belief_agent_pose_del = proto_belief_agent_pose;
                 belief_agent_pose_del.params[0] = robot_name_;
@@ -116,6 +130,28 @@ class AgentAreaSensor : public Sensor
                 belief_agent_pose_add.params[0] = robot_name_;
                 belief_agent_pose_add.params[1] = buildCellName(curr_agent_pose.x,curr_agent_pose.y);
                 sense(belief_agent_pose_add, UpdOperation::ADD);
+            }
+            else
+                same_pose_counter_ ++;
+            
+            if(same_pose_counter_ > MAX_SAME_POSE)
+            {
+                std::cout << "In the same position for too long..." << std::flush << std::endl;
+                senseShouldPatrol();
+                same_pose_counter_ = 0;
+            }
+        }
+
+        /*Pick believed to know rnd free cell and push the belief that you should sense it; done it when the agent seems to not be doing anything for too long*/
+        void senseShouldPatrol()
+        {
+            auto should_patrol_b_proto = getBeliefPrototype("should_patrol");
+            if(should_patrol_b_proto.has_value() && rnd_free_pose_.x >= 0 && rnd_free_pose_.y >= 0)
+            {
+                Belief should_patrol = should_patrol_b_proto.value();
+                should_patrol.params[0] = "c_"+std::to_string(rnd_free_pose_.x)+"_"+std::to_string(rnd_free_pose_.y);
+                std::cout << "Agent should patrol " << "c_"+std::to_string(rnd_free_pose_.x)+"_"+std::to_string(rnd_free_pose_.y) << std::flush << std::endl;
+                sense(should_patrol, UpdOperation::ADD);
             }
         }
 
@@ -298,6 +334,8 @@ class AgentAreaSensor : public Sensor
 
         string robot_name_;
         Pose last_pose_;
+        Pose rnd_free_pose_;
+        int same_pose_counter_ = 0;
         rclcpp::Subscription<BeliefSet>::SharedPtr belief_set_subscriber_;
         rclcpp::Subscription<GridStatus>::SharedPtr litter_world_status_subscriber_;
 };
@@ -314,6 +352,7 @@ int main(int argc, char ** argv)
   Belief b_proto_plastic = (ManagedBelief::buildMBInstance("?p", "plastic")).toBelief();
   Belief b_proto_paper = (ManagedBelief::buildMBInstance("?p", "paper")).toBelief();
   Belief b_proto_litter_pose = (ManagedBelief::buildMBPredicate("litter_pose", {ManagedParam{"?l", "litter"}, ManagedParam{"?c", "cell"}})).toBelief();
+  Belief b_proto_should_patrol = (ManagedBelief::buildMBPredicate("should_patrol", {ManagedParam{"?c", "cell"}})).toBelief();
   
   vector<Belief> proto_beliefs;
   proto_beliefs.push_back(b_proto_detection_depth);
@@ -322,6 +361,7 @@ int main(int argc, char ** argv)
   proto_beliefs.push_back(b_proto_plastic);
   proto_beliefs.push_back(b_proto_paper);
   proto_beliefs.push_back(b_proto_litter_pose);
+  proto_beliefs.push_back(b_proto_should_patrol);
   auto node = std::make_shared<AgentAreaSensor>("area_detection_sensor", proto_beliefs);
   rclcpp::spin(node);
 

@@ -1,0 +1,96 @@
+- condition:
+    clauses:
+      - literals:
+          - check: "EX"
+            condition_to_check:
+              name: "{x}"
+              pddl_type: 1
+              type: "plastic"
+
+          - check: "T"
+            condition_to_check:
+              name: "litter_pose"
+              pddl_type: 2
+              params:
+                - "{x}"
+                - "*"
+
+          - check: "EX"
+            condition_to_check:
+              name: "{y}"
+              pddl_type: 1
+              type: "plastic"
+
+          - check: "T"
+            condition_to_check:
+              name: "litter_pose"
+              pddl_type: 2
+              params:
+                - "{y}"
+                - "*"
+
+          - check: "EX"
+            condition_to_check:
+              name: "{z}"
+              pddl_type: 1
+              type: "plastic"
+
+          - check: "T"
+            condition_to_check:
+              name: "litter_pose"
+              pddl_type: 2
+              params:
+                - "{z}"
+                - "*"
+
+  reactive_rules:
+    - set: desire
+      operation: ADD
+      value:
+        name: "recycle"
+        priority: 0.8
+        deadline: 64
+        value:
+          - name: "recycled"
+            pddl_type: 2
+            params:
+              - "{x}"
+          - name: "recycled"
+            pddl_type: 2
+            params:
+              - "{y}"
+          - name: "recycled"
+            pddl_type: 2
+            params:
+              - "{z}"
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "should_patrol"
+              pddl_type: 2
+              params:
+                - "{x}"
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "should_patrol"
+        pddl_type: 2
+        params:
+          - "{x}"
+
+    - set: desire
+      operation: ADD
+      value:
+        name: "patrol_{x}"
+        priority: 0.4
+        deadline: 64
+        value:
+          - name: "in"
+            pddl_type: 2
+            params:
+              - "plastic_agent"
+              - "{x}"

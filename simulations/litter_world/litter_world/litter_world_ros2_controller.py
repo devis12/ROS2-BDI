@@ -3,6 +3,7 @@
 import os.path
 import json
 import random
+import time
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -33,6 +34,7 @@ class LitterWorldROS2Controller(Node):
         self.counter_ = 0
         self.declare_parameter("init_world", "{}")
         self.declare_parameter("upd_interval", 3000)
+        self.declare_parameter("people_movement", True)
         self.declare_parameter("show_agent_view", '')
         self.declare_parameter("size", 768)
     
@@ -45,6 +47,9 @@ class LitterWorldROS2Controller(Node):
     def get_size(self):
         return self.get_parameter("size").value
     
+    def get_people_movement(self):
+        return self.get_parameter("people_movement").value
+
     def get_init_world_json(self):
         init_world_filepath = self.get_parameter("init_world").value
         if not os.path.isfile(init_world_filepath):
@@ -58,7 +63,8 @@ class LitterWorldROS2Controller(Node):
     def init_ros2_controller(self, tk_litter_world_thread):
         self.tk_litter_world_thread_ = tk_litter_world_thread
         self.litter_world_status_publisher_ = self.create_publisher(GridStatus, "litter_world_status", 10) # create topic to periodically notify about grid map status
-        self.plastic_agent_patrol_desire = self.create_publisher(Desire, "/plastic_agent/add_desire", 10) #
+        # self.plastic_agent_patrol_desire_add = self.create_publisher(Desire, "/plastic_agent/add_desire", 10) #
+        # self.paper_agent_patrol_desire_add = self.create_publisher(Desire, "/paper_agent/add_desire", 10) #
         
         if self.get_parameter("show_agent_view").value == 'plastic_agent' or self.get_parameter("show_agent_view").value == 'paper_agent':
             monitoring_agent = self.get_parameter("show_agent_view").value
@@ -71,7 +77,7 @@ class LitterWorldROS2Controller(Node):
         self.paper_agent_cmd_upd_holding_ = ActionServer(self, CmdLoad, "cmd_paper_agent_hold", self.callback_cmd_paper_agent_hold)
         self.remove_litter_cmd_pose_ = ActionServer(self, CmdPose, "cmd_remove_litter", self.callback_cmd_remove_litter)
         
-        self.create_timer(0.25, self.litter_world_status_cb) #4Hz
+        self.create_timer(self.get_upd_interval()/2000, self.litter_world_status_cb) #Retrieve world status two times per epoch
         
         self.get_logger().info("Litter world has been started")
     
@@ -113,7 +119,6 @@ class LitterWorldROS2Controller(Node):
                     plastic_agent_pose = self.extract_pose_from_cell_name(belief.params[1])
                     current_map[plastic_agent_pose.x][plastic_agent_pose.y] = PLASTIC_AGENT_CELL
                 elif belief.params[0] == 'paper_agent':
-                    print('MAMMA QUANTTTO E\' BELLA TELVE!!! {} {}'.format(belief.name, ' '.join(belief.params)))
                     paper_agent_pose = self.extract_pose_from_cell_name(belief.params[1])
                     current_map[paper_agent_pose.x][paper_agent_pose.y] = PAPER_AGENT_CELL
             
@@ -175,17 +180,31 @@ class LitterWorldROS2Controller(Node):
             self.tk_litter_world_thread_.update_pa_trajectory(MGMoveTrajectory(target_pose, committed_poses, not_committed_poses))
 
     def callback_cmd_plastic_agent_move(self, goal_handle):
-        performed = self.tk_litter_world_thread_.move_agent(PLASTIC_AGENT_CELL, goal_handle.request.cmd) #TODO feedback 
+        accepted = self.tk_litter_world_thread_.move_agent(PLASTIC_AGENT_CELL, goal_handle.request.cmd) 
+
+        if accepted:
+            feedback_msg = CmdPose.Feedback()
+            feedback_msg.progress = 0.5
+            goal_handle.publish_feedback(feedback_msg)
+            time.sleep(self.get_upd_interval()/1000)
+
         goal_handle.succeed()
         result = CmdPose.Result()
-        result.performed = performed
+        result.performed = accepted
         return result
 
     def callback_cmd_paper_agent_move(self, goal_handle):
-        performed = self.tk_litter_world_thread_.move_agent(PAPER_AGENT_CELL, goal_handle.request.cmd) #TODO feedback 
+        accepted = self.tk_litter_world_thread_.move_agent(PAPER_AGENT_CELL, goal_handle.request.cmd) 
+
+        if accepted:
+            feedback_msg = CmdPose.Feedback()
+            feedback_msg.progress = 0.5
+            goal_handle.publish_feedback(feedback_msg)
+            time.sleep(self.get_upd_interval()/1000)
+
         goal_handle.succeed()
         result = CmdPose.Result()
-        result.performed = performed
+        result.performed = accepted
         return result
 
     def callback_cmd_plastic_agent_hold(self, goal_handle):
@@ -223,7 +242,9 @@ class LitterWorldROS2Controller(Node):
 
     def litter_world_status_cb(self):
         world_grid, litter_grid = self.tk_litter_world_thread_.get_litter_world_status()
-        
+        if world_grid == None or litter_grid == None:
+            return
+
         free_cells = []
 
         # use world grid to map agent, bins, static and dynamic obstacles
@@ -251,19 +272,36 @@ class LitterWorldROS2Controller(Node):
 
         self.litter_world_status_publisher_.publish(litter_world_grid_msg)
 
-        if len(free_cells) > 0:
-            pla_agent_patrol_msg = Desire()
-            pla_agent_patrol_msg.name = 'patrol'
-            pla_agent_patrol_msg.priority = 0.4
-            pla_agent_patrol_msg.deadline = 36.0
-            rnd_pose_index = random.randint(0, len(free_cells)-1)
-            rnd_pose = free_cells[rnd_pose_index]
-            target_pose_belief = Belief()
-            target_pose_belief.name = 'in'
-            target_pose_belief.pddl_type = 2
-            target_pose_belief.params = ['plastic_agent', 'c_{}_{}'.format(rnd_pose.x, rnd_pose.y)]
-            pla_agent_patrol_msg.value = [target_pose_belief]
-            self.plastic_agent_patrol_desire.publish(pla_agent_patrol_msg)
+        # if len(free_cells) > 2:
+        #     rnd_index1 = random.randint(0, len(free_cells)-1)
+        #     rnd_index2 = random.randint(0, len(free_cells)-1)
+        #     while rnd_index2 != rnd_index1:
+        #         rnd_index2 = random.randint(0, len(free_cells)-1)
+
+        #     rnd_pose1 = free_cells[rnd_index1]
+        #     pla_agent_patrol_msg = Desire()
+        #     pla_agent_patrol_msg.name = 'patrolc_{}_{}'.format(rnd_pose1.x, rnd_pose1.y)
+        #     pla_agent_patrol_msg.priority = 0.4
+        #     pla_agent_patrol_msg.deadline = 48.0
+        #     target_pose_belief = Belief()
+        #     target_pose_belief.name = 'in'
+        #     target_pose_belief.pddl_type = 2
+        #     target_pose_belief.params = ['plastic_agent', 'c_{}_{}'.format(rnd_pose1.x, rnd_pose1.y)]
+        #     pla_agent_patrol_msg.value = [target_pose_belief]
+        #     self.plastic_agent_patrol_desire_add.publish(pla_agent_patrol_msg)
+
+        #     rnd_pose2 = free_cells[rnd_index2]
+        #     pap_agent_patrol_msg = Desire()
+        #     pap_agent_patrol_msg.name = 'patrolc_{}_{}'.format(rnd_pose2.x, rnd_pose2.y)
+        #     pap_agent_patrol_msg.priority = 0.4
+        #     pap_agent_patrol_msg.deadline = 48.0
+        #     target_pose_belief = Belief()
+        #     target_pose_belief.name = 'in'
+        #     target_pose_belief.pddl_type = 2
+        #     target_pose_belief.params = ['paper_agent', 'c_{}_{}'.format(rnd_pose2.x, rnd_pose2.y)]
+        #     pap_agent_patrol_msg.value = [target_pose_belief]
+        #     self.paper_agent_patrol_desire_add.publish(pap_agent_patrol_msg)
+            
 
 
 def main(args=None):
@@ -274,11 +312,12 @@ def main(args=None):
     upd_interval = node.get_upd_interval()
     init_world_json = node.get_init_world_json()
     show_agent_view = node.get_show_agent_view()
+    people_movement = node.get_people_movement()
     size = node.get_size()
 
     if init_world_json != None:
         # Create new thread to handle tk app
-        tk_litter_world_thread = TkLitterWorldThread(init_world_json, upd_interval, show_agent_view, size)
+        tk_litter_world_thread = TkLitterWorldThread(init_world_json, upd_interval, show_agent_view, size, people_movement)
         
         node.init_ros2_controller(tk_litter_world_thread)
 
