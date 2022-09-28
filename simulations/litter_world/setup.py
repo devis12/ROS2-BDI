@@ -1,6 +1,19 @@
+from os import walk
+from os import path
 from setuptools import setup
 
 package_name = 'litter_world'
+
+CURR_DIR = path.dirname(path.realpath(__file__))
+init_files = []
+for root, dirs, files in walk(path.join(CURR_DIR, 'init')):
+    for file in files:
+        init_files.append(('share/' + package_name + '/init', ['init/'+file]))
+
+asset_files = []
+for root, dirs, files in walk(path.join(CURR_DIR, 'asset')):
+    for file in files:
+        asset_files.append(('share/' + package_name + '/asset', ['asset/'+file]))
 
 setup(
     name=package_name,
@@ -9,17 +22,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/init', ['init/problem4x4.json']),
-        ('share/' + package_name + '/init', ['init/problem7x7.json']),
-        ('share/' + package_name + '/init', ['init/problem8x8.json']),
-        ('share/' + package_name + '/asset', ['asset/paper_agent.png']),
-        ('share/' + package_name + '/asset', ['asset/plastic_agent.png']),
-        ('share/' + package_name + '/asset', ['asset/person.png']),
-        ('share/' + package_name + '/asset', ['asset/plastic_bin.png']),
-        ('share/' + package_name + '/asset', ['asset/paper_bin.png']),
-        ('share/' + package_name + '/asset', ['asset/plastic_litter.png']),
-        ('share/' + package_name + '/asset', ['asset/paper_litter.png']),
+        *init_files,
+        *asset_files
     ],
     install_requires=['setuptools'],
     zip_safe=True,

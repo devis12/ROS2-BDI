@@ -34,21 +34,17 @@ class LitterWorldROS2Controller(Node):
         self.counter_ = 0
         self.declare_parameter("init_world", "{}")
         self.declare_parameter("upd_interval", 3000)
-        self.declare_parameter("people_movement", True)
         self.declare_parameter("show_agent_view", '')
-        self.declare_parameter("size", 768)
+        self.declare_parameter("world_size_px", 768)
     
     def get_upd_interval(self):
         return self.get_parameter("upd_interval").value
-    
+
     def get_show_agent_view(self):
         return self.get_parameter("show_agent_view").value
     
-    def get_size(self):
-        return self.get_parameter("size").value
-    
-    def get_people_movement(self):
-        return self.get_parameter("people_movement").value
+    def get_world_size_px(self):
+        return self.get_parameter("world_size_px").value
 
     def get_init_world_json(self):
         init_world_filepath = self.get_parameter("init_world").value
@@ -309,28 +305,36 @@ def main(args=None):
     
     # Create rclpy node to handle ROS2 "frontend"
     node = LitterWorldROS2Controller()
-    upd_interval = node.get_upd_interval()
     init_world_json = node.get_init_world_json()
-    show_agent_view = node.get_show_agent_view()
-    people_movement = node.get_people_movement()
-    size = node.get_size()
+    tk_litter_world_thread = None
 
     if init_world_json != None:
-        # Create new thread to handle tk app
-        tk_litter_world_thread = TkLitterWorldThread(init_world_json, upd_interval, show_agent_view, size, people_movement)
+        world_setup = {
+            "upd_interval": node.get_upd_interval(),
+            "world_size_px": node.get_world_size_px(),
+            "init_world_json": init_world_json,
+            "show_agent_view": node.get_show_agent_view(),
+        }
         
-        node.init_ros2_controller(tk_litter_world_thread)
 
-        # Start new Threads
-        tk_litter_world_thread.start()
+        if world_setup["init_world_json"] != None:
+            # Create new thread to handle tk app
+            tk_litter_world_thread = TkLitterWorldThread(world_setup)
+            
+            node.init_ros2_controller(tk_litter_world_thread)
 
-        mt_executor = MultiThreadedExecutor()
-        mt_executor.add_node(node)
-        mt_executor.spin()# allow node to continue to be alive
-        #rclpy.spin(node) 
+            # Start new Threads
+            tk_litter_world_thread.start()
+
+            mt_executor = MultiThreadedExecutor()
+            mt_executor.add_node(node)
+            mt_executor.spin()# allow node to continue to be alive
+            #rclpy.spin(node) 
 
     rclpy.shutdown() # last line of any ROS2 .py node
-    tk_litter_world_thread.join()
+    
+    if tk_litter_world_thread != None:
+        tk_litter_world_thread.join()
 
 if __name__ == "__main__":
     main()

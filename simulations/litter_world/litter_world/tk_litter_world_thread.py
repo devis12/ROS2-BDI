@@ -2,30 +2,32 @@
 
 import threading
 
+from typing import List
+from .person import MGPerson
+
 from .pose import MGPose
 from .move_trajectory import MGMoveTrajectory
 
 from .tk_litter_world import TkLitterWorld
 
 class TkLitterWorldThread (threading.Thread):
-    def __init__(self, init_world_json, upd_interval:int, show_agent_view:str, size:int, people_movement:bool):
+    def __init__(self, world_setup):
         threading.Thread.__init__(self)
-        self.init_world_ = self.parse_to_init_world(init_world_json)
-        self.upd_interval_ = upd_interval
-        self.show_agent_view_ = show_agent_view
-        self.size_ = size
-        self.people_movement_ = people_movement
+        self.init_world_ = self.parse_to_init_world(world_setup["init_world_json"]) if "init_world_json" in world_setup else None
+        self.upd_interval_ = world_setup["upd_interval"] if "upd_interval" in world_setup else None
+        self.show_agent_view_ = world_setup["show_agent_view"] if "show_agent_view" in world_setup else None
+        self.size_px_ = world_setup["world_size_px"] if "world_size_px" in world_setup else None
         self.tk_litter_world_ = None
 
     def run(self):
-        self.tk_litter_world_ = TkLitterWorld(self.init_world_, self.upd_interval_, self.show_agent_view_, self.size_, self.people_movement_)
+        self.tk_litter_world_ = TkLitterWorld(self.init_world_, self.upd_interval_, self.show_agent_view_, self.size_px_)
         self.tk_litter_world_.mainloop()  
 
     def update_pa_trajectory(self, move_trajectory:MGMoveTrajectory):
         if self.tk_litter_world_ != None:
             self.tk_litter_world_.update_pa_trajectory(move_trajectory)
 
-    def update_pa_world(self, obstacles:list, plastic_litter_poses:list, paper_litter_poses:list, init_poses, detection_depth:int):
+    def update_pa_world(self, obstacles:List[MGPose], plastic_litter_poses:List[MGPose], paper_litter_poses:List[MGPose], init_poses, detection_depth:int):
         if self.tk_litter_world_ != None:
             self.tk_litter_world_.update_pa_world(obstacles, plastic_litter_poses, paper_litter_poses, init_poses, detection_depth)
 
@@ -56,9 +58,20 @@ class TkLitterWorldThread (threading.Thread):
                 obstacles.append(MGPose(obs["x"], obs["y"]))
         
         persons = []
-        if 'obstacles'in init_world_json:
+        if 'persons'in init_world_json:
             for person in init_world_json["persons"]:
-                persons.append(MGPose(person["x"], person["y"]))
+                if 'start' in person:
+                    start_pose = MGPose(person["start"]["x"], person["start"]["y"])
+                    litter_generation = person["litter_generation"] if "litter_generation" in person and person["litter_generation"] >= 0.0 and person["litter_generation"] <= 1.0 else 0.0
+                    move_option = "random"
+                    move_value = 0.0
+                    if "movement" in person:
+                        move_option = person["movement"]["move_option"] if "move_option" in person["movement"] else "random"
+                        move_value = person["movement"]["move_value"] if "move_value" in person["movement"] else 0.0
+                        if move_option == "random":
+                            move_value = move_value if move_value >= 0.0 and move_value <= 1.0 else 0.0
+                    mg_person = MGPerson(start_pose,litter_generation, move_option, move_value)
+                    persons.append(mg_person)
 
         plastic_poses = []
         if 'plastic_poses' in init_world_json:
@@ -74,12 +87,12 @@ class TkLitterWorldThread (threading.Thread):
             "columns": columns,
             "rows": rows,
             "obstacles": obstacles,
+            "persons": persons,
             "init_poses":{
                 "plastic_agent": plastic_agent_pose,
                 "paper_agent": paper_agent_pose,
                 "plastic_bin": plastic_bin_pose,
                 "paper_bin": paper_bin_pose,
-                "persons": persons,
                 "plastic_poses": plastic_poses,
                 "paper_poses": paper_poses
             }

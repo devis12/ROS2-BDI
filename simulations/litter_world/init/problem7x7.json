@@ -14,8 +14,16 @@
     { "x": 5, "y": 4 }
   ],
   "persons": [
-    { "x": 3, "y": 0 },
-    { "x": 4, "y": 3 }
+    {
+      "start": { "x": 3, "y": 0 },
+      "litter_generation": 0.1,
+      "movement": { "move_option": "random", "move_value": 0.25 }
+    },
+    {
+      "start": { "x": 4, "y": 3 },
+      "litter_generation": 0.5,
+      "movement": { "move_option": "random", "move_value": 1 }
+    }
   ],
   "plastic_poses": [
     { "x": 6, "y": 1 },
