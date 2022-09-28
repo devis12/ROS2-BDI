@@ -78,10 +78,10 @@ def generate_launch_description():
             #'init_reactive_rules_set': bdi_tests_share_dir + '/launch/init_printing_floor/init_rrules_impr_sol.yaml',
             'comp_plan_tries': 2,
             'exec_plan_tries': 4,
-            'planning_mode':'online',
+            'planning_mode':'offline',
             'search_interval': 150,
             'min_commit_steps': 2,
-            'debug_log_active': ['javaff']
+            'debug_log_active': []
         },
         actions=[pf_action_move, pf_action_docking, pf_action_printing, pf_action_undocking, pf_action_recharge, pf_action_unload_printed_docs],
         sensors=[],

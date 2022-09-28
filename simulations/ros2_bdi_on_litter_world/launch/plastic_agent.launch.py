@@ -72,11 +72,11 @@ def generate_launch_description():
             'init_reactive_rules_set': os.path.join(bdi_on_litterworld_share_dir, 'launch', 'plastic_agent_init', 'init_rrules.yaml'),
             'comp_plan_tries': 2,
             'exec_plan_tries': 4,
-            'planning_mode':'online',
+            'planning_mode':'offline',
             'reschedule_policy': 'NO_PREEMPT',
             'search_interval': 400,
             'min_commit_steps': 1,
-            'debug_log_active': ['scheduler', 'javaff']
+            'debug_log_active': ['scheduler']
         },
         actions=[plastic_agent_move, plastic_agent_pickup, plastic_agent_recycle],
         sensors=[load_map_sensor, agent_area_sensor],

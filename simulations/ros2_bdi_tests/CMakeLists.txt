@@ -18,7 +18,7 @@ find_package(ros2_bdi_interfaces REQUIRED)
 find_package(ros2_bdi_skills REQUIRED)
 find_package(ros2_bdi_core REQUIRED)
 
-find_package(javaff_interfaces REQUIRED)
+# find_package(javaff_interfaces REQUIRED)
 
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -40,7 +40,7 @@ set(bdi_act_client_dep
   ros2_bdi_utils
   ros2_bdi_skills
   ros2_bdi_core
-  javaff_interfaces
+  # javaff_interfaces
 )
 
 set(sensors_dep

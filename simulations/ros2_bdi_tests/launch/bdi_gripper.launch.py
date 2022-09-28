@@ -98,10 +98,10 @@ def generate_launch_description():
             'desire_pr': [],
             'comp_plan_tries': 16,
             'exec_plan_tries': 4,
-            'planning_mode':'online',
+            'planning_mode':'offline',
             'min_commit_steps': 2,
             'search_interval': 1000,
-            'debug_log_active': ['javaff', 'event_listener', 'scheduler'],
+            'debug_log_active': ['event_listener', 'scheduler'],
 
         },
         actions=[
