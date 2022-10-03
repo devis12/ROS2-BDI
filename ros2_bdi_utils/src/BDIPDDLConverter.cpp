@@ -21,7 +21,10 @@ namespace BDIPDDLConverter
     */
     plansys2::Predicate buildPredicate(const BDIManaged::ManagedBelief& mb)
     {
-        return plansys2::Predicate{"(" + mb.getName()+ " " + mb.getParamsJoined() + ")"};
+        if(mb.getParams().empty())
+            return plansys2::Predicate{"(" + mb.getName() + ")"};
+        else
+            return plansys2::Predicate{"(" + mb.getName()+ " " + mb.getParamsJoined() + ")"};
     }
 
     /*
@@ -29,7 +32,10 @@ namespace BDIPDDLConverter
     */
     plansys2::Function buildFunction(const BDIManaged::ManagedBelief& mb)
     {
-        return plansys2::Function{"(" + mb.getName()+ " " + mb.getParamsJoined() + " " + std::to_string(mb.getValue()) + ")"};;
+        if(mb.getParams().empty())
+            return plansys2::Function{"(" + mb.getName()+ " " + std::to_string(mb.getValue()) + ")"};
+        else
+            return plansys2::Function{"(" + mb.getName()+ " " + mb.getParamsJoined() + " " + std::to_string(mb.getValue()) + ")"};
     }
 
     /*

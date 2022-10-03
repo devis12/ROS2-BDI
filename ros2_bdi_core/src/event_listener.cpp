@@ -302,31 +302,30 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
 
     //Desire set updates
     for(auto dset_upd : reactive_rule.getDesireRules())
-    {
+    {       
         if(dset_upd.first == ReactiveOp::ADD || dset_upd.first == ReactiveOp::BOOST && sel_planning_mode_ == OFFLINE)//boost in offline planning mode treated as add
         {
             if(desire_set_.count(dset_upd.second) == 0)
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getName());
+                    RCLCPP_INFO(this->get_logger(), "Adding desire " + dset_upd.second.getNameValue());
 
                 add_desire_publisher_->publish(dset_upd.second.toDesire());//add desire to dset 
             }
         }
         else if (dset_upd.first == ReactiveOp::BOOST)
         {
-            bool doIPub = desire_set_.count(dset_upd.second) == 0; // do i publish??? either no desire like this in the desire set or it make sense for boosting (some boosted value in a desire)
-            if(!doIPub)// check if the desire within desire_set_ can be potentially boosted
-                for(auto md : desire_set_)
-                    if(md.getName() == dset_upd.second.getName())
-                    {
-                        doIPub = md.computeBoostingValue(dset_upd.second).size() > 0; // there is a boosting value -> base condition for boosting + additional value in the target
-                    }
+            bool doIPub = true; // do i publish??? either no desire like this in the desire set or it make sense for boosting (some boosted value in a desire)
+            for(auto md : desire_set_)
+                if(md.getName() == dset_upd.second.getName())
+                {
+                    doIPub = !md.baseBoostingConditionsMatch(dset_upd.second) || md.computeBoostingValue(dset_upd.second).size() > 0; // there is a boosting value -> base condition for boosting + additional value in the target
+                }
 
             if(doIPub)
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Boosting desire " + dset_upd.second.getName());
+                    RCLCPP_INFO(this->get_logger(), "Boosting desire " + dset_upd.second.getNameValue());
 
                 boost_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
             }
@@ -336,7 +335,7 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
             if(desire_set_.count(dset_upd.second) > 0)
             {
                 if(this->get_parameter(PARAM_DEBUG).as_bool())
-                    RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getName());
+                    RCLCPP_INFO(this->get_logger(), "Deleting desire " + dset_upd.second.getNameValue());
 
                 del_desire_publisher_->publish(dset_upd.second.toDesire());//del desire to dset
             }

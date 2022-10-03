@@ -41,6 +41,12 @@ namespace BDIManaged
             
             void setName(const std::string& name){name_ = std::string{name};};
             std::string getName() const {return name_;};
+            std::string getNameValue() const {
+                std::string dvalue = "";
+                for(auto bv : value_)
+                    dvalue += "(" + bv.getName() + " " + bv.getParamsJoined() + ")";
+                return name_ + ": " + dvalue;
+            };
             std::vector<ManagedBelief> getValue() const {return value_;};
             float getPriority() const {return priority_;}
             float getDeadline() const {return deadline_;}

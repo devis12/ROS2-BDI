@@ -534,8 +534,11 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
 
     if(noPlanExecuting() && i<msg->plans.size() && msg->plans[i].plan.items.size() > 0)
     {  
-        launchFirstPPlanExecution(msg->plans[i]); 
+        bool launched = (launchFirstPPlanExecution(msg->plans[i]));
+        if(launched)
+            publishCurrentIntention();
     }else if(msg->plans[i].plan.items.size() > 0){
+        bool enqueuedSomething = false;
         for(; i<msg->plans.size(); i++)//avoid considering first pplan which is demanded for execution in the if branch above
         {
             highestPPlanId = (waitingPlansBack().has_value())? waitingPlansBack().value().getPlanQueueIndex() : executing_pplan_index_;
@@ -544,8 +547,11 @@ void SchedulerOnline::processIncrementalSearchResult(const javaff_interfaces::ms
             {
                 ManagedPlan computedMPP = ManagedPlan{msg->plans[i].plan.plan_index, fulfilling_desire_, ManagedDesire{msg->plans[i].target}, msg->plans[i].plan.items, ManagedConditionsDNF{msg->plans[i].target.precondition}, fulfilling_desire_.getContext()};
                 storeEnqueuePlan(computedMPP);
+                enqueuedSomething = true;
             }
         }
+        if(enqueuedSomething)
+            publishCurrentIntention();
         
     }
 }
@@ -775,10 +781,23 @@ void SchedulerOnline::checkForSatisfiedDesires()
 void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
 {
     ManagedDesire mdBoost = ManagedDesire{(*msg)};
-    if(fulfilling_desire_.getValue().size() == 0)
+    if(computed_plan_desire_map_.count(mdBoost.getName()) > 0 && fulfilling_desire_.getName() != mdBoost.getName())
     {
-        //no currently active desire
-        bool result = addDesire(mdBoost);
+        // it does match a desire in the desire set which is currently not active, perform offline boost
+        bool result1 = false, result2 = false;
+        for(ManagedDesire md : desire_set_)
+            if(md.getName() == mdBoost.getName())
+            {
+                ManagedDesire original_desire = md.clone();
+                result1 = md.boostDesire(mdBoost);
+                if(!result1)
+                    result2 = addDesire(md);
+                else
+                {
+                    replaceDesire(original_desire, md);
+                }
+                break;
+            }
     }
     else if (mdBoost.getName() == fulfilling_desire_.getName())
     {
@@ -807,42 +826,30 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
                 {
                     //go back to original desire
                     fulfilling_desire_ = original_desire;
+                    boosted = false;
                 } 
             }
         }
+
         
-        if(!boosted)
+        if(!boosted && (!fulfilling_desire_.baseBoostingConditionsMatch(mdBoost) || fulfilling_desire_.computeBoostingValue(mdBoost).size() > 0))
         {
             int16_t instance_counter = 2;
             while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) > 0) instance_counter++;
             string new_name = mdBoost.getName()+std::to_string(instance_counter);
             mdBoost.setName(new_name); // set new name, to distinguish it from the original, by putting the first av. number at the end
             bool result = addDesire(mdBoost);//then add it as a separate desire
+            if(this->get_parameter(PARAM_DEBUG).as_bool())
+            {
+                RCLCPP_INFO(this->get_logger(), "Desire " + fulfilling_desire_.getNameValue() +
+                    "cannot be boosted with " + mdBoost.getNameValue()  + (result? " which has been added to the dset" : ""));
+            }
         }
     }
     else if(computed_plan_desire_map_.count(mdBoost.getName()) == 0)
     {
         // it does not match the currently active desire nor any other desire in the desire set, simply add it to the desire set
         bool result = addDesire(mdBoost);
-    }
-    else
-    {
-        bool result1 = false, result2 = false;
-        // it does match a desire in the desire set which is currently not active, perform offline boost
-        for(ManagedDesire md : desire_set_)
-            if(md.getName() == mdBoost.getName())
-            {
-                ManagedDesire original_desire = md.clone();
-                result1 = md.boostDesire(mdBoost);
-                if(!result1)
-                    result2 = addDesire(md);
-                else
-                {
-                    replaceDesire(original_desire, md);
-                }
-                break;
-            }
-        
     }
 }
 

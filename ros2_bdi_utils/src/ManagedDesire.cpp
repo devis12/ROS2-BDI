@@ -216,13 +216,14 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
 
 bool ManagedDesire::baseBoostingConditionsMatch(const ManagedDesire& otherDesire)
 {
-    if(otherDesire.getName() != otherDesire.getName())
+    if(name_ != otherDesire.getName())
         return false;
 
-    if(otherDesire.getPriority() != otherDesire.getPriority())
+    if(priority_ != otherDesire.getPriority())
         return false;
     
-    if(otherDesire.getDesireGroup() != otherDesire.getDesireGroup())
+    
+    if(desire_group_ != otherDesire.getDesireGroup())
         return false;
     
     return true;
