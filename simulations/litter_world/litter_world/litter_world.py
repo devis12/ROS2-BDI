@@ -133,7 +133,7 @@ class LitterWorld():
         self.paper_litter_img_mini_ = self.paper_litter_img_mini_.resize((int(self.size_factor)-48,int(self.size_factor)-48))
         self.paper_litter_pic_mini_ = ImageTk.PhotoImage(self.paper_litter_img_mini_)
 
-        self.person_agent_img_ = self.person_agent_img_.resize((int(self.size_factor)-32,int(self.size_factor)-8))
+        self.person_agent_img_ = self.person_agent_img_.resize((int(self.size_factor)-8,int(self.size_factor)-8))
         self.person_agent_pic_ = ImageTk.PhotoImage(self.person_agent_img_)
 
 
@@ -425,7 +425,7 @@ class LitterWorld():
                 self.canvas_dynamic_objs_.append(self.canvas_.create_text(y+size-12, x+12, text=("{}").format(self.paper_agent_.holding), fill="black", font=('Helvetica {} bold'.format(font_size))))
 
             elif square_type == PERSON_CELL: #Draw our bro Paolo on the canvas.
-                self.canvas_dynamic_objs_.append(self.canvas_.create_image(y+16, x+4, anchor=tk.NW, image=self.person_agent_pic_))
+                self.canvas_dynamic_objs_.append(self.canvas_.create_image(y+4, x+4, anchor=tk.NW, image=self.person_agent_pic_))
             
             elif square_type == PAPER_LITTER_CELL:
                 self.canvas_dynamic_objs_.append(self.canvas_.create_image(y+12, x+12, anchor=tk.NW, image=self.paper_litter_pic_))

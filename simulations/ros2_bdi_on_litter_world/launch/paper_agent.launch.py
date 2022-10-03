@@ -60,7 +60,8 @@ def generate_launch_description():
         specific_params=[
             {"init_sleep": 4},
             {"sensing_freq": 1.0},
-            {"detection_depth": 2}
+            {"detection_depth": 2},
+            {"should_patrol": False}
         ])
 
     pmode = 'offline'

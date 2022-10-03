@@ -60,7 +60,8 @@ def generate_launch_description():
         specific_params=[
             {"init_sleep": 4},
             {"sensing_freq": 1.0},
-            {"detection_depth": 2}
+            {"detection_depth": 2},
+            {"should_patrol": False}
         ])
 
     pmode = 'offline'
@@ -79,9 +80,9 @@ def generate_launch_description():
             'exec_plan_tries': 4,
             'planning_mode':pmode,
             'reschedule_policy': reschedule_policy,
-            'search_interval': 400,
+            'search_interval': 800,
             'min_commit_steps': 1,
-            'max_null_search_intervals': 12,
+            'max_null_search_intervals': 24,
             'debug_log_active': ['javaff', 'scheduler']
         },
         actions=[plastic_agent_move, plastic_agent_pickup, plastic_agent_recycle],

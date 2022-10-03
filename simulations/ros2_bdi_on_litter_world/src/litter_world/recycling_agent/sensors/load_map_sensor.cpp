@@ -76,10 +76,17 @@ class LoadMapSensor : public Sensor
                                     bsetAddAll.value.push_back(b);
                                 
                                 // std::cout << "sensing " << binPoses.size() << " binPoses" << std::flush << std::endl;
-                                senseAll(bsetAddAll, UpdOperation::ADD);
+                                if(belief_set_.value.size() < bsetAddAll.value.size())//still need to load all static info
+                                    senseAll(bsetAddAll, UpdOperation::ADD);
 
-                                if(belief_set_.value.size() >= bsetAddAll.value.size())//loaded all static info -> can quit
-                                    rclcpp::shutdown();
+                                else // loaded all static info -> can quit
+                                {
+                                    Belief bMapLoaded = getBeliefPrototype("map_loaded").value();
+                                    sense(bMapLoaded, UpdOperation::ADD);
+                                    for(auto b : belief_set_.value)
+                                        if(b.name == "map_loaded")//map loaded and agent knows it->can quit
+                                            rclcpp::shutdown();
+                                }
                             }
                         });
         }
@@ -208,12 +215,15 @@ int main(int argc, char ** argv)
   Belief b_proto_plastic_bin = (ManagedBelief::buildMBInstance("?pb", "plastic_bin")).toBelief();
   Belief b_proto_paper_bin = (ManagedBelief::buildMBInstance("?pb", "paper_bin")).toBelief();
   Belief b_proto_bin_pose = (ManagedBelief::buildMBPredicate("bin_pose", {ManagedParam{"?b", "bin"}, ManagedParam{"?c", "cell"}})).toBelief();
+  Belief b_proto_map_loaded = (ManagedBelief::buildMBPredicate("map_loaded", {})).toBelief();
   vector<Belief> proto_beliefs;
   proto_beliefs.push_back(b_proto_near);
   proto_beliefs.push_back(b_proto_free);
   proto_beliefs.push_back(b_proto_plastic_bin);
   proto_beliefs.push_back(b_proto_paper_bin);
   proto_beliefs.push_back(b_proto_bin_pose);
+  proto_beliefs.push_back(b_proto_map_loaded);
+  
   auto node = std::make_shared<LoadMapSensor>("load_map_sensor", proto_beliefs);
   rclcpp::spin(node);
 

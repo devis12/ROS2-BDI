@@ -1,6 +1,11 @@
 - condition:
     clauses:
       - literals:
+          - check: "T"
+            condition_to_check:
+              name: "map_loaded"
+              pddl_type: 2
+
           - check: "EX"
             condition_to_check:
               name: "{x}"
@@ -66,6 +71,11 @@
 - condition:
     clauses:
       - literals:
+          - check: "T"
+            condition_to_check:
+              name: "map_loaded"
+              pddl_type: 2
+
           - check: "T"
             condition_to_check:
               name: "should_patrol"

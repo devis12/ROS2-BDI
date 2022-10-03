@@ -35,6 +35,8 @@ class AgentAreaSensor : public Sensor
         {
             srand (time (NULL));
             
+            this->declare_parameter("should_patrol", false);
+
             robot_name_ = this->get_parameter("agent_id").as_string();
             
             last_pose_.x = -1;
@@ -115,20 +117,24 @@ class AgentAreaSensor : public Sensor
         */
         void senseNewAgentPose(const Pose& curr_agent_pose, const Belief& proto_belief_agent_pose)
         {
+            // old agent position belief 
+            auto belief_agent_pose_del = proto_belief_agent_pose;
+            belief_agent_pose_del.params[0] = robot_name_;
+            belief_agent_pose_del.params[1] = buildCellName(last_pose_.x,last_pose_.y);
+
+            // new agent position belief
+            auto belief_agent_pose_add = proto_belief_agent_pose;
+            belief_agent_pose_add.params[0] = robot_name_;
+            belief_agent_pose_add.params[1] = buildCellName(curr_agent_pose.x,curr_agent_pose.y);
+
             if(curr_agent_pose.x != last_pose_.x || curr_agent_pose.y != last_pose_.y)
             {
                 // agent position has changed
                 same_pose_counter_ = 0; // reset same pose counter
                 // delete old agent position
-                auto belief_agent_pose_del = proto_belief_agent_pose;
-                belief_agent_pose_del.params[0] = robot_name_;
-                belief_agent_pose_del.params[1] = buildCellName(last_pose_.x,last_pose_.y);
                 sense(belief_agent_pose_del, UpdOperation::DEL);
 
                 // add new agent position
-                auto belief_agent_pose_add = proto_belief_agent_pose;
-                belief_agent_pose_add.params[0] = robot_name_;
-                belief_agent_pose_add.params[1] = buildCellName(curr_agent_pose.x,curr_agent_pose.y);
                 sense(belief_agent_pose_add, UpdOperation::ADD);
             }
             else
@@ -136,9 +142,15 @@ class AgentAreaSensor : public Sensor
             
             if(same_pose_counter_ > MAX_SAME_POSE)
             {
-                std::cout << "In the same position for too long..." << std::flush << std::endl;
-                senseShouldPatrol();
-                same_pose_counter_ = 0;
+                // make sure agent knows its current position
+                sense(belief_agent_pose_add, UpdOperation::ADD);
+
+                if(this->get_parameter("should_patrol").as_bool())
+                {
+                    std::cout << "In the same position for too long, triggering patrol mode..." << std::flush << std::endl;
+                    senseShouldPatrol();
+                    same_pose_counter_ = 0;
+                }
             }
         }
 

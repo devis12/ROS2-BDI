@@ -31,3 +31,31 @@
         pddl_type: 2
         params:
           - "p2"
+
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "r_in"
+              pddl_type: 2
+              params:
+                - "r2"
+                - "h3*"
+
+  reactive_rules:
+    - set: belief
+      operation: DEL
+      value:
+        name: "available"
+        pddl_type: 2
+        params:
+          - "p2"
+
+    - set: belief
+      operation: ADD
+      value:
+        name: "available"
+        pddl_type: 2
+        params:
+          - "p1"

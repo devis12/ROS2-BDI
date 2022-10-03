@@ -9,3 +9,13 @@
   params:
     - "plastic_agent"
   value: 0
+
+- name: "pla61"
+  pddl_type: 1
+  type: "plastic"
+
+- name: "litter_pose"
+  pddl_type: 2
+  params:
+    - "pla61"
+    - "c_6_1"

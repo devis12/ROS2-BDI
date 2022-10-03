@@ -14,6 +14,7 @@
 
     (:predicates
         (should_patrol ?c - cell)
+        (map_loaded)
         (in ?a - recycling_agent ?c - cell)
         (bin_pose ?b - bin ?c - cell)
         (near ?c1 - cell ?c2 - cell)
