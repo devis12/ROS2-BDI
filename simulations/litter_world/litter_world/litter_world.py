@@ -67,7 +67,7 @@ class LitterWorld():
         # allow up??
         if pose.y > 0 and self.grid_[pose.x][pose.y-1] == EMPTY_CELL:
             poses.append(MGPose(pose.x, pose.y-1))
-        
+               
         return poses
 
     def __init__(self, canvas: tk.Canvas, parent_app, show_agent_view = ''):

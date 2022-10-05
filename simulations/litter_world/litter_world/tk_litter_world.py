@@ -23,7 +23,7 @@ class TkLitterWorld(tk.Tk):
         self.wait_next_epoch_ = threading.Condition()
         self.label_frame_ = tk.Frame(self)
         self.label_frame_.pack(fill=tk.X, expand=True)
-        self.epoch_label_ = tk.Label(self.label_frame_, text="Epoch: -", anchor=tk.W, font=('arial bold', 12))
+        self.epoch_label_ = tk.Label(self.label_frame_, text="Epoch: -", font=('arial bold', 12))
         self.epoch_label_.pack(side=tk.LEFT)
 
         self.litter_world_canvas_ = tk.Canvas(self, width=width_and_height, height=width_and_height,  bg='white')
@@ -33,8 +33,8 @@ class TkLitterWorld(tk.Tk):
         if show_agent_view == 'plastic_agent' or show_agent_view == 'paper_agent':
             self.agent_steps_ = 0
             txt_color = 'blue' if show_agent_view == 'plastic_agent' else 'orange'
-            self.steps_label_ = tk.Label(self.label_frame_, text="Steps: -", anchor=tk.E, fg=txt_color, font=('arial bold', 12))
-            self.steps_label_.pack()
+            self.steps_label_ = tk.Label(self.label_frame_, text="Steps: -", fg=txt_color, font=('arial bold', 12))
+            self.steps_label_.pack(side=tk.RIGHT)
 
             self.show_agent_view_ = show_agent_view
             self.agent_view_frame = tk.Frame(self)
@@ -44,8 +44,17 @@ class TkLitterWorld(tk.Tk):
 
             self.pa_litter_world_ = LitterWorld(self.pa_litter_world_canvas_, self, show_agent_view=show_agent_view)
             
-            self.divider_canvas_ = tk.Canvas(self.agent_view_frame, width=12, height=width_and_height,  bg='green')
-            self.divider_canvas_.pack(side=tk.LEFT)   
+            self.divider_canvas1_ = tk.Canvas(self.agent_view_frame, width=12, height=width_and_height,  bg=txt_color)
+            self.divider_canvas1_.pack(side=tk.LEFT)  
+
+            self.intention_box_ = tk.Frame(self.agent_view_frame, width=256, height=width_and_height)
+            self.intention_box_.pack(side=tk.LEFT, fill=tk.Y)   
+
+            self.intentions_label_ = tk.Label(self.intention_box_, text="Current trajectory", anchor=tk.N, fg=txt_color, font=('arial bold', 12))
+            self.intentions_label_.pack(fill=tk.Y)
+
+            self.divider_canvas2_ = tk.Canvas(self.agent_view_frame, width=12, height=width_and_height,  bg=txt_color)
+            self.divider_canvas2_.pack(side=tk.LEFT)   
 
             self.agent_view_frame.pack(side=tk.RIGHT)
 
@@ -75,6 +84,12 @@ class TkLitterWorld(tk.Tk):
         self.litter_world_.update_pa_trajectory(self.show_agent_view_, move_trajectory)
         
         if self.pa_litter_world_ != None:
+            intentions_text = 'Current trajectory\nfor target ({},{}):\n'.format(move_trajectory.target.x, move_trajectory.target.y)
+            for step in move_trajectory.committed:
+                intentions_text += '\nC({},{})'.format(step.x, step.y)
+            for step in move_trajectory.not_committed:
+                intentions_text += '\nNC({},{})'.format(step.x, step.y)
+            self.intentions_label_['text'] = intentions_text
             self.pa_litter_world_.update_pa_trajectory(self.show_agent_view_, move_trajectory)
 
     def move_agent(self, agent, cmd_move):

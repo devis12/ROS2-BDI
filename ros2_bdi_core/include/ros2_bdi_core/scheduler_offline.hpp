@@ -51,6 +51,11 @@ private:
     void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg);
 
     /*
+        Process desire boost request for active goal augmentation
+    */
+    void boostDesireTopicCallBack(const ros2_bdi_interfaces::msg::Desire::SharedPtr msg);
+
+    /*
         wrt the current plan execution...
         return sum of progress status of all actions within a plan divided by the number of actions
     */

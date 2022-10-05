@@ -219,9 +219,6 @@ private:
     // queue of waiting_plans for execution (LAST element of the vector is the first one that has been pushed)
     std::vector<BDIManaged::ManagedPlan> waiting_plans_;
 
-    // fulfilling desire 
-    BDIManaged::ManagedDesire fulfilling_desire_;
-
     // search is progressing
     bool searching_;
 
@@ -230,9 +227,6 @@ private:
 
     // committed status of ongoing search result
     javaff_interfaces::msg::CommittedStatus search_baseline_;
-
-    
-    rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr boost_desire_subscriber_;//boost desire notify on topic
 
     // computed partial plans echoed by JavaFF
     rclcpp::Subscription<javaff_interfaces::msg::SearchResult>::SharedPtr javaff_search_subscriber_;//javaff search sub.

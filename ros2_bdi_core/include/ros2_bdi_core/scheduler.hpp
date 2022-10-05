@@ -105,6 +105,22 @@ protected:
     */
     virtual void updatePlanExecution(const ros2_bdi_interfaces::msg::BDIPlanExecutionInfo::SharedPtr msg) = 0;
 
+    /*
+        Process desire boost request for active goal augmentation
+    */
+    virtual void boostDesireTopicCallBack(const ros2_bdi_interfaces::msg::Desire::SharedPtr msg) = 0;
+
+    /*
+    Returns true if there any matching desire in the desire set:
+        - priority and desire group exact match + 
+        - value of md contained 
+        - IF DESIRED ALSO: precondition & context condition
+    
+    */
+    bool matchingMDInDesireSet(const BDIManaged::ManagedDesire& md, const bool& doNotCheckConditions=false);
+
+    /*  Set new name for manage desire such that it does not conflict with other existing desires*/
+    void setNewMDName(BDIManaged::ManagedDesire& md);
 
     /*  
         Change internal state of the node
@@ -356,6 +372,9 @@ protected:
     // desire set of the agent <agent_id_>
     std::set<BDIManaged::ManagedDesire> desire_set_;
 
+    // fulfilling desire 
+    BDIManaged::ManagedDesire fulfilling_desire_;
+
     // hashmap for invalid desire or plan not computed counters (after x tries desire will be discarded)
     std::map<std::string, int> computed_plan_desire_map_;
     // hashmap for aborted plan desire map (plan aborted for that desire)
@@ -385,6 +404,9 @@ protected:
     rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr add_desire_subscriber_;//add desire notify on topic
     rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr del_desire_subscriber_;//del desire notify on topic
     rclcpp::Publisher<ros2_bdi_interfaces::msg::DesireSet>::SharedPtr desire_set_publisher_;//desire set publisher
+
+
+    rclcpp::Subscription<ros2_bdi_interfaces::msg::Desire>::SharedPtr boost_desire_subscriber_;//boost desire notify on topic
 
     // belief set publisher (to publish info wrt. currently active desire)
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;//add belief publisher

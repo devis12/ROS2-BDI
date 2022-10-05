@@ -93,6 +93,9 @@ namespace BDIManaged
             // return true if otherDesire is augmented to the current one
             bool boostDesire(const ManagedDesire& otherDesire);
 
+            // return true if otherDesire has same priority and desire group + its value is contained within the value of the called MG Desire
+            bool baseMatch(const ManagedDesire& otherDesire);
+
             /* substitute placeholders as per assignments map and return a new ManagedDesire instance*/
             ManagedDesire applySubstitution(const std::map<std::string, std::string> assignments) const;
         private:

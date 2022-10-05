@@ -159,6 +159,11 @@ void Scheduler::init()
     del_desire_subscriber_ = this->create_subscription<Desire>(
                 DEL_DESIRE_TOPIC, qos_reliable,
                 bind(&Scheduler::delDesireTopicCallBack, this, _1));
+    
+    //Topic where a desire to be augmented to currently active goal or added to the desire set is published
+    boost_desire_subscriber_ = this->create_subscription<Desire>(
+                BOOST_DESIRE_TOPIC, rclcpp::QoS(10).reliable(),
+                bind(&Scheduler::boostDesireTopicCallBack, this, _1));
 
     //belief_set_subscriber_ 
     belief_set_subscriber_ = this->create_subscription<BeliefSet>(
@@ -375,7 +380,7 @@ TargetBeliefAcceptance Scheduler::targetBeliefAcceptanceCheck(const ManagedBelie
 }
 
 /*
-        Check with the domain_expert and problem_expert to understand if this is a valid goal
+    Check with the domain_expert and problem_expert to understand if this is a valid goal
     (i.e. valid predicates and valid instances defined within them)
 
     returns true iff managed desire can be considered syntactically correct
@@ -395,6 +400,32 @@ TargetBeliefAcceptance Scheduler::desireAcceptanceCheck(const ManagedDesire& md)
 
     return ACCEPTED;
 }
+
+/*
+    Returns true if there any matching desire in the desire set:
+        - priority and desire group exact match + 
+        - value of md contained 
+        - IF DESIRED ALSO: precondition & context condition
+    
+*/
+bool Scheduler::matchingMDInDesireSet(const BDIManaged::ManagedDesire& md, const bool& doNotCheckConditions)
+{
+    for(auto mdInSet : desire_set_)
+        if(mdInSet.baseMatch(md))
+            if(!doNotCheckConditions || mdInSet.getPrecondition() == md.getPrecondition() &&  mdInSet.getContext() == md.getContext())
+                return true;
+    return false;
+}
+
+ /*  Set new name for manage desire such that it does not conflict with other existing desires*/
+void Scheduler::setNewMDName(BDIManaged::ManagedDesire& md)
+{
+    int16_t instanceCounter = 1;
+    while(computed_plan_desire_map_.count(md.getName()+std::to_string(instanceCounter)) > 0) instanceCounter++;
+    string newName = md.getName()+std::to_string(instanceCounter);
+    md.setName(newName); // set new name, to distinguish it from the original, by putting the first av. number at the end
+}
+
 
 /*
     Launch execution of selectedPlan; if successful current plan is pushed into waiting plans for execution gets value of selectedPlan
@@ -436,6 +467,7 @@ bool Scheduler::abortCurrentPlanExecution()
         
         publishTargetGoalInfo(DEL_GOAL_BELIEFS);//goal disactivated -> upd belief set
         current_plan_ = BDIManaged::ManagedPlan{}; //no plan in execution
+        fulfilling_desire_ = ManagedDesire{};
     }
     else if(this->get_parameter(PARAM_DEBUG).as_bool())
         RCLCPP_INFO(this->get_logger(), "The request to abort plan execution fulfilling desire \"%s\" has not been fulfilled", current_plan_.getFinalTarget().getName());

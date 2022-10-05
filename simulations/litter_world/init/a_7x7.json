@@ -33,13 +33,20 @@
       }
     },
     {
-      "start": { "x": 5, "y": 3 },
+      "start": { "x": 6, "y": 3 },
       "litter_generation": 0.0,
       "movement": {
         "move_option": "path-defined",
         "move_value": {
-          "path": [],
-          "move_step": 12
+          "path": [
+            { "x": 5, "y": 3 },
+            { "x": 4, "y": 3 },
+            { "x": 3, "y": 3 },
+            { "x": 3, "y": 4 },
+            { "x": 3, "y": 5 },
+            { "x": 3, "y": 6 }
+          ],
+          "move_step": 8
         }
       }
     }

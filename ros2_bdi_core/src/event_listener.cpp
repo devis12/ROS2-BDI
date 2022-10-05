@@ -303,7 +303,7 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
     //Desire set updates
     for(auto dset_upd : reactive_rule.getDesireRules())
     {       
-        if(dset_upd.first == ReactiveOp::ADD || dset_upd.first == ReactiveOp::BOOST && sel_planning_mode_ == OFFLINE)//boost in offline planning mode treated as add
+        if(dset_upd.first == ReactiveOp::ADD)
         {
             if(desire_set_.count(dset_upd.second) == 0)
             {
@@ -317,9 +317,10 @@ void EventListener::apply_rule(const BDIManaged::ManagedReactiveRule& reactive_r
         {
             bool doIPub = true; // do i publish??? either no desire like this in the desire set or it make sense for boosting (some boosted value in a desire)
             for(auto md : desire_set_)
-                if(md.getName() == dset_upd.second.getName())
+                if(md.baseMatch(dset_upd.second))//already a desire with same exact match (priority + group + value contained)
                 {
-                    doIPub = !md.baseBoostingConditionsMatch(dset_upd.second) || md.computeBoostingValue(dset_upd.second).size() > 0; // there is a boosting value -> base condition for boosting + additional value in the target
+                    doIPub = false;
+                    break;
                 }
 
             if(doIPub)

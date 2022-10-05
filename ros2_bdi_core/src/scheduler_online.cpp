@@ -71,11 +71,6 @@ void SchedulerOnline::init()
     // max null search interval ms
     this->declare_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM, JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM_DEFAULT);
 
-    //Topic where a desire to be augmented to currently active goal or added to the desire set is published
-    boost_desire_subscriber_ = this->create_subscription<Desire>(
-                BOOST_DESIRE_TOPIC, rclcpp::QoS(10).reliable(),
-                bind(&SchedulerOnline::boostDesireTopicCallBack, this, _1));
-
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
     javaff_search_subscriber_ = this->create_subscription<SearchResult>(
@@ -329,6 +324,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
             if(desireAchieved)
             {
                 publishTargetGoalInfo(DEL_GOAL_BELIEFS);
+                fulfilling_desire_ = ManagedDesire{};
                 mtx_iter_dset_.lock();
                 delDesire(finalTarget, true);//desire achieved -> delete all desires within the same group
                 mtx_iter_dset_.unlock();
@@ -395,6 +391,7 @@ void SchedulerOnline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr 
             if(callUnexpectedState)//handle the following with unexpected state srv
             {   
                 publishTargetGoalInfo(DEL_GOAL_BELIEFS);
+                fulfilling_desire_ = ManagedDesire{};
                 //tmp cleaning //TODO need to be revised this after having fixed search full reset 
                 current_plan_ = ManagedPlan{};//no plan executing rn
                 waiting_plans_ = vector<ManagedPlan>();
@@ -469,8 +466,18 @@ void SchedulerOnline::updatedSearchResult(const SearchResult::SharedPtr msg)
         {
             //search has failed!! increment counter, del desire if threshold reached and FORCE a reschedule
             planCompFailureHandler(fulfilling_desire_, true);
-            forcedReschedule();
-            return;
+            if (noPlanExecuting())
+            {
+                // no plan executing -> immediately force reschedule
+                forcedReschedule();
+            }
+            else
+            {
+                // plan executing -> force clean arrest (i.e. early arrest of current plan)
+                waiting_plans_.clear(); // clear waiting queue immediately
+                bool ear = makeEarlyArrestRequest(current_plan_.getActionCommittedStatus());
+                waiting_clean_preempt_ = true;// don't care if ear is false -> simply stop at the end of current plan (since waiting has been erased)
+            }
         }
         else
         {
@@ -784,18 +791,15 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
     if(computed_plan_desire_map_.count(mdBoost.getName()) > 0 && fulfilling_desire_.getName() != mdBoost.getName())
     {
         // it does match a desire in the desire set which is currently not active, perform offline boost
-        bool result1 = false, result2 = false;
+        bool boosted = false;
         for(ManagedDesire md : desire_set_)
             if(md.getName() == mdBoost.getName())
             {
                 ManagedDesire original_desire = md.clone();
-                result1 = md.boostDesire(mdBoost);
-                if(!result1)
-                    result2 = addDesire(md);
-                else
-                {
+                boosted = md.boostDesire(mdBoost);
+                if(boosted) // if not boosted, no boosting value
                     replaceDesire(original_desire, md);
-                }
+    
                 break;
             }
     }
@@ -834,11 +838,9 @@ void SchedulerOnline::boostDesireTopicCallBack(const Desire::SharedPtr msg)
         
         if(!boosted && (!fulfilling_desire_.baseBoostingConditionsMatch(mdBoost) || fulfilling_desire_.computeBoostingValue(mdBoost).size() > 0))
         {
-            int16_t instance_counter = 2;
-            while(computed_plan_desire_map_.count(mdBoost.getName()+std::to_string(instance_counter)) > 0) instance_counter++;
-            string new_name = mdBoost.getName()+std::to_string(instance_counter);
-            mdBoost.setName(new_name); // set new name, to distinguish it from the original, by putting the first av. number at the end
-            bool result = addDesire(mdBoost);//then add it as a separate desire
+            setNewMDName(mdBoost); // set new name, to distinguish it from the original, by putting the first av. number at the end
+            bool found = matchingMDInDesireSet(mdBoost);//check whether there is an already matching desire in the dset
+            bool result = !found && addDesire(mdBoost);//then add it as a separate desire
             if(this->get_parameter(PARAM_DEBUG).as_bool())
             {
                 RCLCPP_INFO(this->get_logger(), "Desire " + fulfilling_desire_.getNameValue() +

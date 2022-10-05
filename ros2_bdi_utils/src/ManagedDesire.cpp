@@ -214,9 +214,27 @@ bool ManagedDesire::isFulfilled(const set<ManagedBelief>& bset)
     return true;//all target conditions already met    
 }
 
+// return true if otherDesire has same priority and desire group + its value is contained within the value of the called MG Desire
+bool ManagedDesire::baseMatch(const ManagedDesire& otherDesire)
+{
+    if(priority_ != otherDesire.getPriority() || desire_group_ != otherDesire.getDesireGroup())
+        return false;
+    
+    for(ManagedBelief mb1 : otherDesire.getValue())
+    {
+        bool found = false;    
+        for(ManagedBelief mb2 : value_)
+            if(mb1 == mb2){found = true; break;}
+        if(!found)
+            return false;
+    }
+
+    return true;
+}
+
 bool ManagedDesire::baseBoostingConditionsMatch(const ManagedDesire& otherDesire)
 {
-    if(name_ != otherDesire.getName())
+    if(name_.find(otherDesire.getName()) == string::npos)
         return false;
 
     if(priority_ != otherDesire.getPriority())

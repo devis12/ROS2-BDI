@@ -44,6 +44,7 @@ void SchedulerOffline::init()
 
     //init SchedulerOffline specific props
     current_plan_ = ManagedPlan{};
+    fulfilling_desire_ = ManagedDesire{};
 }
 
 /*
@@ -227,6 +228,8 @@ void SchedulerOffline::reschedule()
     if(selectedPlan.getActionsExecInfo().size() > 0)
     {
         bool triggered = tryTriggerPlanExecution(selectedPlan);
+        if(triggered)
+            fulfilling_desire_ = selectedPlan.getFinalTarget();
         if(this->get_parameter(PARAM_DEBUG).as_bool())
         {
             if(triggered) RCLCPP_INFO(this->get_logger(), "Triggered new plan execution success");
@@ -254,6 +257,7 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
         if(planExecInfo.status != planExecInfo.RUNNING)//plan not running anymore
         {
             publishTargetGoalInfo(DEL_GOAL_BELIEFS);
+            fulfilling_desire_ = ManagedDesire{};
             mtx_iter_dset_.lock();
             bool desireAchieved = isDesireSatisfied(targetDesire);
             bool desireDeleted = false;
@@ -330,6 +334,69 @@ void SchedulerOffline::updatePlanExecution(const BDIPlanExecutionInfo::SharedPtr
             }
             //next reschedule() will select a new plan if computable for a desire in desire set
         }
+    }
+}
+
+/*
+    Process desire boost request for active goal augmentation
+*/
+void SchedulerOffline::boostDesireTopicCallBack(const ros2_bdi_interfaces::msg::Desire::SharedPtr msg)
+{
+    ManagedDesire mdBoost = ManagedDesire{(*msg)};
+    if(computed_plan_desire_map_.count(mdBoost.getName()) > 0 && fulfilling_desire_.getName() != mdBoost.getName())
+    {
+        // it does match a desire in the desire set which is currently not active, perform offline boost
+        bool boosted = false;
+        for(ManagedDesire md : desire_set_)
+            if(md.getName() == mdBoost.getName())
+            {
+                ManagedDesire original_desire = md.clone();
+                boosted = md.boostDesire(mdBoost);
+                if(boosted) // if not boosted, no boosting value
+                    replaceDesire(original_desire, md);
+                
+                break;
+            }
+    }
+    else if (mdBoost.getName() == fulfilling_desire_.getName())
+    {
+        if(fulfilling_desire_.computeBoostingValue(mdBoost).size() > 0)
+        {
+            bool offlineBoost = false;
+
+            // try to perform offline boost in matching non active desires
+            for(ManagedDesire md : desire_set_)
+            {
+                if(md.getName() != fulfilling_desire_.getName() && md.getName().find(mdBoost.getName()) != string::npos)
+                {
+                    ManagedDesire original_desire = md.clone();
+                    if(md.boostDesire(mdBoost))
+                    {
+                        replaceDesire(original_desire, md);
+                        offlineBoost = true;
+                        break;
+                    }
+                }
+            }
+
+            // otherwise add it as a new desire
+            if(!offlineBoost)
+            {
+                setNewMDName(mdBoost);
+                bool found = matchingMDInDesireSet(mdBoost);
+                bool result = !found && addDesire(mdBoost);//then add it as a separate desire (if not already there)
+                if(this->get_parameter(PARAM_DEBUG).as_bool())
+                {
+                    RCLCPP_INFO(this->get_logger(), "Active desire " + fulfilling_desire_.getNameValue() +
+                        "cannot be boosted with " + mdBoost.getNameValue()  + (result? " which has been added to the dset" : "which has NOT been added to the dset"));
+                }
+            }
+        }
+    }
+    else if(computed_plan_desire_map_.count(mdBoost.getName()) == 0)
+    {
+        // it does not match the currently active desire nor any other desire in the desire set, simply add it to the desire set
+        bool result = addDesire(mdBoost);
     }
 }
 
