@@ -18,12 +18,13 @@ JavaFFClient::JavaFFClient(const string& nodeBasename)
     unexpected_state_client_ = caller_node_->create_client<UnexpectedState>(JAVAFF_UNEXPECTED_STATE_SRV);
 }
 
-bool JavaFFClient::launchPlanSearch(const ros2_bdi_interfaces::msg::Desire& fulfilling_desire, const string& problem, const int& interval, const int& max_empty_search_intervals)
+bool JavaFFClient::launchPlanSearch(const ros2_bdi_interfaces::msg::Desire& fulfilling_desire, const string& problem, const int& interval, const int& max_pplan_size, const int& max_empty_search_intervals)
 {
     auto req = std::make_shared<JavaFFPlan::Request>();
     req->fulfilling_desire = fulfilling_desire;
     req->problem = problem;
     req->search_interval = interval;
+    req->max_pplan_size = max_pplan_size;
     req->max_empty_search_intervals = max_empty_search_intervals;
     return makePlanSearchRequest(req);
 }

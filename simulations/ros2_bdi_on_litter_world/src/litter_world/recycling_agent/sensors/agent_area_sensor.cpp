@@ -363,7 +363,7 @@ int main(int argc, char ** argv)
   Belief b_proto_free = (ManagedBelief::buildMBPredicate("free", {ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_plastic = (ManagedBelief::buildMBInstance("?p", "plastic")).toBelief();
   Belief b_proto_paper = (ManagedBelief::buildMBInstance("?p", "paper")).toBelief();
-  Belief b_proto_litter_pose = (ManagedBelief::buildMBPredicate("litter_pose", {ManagedParam{"?l", "litter"}, ManagedParam{"?c", "cell"}})).toBelief();
+  Belief b_proto_litter_pose = (ManagedBelief::buildMBPredicate("litter_pose", {ManagedParam{"?l", "plastic"}, ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_should_patrol = (ManagedBelief::buildMBPredicate("should_patrol", {ManagedParam{"?c", "cell"}})).toBelief();
   
   vector<Belief> proto_beliefs;

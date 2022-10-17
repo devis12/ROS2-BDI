@@ -214,7 +214,7 @@ int main(int argc, char ** argv)
   Belief b_proto_free = (ManagedBelief::buildMBPredicate("free", {ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_plastic_bin = (ManagedBelief::buildMBInstance("?pb", "plastic_bin")).toBelief();
   Belief b_proto_paper_bin = (ManagedBelief::buildMBInstance("?pb", "paper_bin")).toBelief();
-  Belief b_proto_bin_pose = (ManagedBelief::buildMBPredicate("bin_pose", {ManagedParam{"?b", "bin"}, ManagedParam{"?c", "cell"}})).toBelief();
+  Belief b_proto_bin_pose = (ManagedBelief::buildMBPredicate("bin_pose", {ManagedParam{"?b", "plastic_bin"}, ManagedParam{"?c", "cell"}})).toBelief();
   Belief b_proto_map_loaded = (ManagedBelief::buildMBPredicate("map_loaded", {})).toBelief();
   vector<Belief> proto_beliefs;
   proto_beliefs.push_back(b_proto_near);

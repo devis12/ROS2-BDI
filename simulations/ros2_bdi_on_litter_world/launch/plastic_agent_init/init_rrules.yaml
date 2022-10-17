@@ -32,6 +32,42 @@
             pddl_type: 2
             params:
               - "{x}"
+
+- condition:
+    clauses:
+      - literals:
+          - check: "T"
+            condition_to_check:
+              name: "map_loaded"
+              pddl_type: 2
+
+          - check: "EX"
+            condition_to_check:
+              name: "{x}"
+              pddl_type: 1
+              type: "plastic"
+
+          - check: "T"
+            condition_to_check:
+              name: "holding"
+              pddl_type: 2
+              params:
+                - "plastic_agent"
+                - "{x}"
+
+  reactive_rules:
+    - set: desire
+      operation: BOOST
+      value:
+        name: "recycle"
+        priority: 0.8
+        deadline: 64
+        value:
+          - name: "recycled"
+            pddl_type: 2
+            params:
+              - "{x}"
+
 - condition:
     clauses:
       - literals:
@@ -60,7 +96,7 @@
       operation: ADD
       value:
         name: "patrol_{x}"
-        priority: 0.4
+        priority: 0.1
         deadline: 64
         value:
           - name: "in"

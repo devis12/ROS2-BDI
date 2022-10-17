@@ -1,8 +1,8 @@
 {
   "columns": 7,
   "rows": 7,
-  "plastic_agent": { "x": 0, "y": 1 },
-  "plastic_bin": { "x": 0, "y": 0 },
+  "plastic_agent": { "x": 0, "y": 0 },
+  "plastic_bin": { "x": 0, "y": 1 },
   "obstacles": [
     { "x": 1, "y": 3 },
     { "x": 1, "y": 4 },
@@ -16,30 +16,26 @@
   ],
   "persons": [
     {
-      "start": { "x": 3, "y": 0 },
+      "start": { "x": 4, "y": 0 },
       "litter_generation": 0.0,
       "movement": {
         "move_option": "path-defined",
         "move_value": {
           "path": [
-            { "x": 4, "y": 0 },
-            { "x": 5, "y": 0 },
-            { "x": 4, "y": 0 },
             { "x": 3, "y": 0 },
             { "x": 3, "y": 1 }
           ],
-          "move_step": 8
+          "move_step": 16
         }
       }
     },
     {
-      "start": { "x": 6, "y": 3 },
+      "start": { "x": 5, "y": 3 },
       "litter_generation": 0.0,
       "movement": {
         "move_option": "path-defined",
         "move_value": {
           "path": [
-            { "x": 5, "y": 3 },
             { "x": 4, "y": 3 },
             { "x": 3, "y": 3 },
             { "x": 3, "y": 4 },

@@ -111,6 +111,10 @@ def AgentLaunchDescription(
     planning_mode = 'offline'
     if PLANNING_MODE_PARAM in init_params:
         planning_mode = init_params[PLANNING_MODE_PARAM] if init_params[PLANNING_MODE_PARAM] in ['offline', 'online'] else 'offline'
+    
+    planner = ['POPF']
+    if PLANNER_PARAM in init_params:
+        planner = init_params[PLANNER_PARAM] if init_params[PLANNER_PARAM] in ['POPF', 'JAVAFF'] else 'POPF'
 
     if planning_mode == 'online': # psys2 won't start its planner (by launch args passed)
         debug_javaff = (DEBUG_ACTIVE_NODES_PARAM in init_params) and ('javaff' in init_params[DEBUG_ACTIVE_NODES_PARAM])
@@ -140,6 +144,7 @@ def AgentLaunchDescription(
         launch_arguments={
             'model_file': init_params[PDDL_FILE_PARAM],
             'namespace': namespace,
+            'planner': planner,
             'planning_mode': planning_mode
             }.items()
     )

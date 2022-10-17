@@ -6,6 +6,7 @@ import random
 
 import tkinter as tk
 
+import threading
 from typing import List
 
 from PIL import Image, ImageTk
@@ -313,9 +314,11 @@ class LitterWorld():
             if self.show_agent_view_ != '':
                 for canvas_static_obj in self.canvas_static_objs_:#delete also static obj in show agent view canvas, so that you can redraw detection area grid
                     self.canvas_.delete(canvas_static_obj)
+                self.canvas_static_objs_.clear()
 
             for canvas_dynamic_obj in self.canvas_dynamic_objs_:#delete all dynamic objs
                 self.canvas_.delete(canvas_dynamic_obj)
+            self.canvas_dynamic_objs_.clear()
 
             if len(self.canvas_static_objs_) == 0 or self.show_agent_view_ != '':
                 # Draw a square on the game board for every cell in the grid.
@@ -356,6 +359,7 @@ class LitterWorld():
     def update_pa_trajectory(self, agent:str, move_trajectory:MGMoveTrajectory):
         for canvas_trajectory_point in self.canvas_trajectory_points_:#delete all trajectory points
             self.canvas_.delete(canvas_trajectory_point) 
+        self.canvas_trajectory_points_.clear()
         if agent == 'plastic_agent':
             self.plastic_agent_.move_trajectory = move_trajectory
         elif agent == 'paper_agent':
@@ -372,19 +376,24 @@ class LitterWorld():
 
     def draw_trajectory(self, agent:str, move_trajectory:MGMoveTrajectory):
         color = 'blue' if agent == 'plastic_agent' else 'orange'
-        for commit_pose in move_trajectory.committed:
-            if self.is_valid_pose(commit_pose):
-                if agent == 'plastic_agent' and self.grid_[commit_pose.x][commit_pose.y] == PLASTIC_AGENT_CELL: # do not draw committed step on top of current agent position (outdated piece of trajectory)
-                    pass
-                elif agent == 'paper_agent' and self.grid_[commit_pose.x][commit_pose.y] == PAPER_AGENT_CELL: # do not draw committed step on top of current agent position (outdated piece of trajectory)
-                    pass
-                else:
-                    self.canvas_trajectory_points_.append(self.draw_circle(self.canvas_, commit_pose.x*self.size_factor + self.size_factor/2,commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/8, fill=color, outline="red", width=3))
-                    
+        for waiting_pose in move_trajectory.waiting_plans:
+            if self.is_valid_pose(waiting_pose):
+                self.canvas_trajectory_points_.append(self.draw_circle(self.canvas_, waiting_pose.x*self.size_factor + self.size_factor/2,waiting_pose.y*self.size_factor + self.size_factor/2,self.size_factor/16, fill='gray', outline=''))
+        
         for not_commit_pose in move_trajectory.not_committed:
             if self.is_valid_pose(not_commit_pose):
                 self.canvas_trajectory_points_.append(self.draw_circle(self.canvas_, not_commit_pose.x*self.size_factor + self.size_factor/2,not_commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/16, fill=color, outline=''))
-            
+
+        for commit_pose in move_trajectory.committed:
+            if self.is_valid_pose(commit_pose):
+                if agent == 'plastic_agent' and (not self.plastic_agent_.moving) and self.grid_[commit_pose.x][commit_pose.y] == PLASTIC_AGENT_CELL: # do not draw committed step on top of current agent position (outdated piece of trajectory)
+                    pass
+                elif agent == 'paper_agent' and (not self.paper_agent_.moving) and self.grid_[commit_pose.x][commit_pose.y] == PAPER_AGENT_CELL: # do not draw committed step on top of current agent position (outdated piece of trajectory)
+                    pass
+                else:
+                    self.canvas_trajectory_points_.append(self.draw_circle(self.canvas_, commit_pose.x*self.size_factor + self.size_factor/2,commit_pose.y*self.size_factor + self.size_factor/2,self.size_factor/8, fill=color, outline="red", width=3))   
+
+
         if self.is_valid_pose(move_trajectory.target):
             self.canvas_trajectory_points_.append(self.draw_circle(self.canvas_, move_trajectory.target.x*self.size_factor + self.size_factor/2,move_trajectory.target.y*self.size_factor + self.size_factor/2,self.size_factor/4, fill=color, outline=''))
     

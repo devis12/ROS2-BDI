@@ -41,10 +41,12 @@
 #define JAVAFF_START_PLAN_SRV "javaff_server/start_plan"
 #define JAVAFF_UNEXPECTED_STATE_SRV "javaff_server/unexpected_state"
 #define JAVAFF_SEARCH_INTERVAL_PARAM "search_interval"
+#define JAVAFF_MAX_PPLAN_SIZE_PARAM "max_pplan_size"
 #define JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM "max_null_search_intervals"
 
 #define JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT 500
 #define JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM_DEFAULT 16
+#define JAVAFF_MAX_PPLAN_SIZE_PARAM_DEFAULT 32000
 
 #define PLAN_LIBRARY_NAME "plan_lib.db"
 

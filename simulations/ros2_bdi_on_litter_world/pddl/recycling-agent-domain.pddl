@@ -7,8 +7,8 @@
     ;; Types ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (:types
         recycling_agent
-        plastic_bin paper_bin - bin
-        plastic paper - litter
+        plastic_bin
+        plastic
         cell
     );; end Types ;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -16,12 +16,12 @@
         (should_patrol ?c - cell)
         (map_loaded)
         (in ?a - recycling_agent ?c - cell)
-        (bin_pose ?b - bin ?c - cell)
+        (bin_pose ?b - plastic_bin ?c - cell)
         (near ?c1 - cell ?c2 - cell)
-        (litter_pose ?l - litter ?c - cell)
+        (litter_pose ?l - plastic ?c - cell)
         (free ?c - cell)
-        (holding ?a - recycling_agent ?l - litter )
-        (recycled ?l - litter)
+        (holding ?a - recycling_agent ?l - plastic )
+        (recycled ?l - plastic)
     )
 
     (:functions
@@ -30,7 +30,7 @@
     )
 
     (:durative-action litter_pickup
-        :parameters (?a - recycling_agent ?l - litter ?c - cell)
+        :parameters (?a - recycling_agent ?l - plastic ?c - cell)
         :duration (= ?duration 3)
         :condition (and
             (at start (< (loaded_amount ?a) 3))            
@@ -57,22 +57,6 @@
             (at start (free ?c1))
             (at end (in ?a ?c2))
             (at end (not(free ?c2)))
-        )
-    )
-
-    (:durative-action recycle_paper
-        :parameters (?a - recycling_agent ?pl - paper ?pb - paper_bin ?c ?cpl - cell)
-        :duration (= ?duration 3)
-        :condition (and           
-            (at start (holding ?a ?pl))                
-            (over all (in ?a ?c)) 
-            (over all (bin_pose ?pb ?cpl)) 
-            (over all (near ?c ?cpl)) 
-        )
-        :effect (and
-            (at start (not(holding ?a ?pl)))
-            (at start (decrease (loaded_amount ?a) 1))
-            (at end (recycled ?pl))
         )
     )
 

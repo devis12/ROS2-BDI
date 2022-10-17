@@ -78,7 +78,6 @@ class LitterWorldROS2Controller(Node):
         self.get_logger().info("Litter world has been started")
     
     def callback_pa_agent_bset(self, msg:BeliefSet):
-        
         plastic_bin_pose = MGPose(-1,-1)
         paper_bin_pose = MGPose(-1,-1)
         plastic_agent_pose = MGPose(-1,-1)
@@ -152,7 +151,7 @@ class LitterWorldROS2Controller(Node):
 
     def callback_pa_agent_intentions(self, msg:BDIPlanExecutionInfoMin):
         if self.get_parameter("show_agent_view").value == 'plastic_agent' or self.get_parameter("show_agent_view").value == 'paper_agent':
-            self.get_logger().info("Current info from /{}/current_intentions:".format(self.get_parameter("show_agent_view").value))
+            #self.get_logger().info("Current info from /{}/current_intentions:".format(self.get_parameter("show_agent_view").value))
             target_pose = MGPose(-1, -1)
             for target_belief in msg.target_value:
                 if target_belief.name == 'in' and target_belief.params[0] == self.get_parameter("show_agent_view").value:
@@ -161,19 +160,23 @@ class LitterWorldROS2Controller(Node):
             
             committed_poses = []
             not_committed_poses = []
-            self.get_logger().info("Via the following steps:")
+            waiting_plans_poses = []
+            #self.get_logger().info("Via the following steps:")
             for aex_min in msg.actions_exec_info:
                 if aex_min.name == 'move' and aex_min.args[0] == self.get_parameter("show_agent_view").value:
+                    next_pose = self.extract_pose_from_cell_name(aex_min.args[2])
                     if aex_min.status == BDIActionExecutionInfoMin().RUNNING or aex_min.status == BDIActionExecutionInfoMin().WAITING:
-                        next_pose = self.extract_pose_from_cell_name(aex_min.args[2])
                         if aex_min.committed:
                             committed_poses.append(next_pose)
-                            self.get_logger().info("COMM - {}: ({},{})".format(aex_min.status, next_pose.x, next_pose.y))
+                            #self.get_logger().info("COMM - {}: ({},{})".format(aex_min.status, next_pose.x, next_pose.y))
                         else:
                             not_committed_poses.append(next_pose)
-                            self.get_logger().info("NO_C: - {}: ({},{})".format(aex_min.status, next_pose.x, next_pose.y))
+                            #self.get_logger().info("NO_C: - {}: ({},{})".format(aex_min.status, next_pose.x, next_pose.y))
+                    elif aex_min.status == BDIActionExecutionInfoMin().UNKNOWN:
+                        waiting_plans_poses.append(next_pose)
 
-            self.tk_litter_world_thread_.update_pa_trajectory(MGMoveTrajectory(target_pose, committed_poses, not_committed_poses))
+
+            self.tk_litter_world_thread_.update_pa_trajectory(MGMoveTrajectory(target_pose, committed_poses, not_committed_poses, waiting_plans_poses))
 
     def callback_cmd_plastic_agent_move(self, goal_handle):
         accepted = self.tk_litter_world_thread_.move_agent(PLASTIC_AGENT_CELL, goal_handle.request.cmd) 

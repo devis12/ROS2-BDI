@@ -68,8 +68,11 @@ void SchedulerOnline::init()
     // interval search ms
     this->declare_parameter(JAVAFF_SEARCH_INTERVAL_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
 
+    // max pplan size
+    this->declare_parameter(JAVAFF_MAX_PPLAN_SIZE_PARAM, JAVAFF_SEARCH_INTERVAL_PARAM_DEFAULT);
+
     // max null search interval ms
-    this->declare_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM, JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM_DEFAULT);
+    this->declare_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM, JAVAFF_MAX_PPLAN_SIZE_PARAM_DEFAULT);
 
     javaff_client_ = std::make_shared<JavaFFClient>(string("javaff_srvs_caller"));
 
@@ -713,10 +716,12 @@ bool SchedulerOnline::launchPlanSearch(const BDIManaged::ManagedDesire& selDesir
 
     string pddl_problem = problem_expert_->getProblem();//get problem string
     int intervalSearchMS = this->get_parameter(JAVAFF_SEARCH_INTERVAL_PARAM).as_int();
+    int maxPPlanSize = this->get_parameter(JAVAFF_MAX_PPLAN_SIZE_PARAM).as_int();
     int maxEmptySearchIntervals = this->get_parameter(JAVAFF_SEARCH_MAX_EMPTY_SEARCH_INTERVALS_PARAM).as_int();
     intervalSearchMS = intervalSearchMS >= 100? intervalSearchMS : 100;
+    maxPPlanSize = maxPPlanSize > 0? maxPPlanSize : 32000;
     maxEmptySearchIntervals = maxEmptySearchIntervals > 0? maxEmptySearchIntervals : 16;
-    return javaff_client_->launchPlanSearch(selDesire.toDesire(), pddl_problem, intervalSearchMS, maxEmptySearchIntervals);
+    return javaff_client_->launchPlanSearch(selDesire.toDesire(), pddl_problem, intervalSearchMS,maxPPlanSize, maxEmptySearchIntervals);
 }
 
 /*

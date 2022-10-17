@@ -19,3 +19,23 @@
   params:
     - "pla61"
     - "c_6_1"
+
+- name: "pla36"
+  pddl_type: 1
+  type: "plastic"
+
+- name: "litter_pose"
+  pddl_type: 2
+  params:
+    - "pla36"
+    - "c_3_6"
+
+- name: "pla46"
+  pddl_type: 1
+  type: "plastic"
+
+- name: "litter_pose"
+  pddl_type: 2
+  params:
+    - "pla46"
+    - "c_4_6"

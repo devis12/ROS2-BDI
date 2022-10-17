@@ -20,13 +20,14 @@ class TkLitterWorld(tk.Tk):
         self.resizable(False, False)
 
         self.epoch_ = 0
+        self.height_ = width_and_height
         self.wait_next_epoch_ = threading.Condition()
         self.label_frame_ = tk.Frame(self)
         self.label_frame_.pack(fill=tk.X, expand=True)
         self.epoch_label_ = tk.Label(self.label_frame_, text="Epoch: -", font=('arial bold', 12))
         self.epoch_label_.pack(side=tk.LEFT)
 
-        self.litter_world_canvas_ = tk.Canvas(self, width=width_and_height, height=width_and_height,  bg='white')
+        self.litter_world_canvas_ = tk.Canvas(self, width=width_and_height, height=self.height_,  bg='white')
         self.litter_world_canvas_.pack(side=tk.LEFT)
 
         self.pa_litter_world_ = None
@@ -39,19 +40,21 @@ class TkLitterWorld(tk.Tk):
             self.show_agent_view_ = show_agent_view
             self.agent_view_frame = tk.Frame(self)
 
-            self.pa_litter_world_canvas_ = tk.Canvas(self.agent_view_frame, width=width_and_height, height=width_and_height,  bg='white')
+            self.pa_litter_world_canvas_ = tk.Canvas(self.agent_view_frame, width=width_and_height, height=self.height_,  bg='white')
             self.pa_litter_world_canvas_.pack(side=tk.RIGHT)        
 
             self.pa_litter_world_ = LitterWorld(self.pa_litter_world_canvas_, self, show_agent_view=show_agent_view)
             
-            self.divider_canvas1_ = tk.Canvas(self.agent_view_frame, width=12, height=width_and_height,  bg=txt_color)
+            self.divider_canvas1_ = tk.Canvas(self.agent_view_frame, width=12, height=self.height_,  bg=txt_color)
             self.divider_canvas1_.pack(side=tk.LEFT)  
 
-            self.intention_box_ = tk.Frame(self.agent_view_frame, width=256, height=width_and_height)
+            self.intention_box_ = tk.Frame(self.agent_view_frame, width=256, height=self.height_)
             self.intention_box_.pack(side=tk.LEFT, fill=tk.Y)   
 
             self.intentions_label_ = tk.Label(self.intention_box_, text="Current trajectory", anchor=tk.N, fg=txt_color, font=('arial bold', 12))
             self.intentions_label_.pack(fill=tk.Y)
+            self.waiting_intentions_label_ = tk.Label(self.intention_box_, text="", anchor=tk.N, fg='gray', font=('arial bold', 12))
+            self.waiting_intentions_label_.pack(fill=tk.Y)
 
             self.divider_canvas2_ = tk.Canvas(self.agent_view_frame, width=12, height=width_and_height,  bg=txt_color)
             self.divider_canvas2_.pack(side=tk.LEFT)   
@@ -84,12 +87,35 @@ class TkLitterWorld(tk.Tk):
         self.litter_world_.update_pa_trajectory(self.show_agent_view_, move_trajectory)
         
         if self.pa_litter_world_ != None:
-            intentions_text = 'Current trajectory\nfor target ({},{}):\n'.format(move_trajectory.target.x, move_trajectory.target.y)
+            curr_height = 0
+            if move_trajectory.target.x >= 0 and move_trajectory.target.y >= 0:
+                intentions_text = 'Current trajectory\nfor target ({},{}):\n'.format(move_trajectory.target.x, move_trajectory.target.y)
+            else:
+                intentions_text = 'Current trajectory:\n'
+            
+            curr_height+=12
+            waiting_intentions_text = ''
             for step in move_trajectory.committed:
-                intentions_text += '\nC({},{})'.format(step.x, step.y)
+                if curr_height + 60 < self.height_:
+                    intentions_text += '\nC({},{})'.format(step.x, step.y)
+                    curr_height+=12
+                else:
+                    break
             for step in move_trajectory.not_committed:
-                intentions_text += '\nNC({},{})'.format(step.x, step.y)
+                if curr_height + 60 < self.height_:
+                    intentions_text += '\nNC({},{})'.format(step.x, step.y)
+                    curr_height+=12
+                else:
+                    break
+            # for step in move_trajectory.waiting_plans:
+            #     if curr_height + 60 < self.height_:
+            #         waiting_intentions_text += '\nW({},{})'.format(step.x, step.y)
+            #         curr_height+=12
+            #     else:
+            #         break
             self.intentions_label_['text'] = intentions_text
+            self.waiting_intentions_label_['text'] = waiting_intentions_text
+
             self.pa_litter_world_.update_pa_trajectory(self.show_agent_view_, move_trajectory)
 
     def move_agent(self, agent, cmd_move):
