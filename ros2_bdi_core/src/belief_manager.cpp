@@ -282,24 +282,20 @@ void BeliefManager::updatedPDDLProblem(const Empty::SharedPtr msg)
     last_pddl_problem_ = pddlProblemNow;
     bool notify;//if anything changes, put it to true
     
-    std::istringstream ss(pddlProblemNow);
-    string line, out;
-    std::cout << "";
-    while(getline(ss, line)){
-        if((line.find("near") != string::npos) || (line.find("free") != string::npos))
-            out += "";
-        else 
-            out += line + "\n";
-    }
-    RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n");
-    RCLCPP_INFO(this->get_logger(), out);
-    std::ofstream file;
-    file.open("/home/devis/alexis.txt");
-    file << pddlProblemNow;
-    file.close();
+    
     if(this->get_parameter(PARAM_DEBUG).as_bool()){
-        // RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n"+pddlProblemNow);
-
+        std::istringstream ss(pddlProblemNow);
+        string line, out;
+        /* // USED TO FILTER OUT SOME HEAVILY PRESENT PREDICATES 
+        while(getline(ss, line)){
+            if((line.find("near") != string::npos) || (line.find("free") != string::npos))
+                out += "";
+            else 
+                out += line + "\n";
+        }
+        */
+        RCLCPP_INFO(this->get_logger(), "Update pddl problem notification:\n");
+        RCLCPP_INFO(this->get_logger(), out);
     }
 
     vector<Belief> instances = PDDLBDIConverter::convertPDDLInstances(problem_expert_->getInstances());
