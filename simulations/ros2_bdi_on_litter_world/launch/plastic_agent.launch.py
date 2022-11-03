@@ -60,11 +60,11 @@ def generate_launch_description():
         specific_params=[
             {"init_sleep": 4},
             {"sensing_freq": 1.0},
-            {"detection_depth": 2},
+            {"detection_depth": 3},
             {"should_patrol": True}
         ])
 
-    pmode = 'offline'
+    pmode = 'online'
     reschedule_policy = 'NO_PREEMPT'
     if pmode == 'online':
         reschedule_policy = 'CLEAN_PREEMPT'
@@ -84,6 +84,7 @@ def generate_launch_description():
             'search_interval': 400,
             # 'max_pplan_size': 32,
             'min_commit_steps': 1,
+            'sim_to_n': 3,
             'max_null_search_intervals': 16,
             'debug_log_active': ['javaff', 'scheduler', 'event_listener']
         },

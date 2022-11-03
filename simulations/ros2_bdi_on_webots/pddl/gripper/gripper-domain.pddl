@@ -2,7 +2,7 @@
 
 (define (domain gripper-domain)
 
-    (:requirements :strips :typing :fluents :durative-actions :negative-preconditions)
+    (:requirements :strips :typing :fluents :durative-actions)
 
     ;; Types ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (:types
