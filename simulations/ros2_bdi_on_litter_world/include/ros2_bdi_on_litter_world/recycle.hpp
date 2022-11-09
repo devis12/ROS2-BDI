@@ -62,6 +62,7 @@ class Recycle : public BDIActionExecutor
         bool goal_sent_;
         bool goal_accepted_;
         std::string litter_unload_action_name_;
+        std::string litter_type_;
         rclcpp_action::Client<litter_world_interfaces::action::CmdLoad>::SharedPtr client_cmd_unload_ptr_;
 
 };

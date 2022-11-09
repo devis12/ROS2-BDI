@@ -10,7 +10,7 @@ using GoalHandleCmdLoad = rclcpp_action::ClientGoalHandle<CmdLoad>;
 
 
 Recycle::Recycle(const string& litter_type)
-: BDIActionExecutor("recycle_"+litter_type, 2)
+: BDIActionExecutor("recycle_"+litter_type, 2), litter_type_(litter_type)
 {
     string robot_name = this->get_parameter("agent_id").as_string();
     litter_unload_action_name_ = "/cmd_" + robot_name + "_hold";
@@ -76,7 +76,7 @@ void Recycle::result_callback(const GoalHandleCmdLoad::WrappedResult & result)
     }
     
     if(result.result->performed)
-        execSuccess();
+        execSuccess("Recycled one item of " + litter_type_);
     else
         execFailed();
 }

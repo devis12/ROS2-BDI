@@ -9,7 +9,6 @@ sys.path.append(ros2_bdi_bringup_dir + '/launch/')
 from bdi_agent import AgentLaunchDescription
 from bdi_agent_skills import AgentAction
 from bdi_agent_skills import AgentSensor
-from webots_ros2_driver.webots_launcher import WebotsLauncher
 
 
 def generate_launch_description():

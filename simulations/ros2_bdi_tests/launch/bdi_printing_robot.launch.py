@@ -82,6 +82,7 @@ def generate_launch_description():
             'reschedule_policy': 'NO_PREEMPT',
             'search_interval': 100,
             'min_commit_steps': 2,
+            #'sim_to_n': 3,
             'debug_log_active': ['javaff', 'scheduler']
         },
         actions=[pf_action_move, pf_action_docking, pf_action_printing, pf_action_undocking, pf_action_recharge, pf_action_unload_printed_docs],

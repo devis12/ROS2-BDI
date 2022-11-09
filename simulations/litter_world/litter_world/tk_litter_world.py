@@ -20,6 +20,7 @@ class TkLitterWorld(tk.Tk):
         self.resizable(False, False)
 
         self.epoch_ = 0
+        self.run_sim_ = True
         self.height_ = width_and_height
         self.wait_next_epoch_ = threading.Condition()
         self.label_frame_ = tk.Frame(self)
@@ -66,6 +67,12 @@ class TkLitterWorld(tk.Tk):
         self.upd_interval_ = upd_interval
         self.generate_world(init_world)
     
+    def play_sim(self):
+        self.run_sim_ = True
+
+    def pause_sim(self):
+        self.run_sim_ = False
+
     def generate_world(self, init_world):
         # initialize world
         self.litter_world_.init_world(init_world["columns"], init_world["rows"], init_world["obstacles"], init_world["persons"], init_world["init_poses"])
@@ -120,11 +127,11 @@ class TkLitterWorld(tk.Tk):
 
     def move_agent(self, agent, cmd_move):
         print("Thread {} requesting agent to move".format(threading.current_thread().ident ))
-        accepted = self.litter_world_.move_agent(agent, cmd_move)
+        accepted, step_num = self.litter_world_.move_agent(agent, cmd_move)
         if accepted:
             with self.wait_next_epoch_: 
                 self.wait_next_epoch_.wait()
-        return accepted
+        return accepted, step_num
     
     def upd_holding_agent(self, agent, holding_upd):
         #print("Thread {} requesting hold upd cmd".format(threading.current_thread().ident ))
@@ -148,17 +155,18 @@ class TkLitterWorld(tk.Tk):
     
 
     def upd_sim(self):
-        print("Thread {} updating sim".format(threading.current_thread().ident ))
-        moving  = self.litter_world_.draw_next_epoch()
-        if self.pa_litter_world_ != None:
-            self.pa_litter_world_.draw_next_epoch()
-        self.epoch_ += 1
-        self.upd_stats()
-        with self.wait_next_epoch_:
-            self.wait_next_epoch_.notify_all()
+        if self.run_sim_:
+            print("Thread {} updating sim".format(threading.current_thread().ident ))
+            moving  = self.litter_world_.draw_next_epoch()
+            if self.pa_litter_world_ != None:
+                self.pa_litter_world_.draw_next_epoch()
+            self.epoch_ += 1
+            self.upd_stats()
+            with self.wait_next_epoch_:
+                self.wait_next_epoch_.notify_all()
 
-        if self.show_agent_view_ in moving:
-            self.agent_moved(self.show_agent_view_) #put it here, so steps are going to be shown updated next round 
+            if self.show_agent_view_ in moving:
+                self.agent_moved(self.show_agent_view_) #put it here, so steps are going to be shown updated next round 
         
         self.after(self.upd_interval_, self.upd_sim)
     

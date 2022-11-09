@@ -1,5 +1,6 @@
 Pose cmd
 ---
 bool performed
+uint16 step_num
 ---
 float32 progress

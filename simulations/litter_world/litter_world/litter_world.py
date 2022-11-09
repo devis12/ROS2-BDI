@@ -28,6 +28,7 @@ class RecyclingAgent():
         self.pose = pose
         self.old_pose = MGPose(-1, -1)
         self.moving = False
+        self.steps = 0
         self.holding = 0
         self.move_trajectory = None
 
@@ -565,10 +566,11 @@ class LitterWorld():
             if new_pose != None:
                 self.plastic_agent_.old_pose = self.plastic_agent_.pose
                 self.plastic_agent_.moving = True
+                self.plastic_agent_.steps += 1
                 self.grid_[self.plastic_agent_.pose.x][self.plastic_agent_.pose.y] = EMPTY_CELL
                 self.plastic_agent_.pose = new_pose
                 self.grid_[self.plastic_agent_.pose.x][self.plastic_agent_.pose.y] = PLASTIC_AGENT_CELL
-                return True
+                return True, self.plastic_agent_.steps
                 
 
         elif agent == PAPER_AGENT_CELL:
@@ -576,10 +578,11 @@ class LitterWorld():
             if new_pose != None:
                 self.paper_agent_.old_pose = self.paper_agent_.pose
                 self.paper_agent_.moving = True
+                self.paper_agent_.steps += 1
                 self.grid_[self.paper_agent_.pose.x][self.paper_agent_.pose.y] = EMPTY_CELL
                 self.paper_agent_.pose = new_pose
                 self.grid_[self.paper_agent_.pose.x][self.paper_agent_.pose.y] = PAPER_AGENT_CELL
-                return True
+                return True, self.paper_agent_.steps
         
         return False
                 

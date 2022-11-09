@@ -23,6 +23,14 @@ class TkLitterWorldThread (threading.Thread):
         self.tk_litter_world_ = TkLitterWorld(self.init_world_, self.upd_interval_, self.show_agent_view_, self.size_px_)
         self.tk_litter_world_.mainloop()  
 
+    def play_sim(self):
+        if self.tk_litter_world_ != None:
+            self.tk_litter_world_.play_sim()
+
+    def pause_sim(self):
+        if self.tk_litter_world_ != None:
+            self.tk_litter_world_.pause_sim()
+
     def update_pa_trajectory(self, move_trajectory:MGMoveTrajectory):
         if self.tk_litter_world_ != None:
             self.tk_litter_world_.update_pa_trajectory(move_trajectory)

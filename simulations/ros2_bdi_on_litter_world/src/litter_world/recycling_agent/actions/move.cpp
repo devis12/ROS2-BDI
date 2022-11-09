@@ -155,7 +155,7 @@ class Move : public BDIActionExecutor
             }
             
             if(result.result->performed)
-                execSuccess();
+                execSuccess("Move executed: step num " + std::to_string(result.result->step_num));
             else
                 failed = true;
             

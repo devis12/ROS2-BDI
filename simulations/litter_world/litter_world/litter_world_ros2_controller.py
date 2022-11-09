@@ -25,6 +25,8 @@ from litter_world_interfaces.msg import GridRowStatus
 from litter_world_interfaces.msg import GridStatus   
 from litter_world_interfaces.action import CmdLoad
 
+from std_msgs.msg import Bool
+
 from .cell_types import EMPTY_CELL, OBSTACLE_CELL, PAPER_BIN_CELL, PAPER_LITTER_CELL, PLASTIC_AGENT_CELL, PAPER_AGENT_CELL, PLASTIC_BIN_CELL, PLASTIC_LITTER_CELL
 
 class LitterWorldROS2Controller(Node):
@@ -73,10 +75,20 @@ class LitterWorldROS2Controller(Node):
         self.paper_agent_cmd_upd_holding_ = ActionServer(self, CmdLoad, "cmd_paper_agent_hold", self.callback_cmd_paper_agent_hold)
         self.remove_litter_cmd_pose_ = ActionServer(self, CmdPose, "cmd_remove_litter", self.callback_cmd_remove_litter)
         
+        self.building_bt_subscriber_ = self.create_subscription(Bool, "/"+monitoring_agent+"/computing_bt", self.callback_computing_bt_agent, 10)
+
         self.create_timer(self.get_upd_interval()/2000, self.litter_world_status_cb) #Retrieve world status two times per epoch
         
         self.get_logger().info("Litter world has been started")
     
+    def callback_computing_bt_agent(self, msg:Bool):
+        if msg.data:#start computing bt
+            self.get_logger().info("Pause simulation")
+            self.tk_litter_world_thread_.pause_sim()
+        else:#stop computing bt
+            self.get_logger().info("Play simulation")
+            self.tk_litter_world_thread_.play_sim()
+
     def callback_pa_agent_bset(self, msg:BeliefSet):
         plastic_bin_pose = MGPose(-1,-1)
         paper_bin_pose = MGPose(-1,-1)
@@ -179,7 +191,7 @@ class LitterWorldROS2Controller(Node):
             self.tk_litter_world_thread_.update_pa_trajectory(MGMoveTrajectory(target_pose, committed_poses, not_committed_poses, waiting_plans_poses))
 
     def callback_cmd_plastic_agent_move(self, goal_handle):
-        accepted = self.tk_litter_world_thread_.move_agent(PLASTIC_AGENT_CELL, goal_handle.request.cmd) 
+        accepted, step_num = self.tk_litter_world_thread_.move_agent(PLASTIC_AGENT_CELL, goal_handle.request.cmd) 
 
         if accepted:
             feedback_msg = CmdPose.Feedback()
@@ -190,10 +202,11 @@ class LitterWorldROS2Controller(Node):
         goal_handle.succeed()
         result = CmdPose.Result()
         result.performed = accepted
+        result.step_num = step_num
         return result
 
     def callback_cmd_paper_agent_move(self, goal_handle):
-        accepted = self.tk_litter_world_thread_.move_agent(PAPER_AGENT_CELL, goal_handle.request.cmd) 
+        accepted, step_num = self.tk_litter_world_thread_.move_agent(PAPER_AGENT_CELL, goal_handle.request.cmd) 
 
         if accepted:
             feedback_msg = CmdPose.Feedback()
@@ -204,6 +217,7 @@ class LitterWorldROS2Controller(Node):
         goal_handle.succeed()
         result = CmdPose.Result()
         result.performed = accepted
+        result.step_num = step_num
         return result
 
     def callback_cmd_plastic_agent_hold(self, goal_handle):
