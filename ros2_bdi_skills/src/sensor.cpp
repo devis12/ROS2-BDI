@@ -6,6 +6,8 @@
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for Belief Manager node (for belief set topic)
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 
+#include "ros2_bdi_core/params/event_listener_params.hpp"
+
 using std::string;
 using std::chrono::seconds;
 using std::chrono::milliseconds;
@@ -13,7 +15,8 @@ using std::bind;
 using std::placeholders::_1;
 using std::optional;
 
-using ros2_bdi_interfaces::msg::Belief;  
+using plansys2_msgs::msg::InteractionEvent;
+using ros2_bdi_interfaces::msg::Belief;
 
 /*
 @sensor_name for the specific name of the node, 
@@ -72,7 +75,10 @@ void Sensor::init()
 
     // Del belief publisher
     del_belief_publisher_ = this->create_publisher<Belief>(DEL_BELIEF_TOPIC, 10);
-    
+
+    // New interaction event publisher
+    interaction_event_publisher_ = this->create_publisher<InteractionEvent>(INTERACTION_EVENT_TOPIC, 10);
+
     // retrieve from parameter frequency at which to perform sensing
     float sensing_freq = this->get_parameter(PARAM_SENSING_FREQ).as_double();
 
@@ -192,4 +198,16 @@ bool Sensor::sensedFunction(const Belief& new_belief)
     if(do_upd)
         last_sensed_ = new_belief;
     return do_upd;
+}
+
+void Sensor::communicateEvent(const uint8_t event_type, const std::string& agent_id, const std::string& value)
+{
+    auto msg = InteractionEvent();
+    
+    msg.event_type = event_type;
+    msg.agent_id = agent_id;
+    msg.value = value;
+
+    interaction_event_publisher_->publish(msg);
+    RCLCPP_INFO(this->get_logger(), "Published InteractionEvent: Type=%d, AgentID=%s, Value=%s", event_type, agent_id.c_str(), value.c_str());
 }

@@ -8,6 +8,8 @@
 #include "ros2_bdi_core/params/belief_manager_params.hpp"
 // Inner logic + ROS2 PARAMS & FIXED GLOBAL VALUES for PlanSys2 Monitor node (for psys2 state topic)
 #include "ros2_bdi_core/params/plansys2_monitor_params.hpp"
+// 
+#include "ros2_bdi_core/params/event_listener_params.hpp"
 
 #include <boost/algorithm/string.hpp>
 
@@ -31,13 +33,14 @@ using std::placeholders::_2;
 using std::optional;
 
 using plansys2::DomainExpertClient;
-using plansys2::ProblemExpertClient;
 using plansys2::ExecutorClient;
+using plansys2::ProblemExpertClient;
+using plansys2_msgs::msg::Action;
 using plansys2_msgs::msg::ActionExecutionInfo;
+using plansys2_msgs::msg::DurativeAction;
+using plansys2_msgs::msg::InteractionEvent;
 using plansys2_msgs::msg::Plan;
 using plansys2_msgs::msg::PlanItem;
-using plansys2_msgs::msg::Action;
-using plansys2_msgs::msg::DurativeAction;
 
 using ros2_bdi_interfaces::msg::Belief;
 using ros2_bdi_interfaces::msg::BeliefSet;
@@ -123,6 +126,11 @@ void PlanDirector::init()
     do_work_timer_ = this->create_wall_timer(
         milliseconds(NO_PLAN_INTERVAL),
         bind(&PlanDirector::step, this));
+
+    //susbcribe to interaction events
+    interaction_event_subscriber_ = this->create_subscription<InteractionEvent>(
+            INTERACTION_EVENT_TOPIC, 10,
+            bind(&PlanDirector::updatedInteractionEventSet, this, _1));
 
     RCLCPP_INFO(this->get_logger(), "Plan director node initialized");
 }
@@ -248,7 +256,7 @@ bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
     // select current_plan_ which will start execution
     current_plan_ = mp;
     // current_plan_start_ = high_resolution_clock::now();//plan started now
-    bool started = executor_client_->start_plan_execution(plan_to_execute);
+    bool started = executor_client_->start_plan_execution(plan_to_execute, interaction_vector_);
 
     if(started)
     {
@@ -586,6 +594,23 @@ uint8_t PlanDirector::getPlanExecutionStatus()
 void PlanDirector::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 {
     belief_set_ = BDIFilter::extractMGBeliefs(msg->value);
+}
+
+/*
+    The interaction events set has been updated
+*/
+
+void PlanDirector::updatedInteractionEventSet(const InteractionEvent::SharedPtr msg)
+{
+    // store the received message in a buffer
+    if (message_buffer_.size() >= buffer_size_) {
+        message_buffer_.pop_front(); // Remove the oldest message
+    }
+
+    // add the new message to the buffer
+    message_buffer_.push_back(*msg);
+
+    interaction_vector_.assign(message_buffer_.begin(), message_buffer_.end());
 }
 
 int main(int argc, char ** argv)

@@ -8,6 +8,8 @@
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include "plansys2_msgs/msg/interaction_event.hpp"
+
 typedef enum {ADD, UPD, DEL, NOP} UpdOperation;
 
 class Sensor : public rclcpp::Node
@@ -48,7 +50,9 @@ protected:
     */
     void sense(const ros2_bdi_interfaces::msg::Belief& belief, const UpdOperation& op);
 
-private:
+    void communicateEvent(const uint8_t event_type, const std::string &agent_id, const std::string &value);
+
+    private :
 
     /*
         Init to call at the start, after construction method, to get the node actually started
@@ -56,7 +60,6 @@ private:
         result in a belief structure after every sensing
     */
     void init();
-
 
     /*
         Called after the initial timeout sleep if set to start the main loop of performSensing() call,
@@ -126,6 +129,9 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr add_belief_publisher_;
     // ros2 publisher to perform publish to topic agent_id_/del_belief, when sense requires it
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr del_belief_publisher_;
+    // ros2 publisher to perform publish to topic agent_id_/interaction_event_topic
+    rclcpp::Publisher<plansys2_msgs::msg::InteractionEvent>::SharedPtr interaction_event_publisher_;
+
 };
 
 #endif  // SENSOR_H_

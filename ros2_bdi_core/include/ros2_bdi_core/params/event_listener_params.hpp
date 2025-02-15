@@ -5,4 +5,6 @@
 #define EVENT_LISTENER_NODE_NAME "event_listener"
 #define INIT_REACTIVE_RULES_FILENAME "init_reactive_rules.yaml"
 
+#define INTERACTION_EVENT_TOPIC "interaction_event_topic"
+
 #endif

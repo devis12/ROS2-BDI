@@ -7,11 +7,13 @@
 #include <optional>
 #include <memory>
 #include <chrono>
-
+#include <deque>
 
 #include "plansys2_domain_expert/DomainExpertClient.hpp"
 #include "plansys2_problem_expert/ProblemExpertClient.hpp"
 #include "plansys2_executor/ExecutorClient.hpp"
+
+#include "plansys2_msgs/msg/interaction_event.hpp"
 
 #include "ros2_bdi_interfaces/msg/belief.hpp"
 #include "ros2_bdi_interfaces/msg/belief_set.hpp"
@@ -157,6 +159,19 @@ private:
     */
     void updatedBeliefSet(const ros2_bdi_interfaces::msg::BeliefSet::SharedPtr msg);
 
+    /*
+        The interaction events set has been updated
+    */
+
+    void updatedInteractionEventSet(const plansys2_msgs::msg::InteractionEvent::SharedPtr msg);
+
+    // buffer to hold last interaction events
+    std::deque<plansys2_msgs::msg::InteractionEvent> message_buffer_;
+    std::vector<plansys2_msgs::msg::InteractionEvent> interaction_vector_;
+
+    // buffer size
+    const size_t buffer_size_ = 10; 
+
     // internal state of the node
     StateType state_;
     
@@ -201,6 +216,9 @@ private:
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr belief_add_publisher_;
     // belief del publisher
     rclcpp::Publisher<ros2_bdi_interfaces::msg::Belief>::SharedPtr belief_del_publisher_;
+
+    // interaction event set subscriber
+    rclcpp::Subscription<plansys2_msgs::msg::InteractionEvent>::SharedPtr interaction_event_subscriber_;
 
     // record first timestamp in sec of the current plan execution (to subtract from it)
     int first_ts_plan_sec;
