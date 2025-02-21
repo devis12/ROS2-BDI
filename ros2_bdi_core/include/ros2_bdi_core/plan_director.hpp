@@ -165,6 +165,12 @@ private:
 
     void updatedInteractionEventSet(const plansys2_msgs::msg::InteractionEvent::SharedPtr msg);
 
+    /*
+        Update the interaction context in the blackboard
+    */
+
+    void updateInteractionContextBB();
+
     // buffer to hold last interaction events
     std::deque<plansys2_msgs::msg::InteractionEvent> message_buffer_;
     std::vector<plansys2_msgs::msg::InteractionEvent> interaction_vector_;

@@ -14,6 +14,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "plansys2_msgs/msg/action_execution_info.hpp"
+#include "plansys2_msgs/msg/interaction_event.hpp"  
 
 #include "ros2_bdi_utils/ManagedConditionsDNF.hpp"
 #include "ros2_bdi_utils/PDDLBDIConverter.hpp"
@@ -174,6 +175,7 @@ void PlanDirector::step()
         {    
             //RCLCPP_INFO(this->get_logger(), "Checking plan execution");
             executingPlan();
+            updateInteractionContextBB();
             break;
         }
 
@@ -256,7 +258,7 @@ bool PlanDirector::startPlanExecution(const ManagedPlan& mp)
     // select current_plan_ which will start execution
     current_plan_ = mp;
     // current_plan_start_ = high_resolution_clock::now();//plan started now
-    bool started = executor_client_->start_plan_execution(plan_to_execute, interaction_vector_);
+    bool started = executor_client_->start_plan_execution(plan_to_execute, interaction_vector_); 
 
     if(started)
     {
@@ -602,15 +604,32 @@ void PlanDirector::updatedBeliefSet(const BeliefSet::SharedPtr msg)
 
 void PlanDirector::updatedInteractionEventSet(const InteractionEvent::SharedPtr msg)
 {
+    // std::cout << "Received new message: " << msg->value << std::endl;
     // store the received message in a buffer
     if (message_buffer_.size() >= buffer_size_) {
         message_buffer_.pop_front(); // Remove the oldest message
     }
 
     // add the new message to the buffer
+    // std::cout << "Message buffer size before adding: " << message_buffer_.size() << std::endl;
     message_buffer_.push_back(*msg);
+    // std::cout << "Message buffer size after adding: " << message_buffer_.size() << std::endl;
+
 
     interaction_vector_.assign(message_buffer_.begin(), message_buffer_.end());
+    // std::cout << "Interaction vector size: " << interaction_vector_.size() << std::endl;
+    // for (const auto& msg : interaction_vector_) {
+    //     std::cout << "Interaction vector message action: " << msg.value << std::endl;
+    // }
+}
+
+/*
+    The interaction context is being updated in the blackboard
+*/
+
+void PlanDirector::updateInteractionContextBB()
+{
+  executor_client_->update_interaction_context(interaction_vector_);
 }
 
 int main(int argc, char ** argv)
