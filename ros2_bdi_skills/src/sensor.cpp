@@ -40,6 +40,19 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     proto_belief_ = Belief{};
     last_sensed_op_ = NOP;
 
+    updateBeliefPrototype(proto_belief);
+
+    this->declare_parameter(PARAM_AGENT_ID, "agent0");
+    this->declare_parameter(PARAM_DEBUG, true);
+    this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
+    this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
+    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) //TODO default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
+
+    this->init();
+}
+
+void Sensor::updateBeliefPrototype(const ros2_bdi_interfaces::msg::Belief& proto_belief)
+{
     //Erroneous type will generate sensors that do not publish any sensing info
     if(proto_belief.pddl_type == Belief().INSTANCE_TYPE ||
         proto_belief.pddl_type == Belief().PREDICATE_TYPE ||
@@ -50,15 +63,8 @@ Sensor::Sensor(const string& sensor_name, const Belief& proto_belief, const bool
     proto_belief_.name = proto_belief.name;
     proto_belief_.params = proto_belief.params;
     proto_belief_.type = proto_belief.type;
-
-    this->declare_parameter(PARAM_AGENT_ID, "agent0");
-    this->declare_parameter(PARAM_DEBUG, true);
-    this->declare_parameter(PARAM_SENSOR_NAME, sensor_name);
-    this->declare_parameter(PARAM_SENSING_FREQ, 8.0);//sensing frequency by default set to 8Hz
-    this->declare_parameter(PARAM_INIT_SLEEP, 2);//init node sleep (e.g. sensor activated later) //TODO default now is 2 to wait for the other to boot as well (since they wait a bit for psys2) 
-
-    this->init();
 }
+
 
 /*
     Init to call at the start, after construction method, to get the node actually started
